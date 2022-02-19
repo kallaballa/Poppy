@@ -1,0 +1,8 @@
+*.png
+*.jpg
+*.jpeg
+*.mkv
+*.mp4
+*.o
+*.dep
+src/poppy
