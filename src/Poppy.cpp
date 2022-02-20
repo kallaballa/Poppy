@@ -1,7 +1,8 @@
 double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
-double max_chop_len = 3;
+double max_pair_len_divider = 20;
+double max_chop_len = 2;
 
 #include <iostream>
 #include <string>
@@ -434,7 +435,7 @@ void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<
 
 	std::vector<cv::Point2f> tmp1;
 	std::vector<cv::Point2f> tmp2;
-	double maxLen = hypot(cols, rows) / 20.0;
+	double maxLen = hypot(cols, rows) / max_pair_len_divider;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
 		auto pt1 = srcPoints1[i];
 		double dist = 0;
@@ -465,58 +466,10 @@ void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<
 		}
 	}
 
-	setpt2.clear();
-	for (auto pt2 : tmp2) {
-		setpt2.insert(pt2);
-	}
+	assert(tmp1.size() == tmp2.size());
 
-	std::vector<cv::Point2f> tmptmp1;
-	std::vector<cv::Point2f> tmptmp2;
-	maxLen = 5;
-	for (size_t i = 0; i < tmp1.size(); ++i) {
-		auto pt1 = tmp1[i];
-		double dist = 0;
-		double currentMinDist = std::numeric_limits<double>::max();
-
-		Point2f closest(-1, -1);
-		bool erased = false;
-		for (auto pt2 : setpt2) {
-			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
-			if (dist < currentMinDist) {
-				currentMinDist = dist;
-				closest = pt2;
-			}
-		}
-
-		if (erased)
-			continue;
-
-		if (closest.x == -1 && closest.y == -1)
-			assert(false);
-
-		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
-		if (dist < maxLen) {
-			tmptmp1.push_back(pt1);
-			tmptmp2.push_back(closest);
-			setpt2.erase(closest);
-		} else {
-			Point2f newPt = calculate_line_point(pt1.x, pt1.y, closest.x, closest.y, maxLen - 1);
-			setpt2.insert(newPt);
-			Point2f oldPt;
-			while (hypot(closest.x - newPt.x, closest.y - newPt.y) >= maxLen) {
-				oldPt = newPt;
-				newPt = calculate_line_point(newPt.x, newPt.y, closest.x, closest.y, maxLen - 1);
-				tmptmp1.push_back(pt1);
-				tmptmp2.push_back(newPt);
-			}
-			--i;
-		}
-	}
-
-	assert(tmptmp1.size() == tmptmp2.size());
-
-	srcPoints1 = tmptmp1;
-	srcPoints2 = tmptmp2;
+	srcPoints1 = tmp1;
+	srcPoints2 = tmp2;
 
 	for (auto pt : srcPoints1) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
