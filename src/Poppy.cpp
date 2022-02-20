@@ -165,7 +165,7 @@ void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<KeyPoi
 	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> generate_matches(const Mat &grey1, const Mat &grey2) {
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
 	Mat edge1;
 	Mat edge2;
 
@@ -575,7 +575,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	//find matches
 	Mat contours1, contours2;
 	find_contours(origImg1, origImg2, srcPoints1, srcPoints2, contours1, contours2);
-	auto matches = generate_matches(contours1, contours2);
+	auto matches = find_matches(contours1, contours2);
 	srcPoints1 = matches.first;
 	srcPoints2 = matches.second;
 
