@@ -78,6 +78,7 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 
 void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
+	edges.reserve(1000);
 	Point2f p1, p2;
 	for (auto &kp1 : kpv1) {
 		for (auto &kp2 : kpv2) {
@@ -137,18 +138,23 @@ static void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar d
 }
 
 void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2) {
-	Mat rgb1, rgb2;
-	cvtColor(src1, rgb1, cv::COLOR_GRAY2RGB);
-	cvtColor(src2, rgb2, cv::COLOR_GRAY2RGB);
+	Mat grey1 = src1, grey2 = src2;
 
-	dst = Mat(src1.rows, src1.cols * 2, rgb1.type());
-//	dst(cv::Rect( 0, 0, src1.cols, src1.rows)) = src1.clone();
-//	dst(cv::Rect( 0, 0, src1.cols, src1.rows)) = src2.clone();
+	Mat images = cv::Mat::zeros({grey1.cols * 2, grey1.rows}, CV_8UC1);
+	Mat lines = cv::Mat::ones({grey1.cols * 2, grey1.rows}, CV_8UC1);
+
+	grey1.copyTo(images(cv::Rect( 0, 0, grey1.cols, grey1.rows)));
+	grey2.copyTo(images(cv::Rect( grey1.cols, 0, grey1.cols, grey1.rows)));
+
 	for(size_t i = 0; i < kpv1.size(); ++i) {
 		Point2f pt2 = kpv2[i].pt;
 		pt2.x += src1.cols;
-		line(dst, kpv1[i].pt, pt2, {255,0,0}, 1, cv::LINE_AA, 0);
+		line(lines, kpv1[i].pt, pt2, {127}, 1, cv::LINE_AA, 0);
 	}
+
+	images += 1;
+	Mat result = images.mul(lines);
+	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> generate_matches(const Mat &grey1, const Mat &grey2) {
@@ -372,7 +378,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	thresh1 = grey1.clone();
 	thresh2 = grey2.clone();
 
-	double t = 40;
+	//FIXME
+	static double t = 40;
+	static bool first = true;
 	double tmp;
 	canny_threshold(grey1, thresh1, t);
 	canny_threshold(grey2, thresh2, t);
@@ -382,23 +390,25 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 
 	cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+	if (first) {
+		tmp = t;
+		while (contours2.size() * 1.2 < contours1.size()) {
+			assert(!contours1.empty() && !contours1.empty());
+			canny_threshold(grey2, thresh2, --tmp);
+			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+			assert(tmp > 0);
+		}
 
-	tmp = t;
-	while (contours2.size() * 1.2 < contours1.size()) {
-		assert(!contours1.empty() && !contours1.empty());
-		canny_threshold(grey2, thresh2, --tmp);
-		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		assert(tmp > 0);
+		tmp = t;
+		while (contours1.size() * 1.2 < contours2.size()) {
+			assert(!contours1.empty() && !contours1.empty());
+			canny_threshold(grey2, thresh2, ++tmp);
+			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+			assert(tmp < 255);
+		}
+		t = tmp;
 	}
-
-	tmp = t;
-	while (contours1.size() * 1.2 < contours2.size()) {
-		assert(!contours1.empty() && !contours1.empty());
-		canny_threshold(grey2, thresh2, ++tmp);
-		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		assert(tmp < 255);
-	}
-
+	first = false;
 	std::cerr << "CONT1: " << contours1.size() << std::endl;
 	std::cerr << "CONT2: " << contours2.size() << std::endl;
 
@@ -447,7 +457,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 
 	std::vector<cv::Point2f> tmp1;
 	std::vector<cv::Point2f> tmp2;
-	double maxLen = hypot(img1.cols, img1.rows) / 30.0;
+	double maxLen = hypot(img1.cols, img1.rows) / 20.0;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
 		auto pt1 = srcPoints1[i];
 		double dist = 0;
@@ -468,7 +478,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 			continue;
 
 		if (closest.x == -1 && closest.y == -1)
-			assert(false);
+			continue;
 
 		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
 		if (dist < maxLen) {
@@ -618,7 +628,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
 //	double error = l2_error(img2, dst);
 //	std::cerr << "Error: " << error << std::endl;
-	Mat delaunay = trImg1.clone();
+	Mat delaunay = dst.clone();
 	draw_delaunay(delaunay, SourceImgSize, subDiv1, { 255, 0, 0 });
 	draw_delaunay(delaunay, SourceImgSize, subDiv2, { 0, 255, 0 });
 	draw_delaunay(delaunay, SourceImgSize, subDivMorph, { 0, 0, 255 });
@@ -637,7 +647,7 @@ int main(int argc, char **argv) {
 	Mat image2;
 	Mat orig1 = image1.clone();
 	Mat orig2;
-	VideoWriter output("output.mkv", VideoWriter::fourcc('H', '2', '6', '4'), 10,
+	VideoWriter output("output.mkv", VideoWriter::fourcc('H', '2', '6', '4'), 30,
 			Size(image1.cols, image1.rows));
 
 	for (int i = 1; i < (argc - 1); ++i) {
