@@ -124,8 +124,7 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 	std::cerr << "length matches: " << kpv1.size() << " -> ";
 }
 
-// Draw delaunay triangles
-static void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
+void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f>& dstPoints) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
 	vector<Point> pt(3);
@@ -137,7 +136,29 @@ static void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar d
 		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
 		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
 
-		// Draw rectangles completely inside the image.
+		//Draw triangles completely inside the image.
+		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
+			dstPoints.push_back(pt[0]);
+			dstPoints.push_back(pt[1]);
+			dstPoints.push_back(pt[2]);
+		}
+	}
+}
+
+// Draw delaunay triangles
+void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
+	vector<Vec6f> triangleList;
+	subdiv.getTriangleList(triangleList);
+	vector<Point> pt(3);
+	Rect rect(0, 0, size.width, size.height);
+
+	for (size_t i = 0; i < triangleList.size(); i++) {
+		Vec6f t = triangleList[i];
+		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
+		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
+		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
+
+		//Draw triangles completely inside the image.
 		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2]))
 				{
 			line(dst, pt[0], pt[1], delaunay_color, 1, cv::LINE_AA, 0);
@@ -592,7 +613,22 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	//find matches
 	Mat contours1, contours2;
 	find_contours(origImg1, origImg2, srcPoints1, srcPoints2, contours1, contours2);
-	auto matches = find_matches(contours1, contours2);
+	cv::Subdiv2D sd1(cv::Rect(0, 0, origImg1.size().width, origImg1.size().height));
+	cv::Subdiv2D sd2(cv::Rect(0, 0, origImg1.size().width, origImg1.size().height));
+	sd1.insert(srcPoints1);
+	sd2.insert(srcPoints2);
+
+
+	std::vector<cv::Point2f> srcDelPoints1;
+	std::vector<cv::Point2f> srcDelPoints2;
+
+	Mat d1 = contours1.clone();
+	Mat d2 = contours2.clone();
+
+	draw_delaunay(d1, origImg1.size(), sd1, { 255, 0, 0 });
+	draw_delaunay(d1, origImg1.size(), sd1, { 255, 0, 0 });
+
+	auto matches = find_matches(d1, d2);
 	srcPoints1 = matches.first;
 	srcPoints2 = matches.second;
 
