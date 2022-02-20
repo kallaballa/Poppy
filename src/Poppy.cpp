@@ -410,8 +410,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 		t = tmp;
 	}
 	first = false;
-	std::cerr << "contour1: " << contours1.size() << " + ";
-	std::cerr << "contour2: " << contours2.size() << " -> ";
+	std::cerr << "contour1: " << contours1.size() << " + " << "contour2: " << contours2.size() << " -> ";
 	Mat cont1;
 	Mat cont2;
 	cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
@@ -758,7 +757,7 @@ int main(int argc, char **argv) {
 			output.write(orig1);
 		}
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr  << double((j / number_of_frames) * 100.0) << '%' << std::endl;
+			std::cerr  << int((j / number_of_frames) * 100.0) << "% ";
 			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, (j + 1) * step, (j + 1) * step);
 			image1 = morphed.clone();
 			inputPts = outputPts;
