@@ -14,6 +14,7 @@ double max_chop_len = 2;
 #include <chrono>
 #include <list>
 #include <unordered_set>
+#include <filesystem>
 
 #include <boost/program_options.hpp>
 #include <opencv2/videoio.hpp>
@@ -666,6 +667,7 @@ int main(int argc, char **argv) {
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
 	std::vector<string> imageFiles;
+	string outputFile = "output.mp4";
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
@@ -674,6 +676,7 @@ int main(int argc, char **argv) {
 			("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
 			("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
 			("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
+			("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 			("help,h","Print help message");
 
 	po::options_description hidden("Hidden options");
@@ -700,21 +703,45 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	for(auto p : imageFiles) {
+		if(!std::filesystem::exists(p))
+			throw std::runtime_error("File doesn't exist: " + p);
+	}
 	number_of_frames = numberOfFrames;
 	max_len_deviation = maxLenDeviation;
 	max_ang_deviation = maxAngDeviation;
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len = maxChopLen;
+	Mat image1;
+	try {
+		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
+		if(image1.empty()) {
+			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
+			exit(2);
+		}
+	} catch(...) {
+		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
+		exit(2);
+	}
 
-	Mat image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
 	Mat image2;
-	Mat orig1 = image1.clone();
+	Mat orig1;
 	Mat orig2;
 	VideoWriter output("output.mkv", VideoWriter::fourcc('H', '2', '6', '4'), 30,
 			Size(image1.cols, image1.rows));
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
-		Mat image2 = imread(imageFiles[i], cv::IMREAD_COLOR);
+		Mat image2;
+		try {
+			image2 = imread(imageFiles[i], cv::IMREAD_COLOR);
+			if(image2.empty()) {
+				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
+				exit(2);
+			}
+		} catch(...) {
+			std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
+			exit(2);
+		}
 		orig1 = image1.clone();
 		orig2 = image2.clone();
 
