@@ -1,9 +1,3 @@
-double number_of_frames = 60;
-double max_len_deviation = 20;
-double max_ang_deviation = 0.3;
-double max_pair_len_divider = 20;
-double max_chop_len = 2;
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -24,6 +18,13 @@ double max_chop_len = 2;
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+
+double number_of_frames = 60;
+double max_len_deviation = 20;
+double max_ang_deviation = 0.3;
+double max_pair_len_divider = 20;
+double max_chop_len = 2;
+int contour_sensitivity = 40;
 
 using namespace cv;
 using std::vector;
@@ -378,7 +379,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	vector<Vec4i> hierarchy2;
 
 	//FIXME
-	static double t = 40;
+	static double t = contour_sensitivity;
 	static bool first = true;
 	double tmp;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
@@ -394,19 +395,17 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	if (first) {
 		tmp = t;
-		while (contours2.size() * 1.2 < contours1.size()) {
+		while (contours2.size() * 1.2 < contours1.size() && tmp > 0) {
 			assert(!contours1.empty() && !contours1.empty());
 			canny_threshold(grey2, thresh2, --tmp);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-			assert(tmp > 0);
 		}
 
 		tmp = t;
-		while (contours1.size() * 1.2 < contours2.size()) {
+		while (contours1.size() * 1.2 < contours2.size() && tmp < 255) {
 			assert(!contours1.empty() && !contours1.empty());
 			canny_threshold(grey2, thresh2, ++tmp);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-			assert(tmp < 255);
 		}
 		t = tmp;
 	}
@@ -666,6 +665,7 @@ int main(int argc, char **argv) {
 	double maxAngDeviation = max_ang_deviation;
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
+	int contSensitivity = contour_sensitivity;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -676,6 +676,7 @@ int main(int argc, char **argv) {
 			("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
 			("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
 			("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
+			("sensitivity,s", po::value<int>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (1-255)")
 			("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 			("help,h","Print help message");
 
@@ -712,6 +713,8 @@ int main(int argc, char **argv) {
 	max_ang_deviation = maxAngDeviation;
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len = maxChopLen;
+	contour_sensitivity = contSensitivity;
+
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
