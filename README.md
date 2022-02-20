@@ -6,6 +6,8 @@ An non-domain-specific morph algorithm that doesn't require manual keypoints
 ![Eye browns morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/browns.gif?raw=true)
 ![Patterns morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/fract.gif?raw=true)
 ![Cat to dog morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
+![Yale faces morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces.gif?raw=true)
+
 
 
 
