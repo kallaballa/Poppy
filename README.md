@@ -36,7 +36,9 @@ Options:
                                         pairs
   -c [ --choplen ] arg (=2)             The interval in which traversal paths 
                                         (point pairs) are chopped
+  -o [ --outfile ] arg (=output.mp4)    The name of the video file to write to
   -h [ --help ]                         Print help message
+
 ```
 
 ## Run
