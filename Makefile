@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -fopenmp -pthread -fno-strict-aliasing -std=c++1y -pedantic -Wall  `pkg-config --cflags opencv4 libpng`
+CXXFLAGS := -fopenmp -pthread -fno-strict-aliasing -std=c++17 -pedantic -Wall  `pkg-config --cflags opencv4 libpng`
 LDFLAGS  := -fopenmp -L/opt/local/lib
 LIBS     := -lm -lpthread -lX11 -lpthread -lboost_program_options `pkg-config --libs opencv4 libpng`
 .PHONY: all release debian-release info debug clean debian-clean distclean 
