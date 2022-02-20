@@ -660,16 +660,61 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 int main(int argc, char **argv) {
 	using std::string;
 	srand(time(NULL));
+	double numberOfFrames = number_of_frames;
+	double maxLenDeviation = max_len_deviation;
+	double maxAngDeviation = max_ang_deviation;
+	double maxPairLenDivider = max_pair_len_divider;
+	double maxChopLen = max_chop_len;
+	std::vector<string> imageFiles;
 
-	Mat image1 = imread(argv[1], cv::IMREAD_COLOR);
+	po::options_description genericDesc("Options");
+	genericDesc.add_options()
+			("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
+			("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
+			("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
+			("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
+			("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
+			("help,h","Print help message");
+
+	po::options_description hidden("Hidden options");
+	hidden.add_options()("files",po::value<std::vector<string>>(&imageFiles), "image files");
+
+	po::options_description cmdline_options;
+	cmdline_options.add(genericDesc).add(hidden);
+
+	po::positional_options_description p;
+	p.add("files", -1);
+
+	po::options_description visible;
+	visible.add(genericDesc);
+
+	po::variables_map vm;
+	po::store(
+			po::command_line_parser(argc, argv).options(cmdline_options).positional(
+					p).run(), vm);
+	po::notify(vm);
+
+	if (vm.count("help") || imageFiles.empty()) {
+		std::cerr << "Usage: poppy [options] <imageFiles>..." << std::endl;
+		std::cerr << visible;
+		return 0;
+	}
+
+	number_of_frames = numberOfFrames;
+	max_len_deviation = maxLenDeviation;
+	max_ang_deviation = maxAngDeviation;
+	max_pair_len_divider = maxPairLenDivider;
+	max_chop_len = maxChopLen;
+
+	Mat image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
 	Mat image2;
 	Mat orig1 = image1.clone();
 	Mat orig2;
 	VideoWriter output("output.mkv", VideoWriter::fourcc('H', '2', '6', '4'), 30,
 			Size(image1.cols, image1.rows));
 
-	for (int i = 1; i < (argc - 1); ++i) {
-		Mat image2 = imread(argv[i + 1], cv::IMREAD_COLOR);
+	for (size_t i = 1; i < imageFiles.size(); ++i) {
+		Mat image2 = imread(imageFiles[i], cv::IMREAD_COLOR);
 		orig1 = image1.clone();
 		orig2 = image2.clone();
 
