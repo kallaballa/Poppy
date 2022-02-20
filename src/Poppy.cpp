@@ -667,7 +667,7 @@ int main(int argc, char **argv) {
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
 	std::vector<string> imageFiles;
-	string outputFile = "output.mp4";
+	string outputFile = "output.mkv";
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
@@ -727,7 +727,7 @@ int main(int argc, char **argv) {
 	Mat image2;
 	Mat orig1;
 	Mat orig2;
-	VideoWriter output("output.mkv", VideoWriter::fourcc('H', '2', '6', '4'), 30,
+	VideoWriter output(outputFile, VideoWriter::fourcc('H', '2', '6', '4'), 30,
 			Size(image1.cols, image1.rows));
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
