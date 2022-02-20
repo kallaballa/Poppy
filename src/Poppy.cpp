@@ -89,7 +89,7 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 	double maxDeviationPercent = max_len_deviation;
 
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
-	edges.reserve(1000);
+	edges.reserve(10000);
 	Point2f p1, p2;
 	for (auto &kp1 : kpv1) {
 		for (auto &kp2 : kpv2) {
@@ -147,6 +147,25 @@ static void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar d
 	}
 }
 
+void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2) {
+	Mat grey1 = src1, grey2 = src2;
+
+	Mat images = cv::Mat::zeros({grey1.cols * 2, grey1.rows}, CV_8UC1);
+	Mat lines = cv::Mat::ones({grey1.cols * 2, grey1.rows}, CV_8UC1);
+
+	grey1.copyTo(images(cv::Rect( 0, 0, grey1.cols, grey1.rows)));
+	grey2.copyTo(images(cv::Rect( grey1.cols, 0, grey1.cols, grey1.rows)));
+
+	for(size_t i = 0; i < ptv1.size(); ++i) {
+		Point2f pt2 = ptv2[i];
+		pt2.x += src1.cols;
+		line(lines, ptv1[i], pt2, {127}, 1, cv::LINE_AA, 0);
+	}
+
+	Mat result = images * 0.5 + lines * 0.5;
+	cvtColor(result, dst, COLOR_GRAY2RGB);
+}
+
 void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2) {
 	Mat grey1 = src1, grey2 = src2;
 
@@ -188,8 +207,8 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	length_test(keypoints1, keypoints2, grey1.cols);
 	angle_test(keypoints1, keypoints2, grey1.cols);
 
-//	draw_matches(grey1, grey2, matMatches, keypoints1, keypoints2);
-//	imshow("len", matMatches);
+	draw_matches(grey1, grey2, matMatches, keypoints1, keypoints2);
+	imshow("len", matMatches);
 
 
 	std::vector<Point2f> points1;
@@ -295,8 +314,7 @@ void solve_homography(const std::vector<std::vector<cv::Point2f>> &srcPts1,
 	}
 }
 
-void morph_homography(const cv::Mat& Hom, cv::Mat& MorphHom1, cv::Mat& MorphHom2, float blend_ratio)
-		{
+void morph_homography(const cv::Mat& Hom, cv::Mat& MorphHom1, cv::Mat& MorphHom2, float blend_ratio) {
 	cv::Mat invHom = Hom.inv();
 	MorphHom1 = cv::Mat::eye(3, 3, CV_32FC1) * (1.0 - blend_ratio) + Hom * blend_ratio;
 	MorphHom2 = cv::Mat::eye(3, 3, CV_32FC1) * blend_ratio + invHom * (1.0 - blend_ratio);
@@ -379,37 +397,37 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	vector<Vec4i> hierarchy2;
 
 	//FIXME
-	static double t = contour_sensitivity;
+	static double t1 = contour_sensitivity;
+	static double t2 = contour_sensitivity;
 	static bool first = true;
-	double tmp;
+	double tmp1;
+	double tmp2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
-	canny_threshold(grey1, thresh1, t);
-	canny_threshold(grey2, thresh2, t);
+	canny_threshold(grey1, thresh1, t1);
+	canny_threshold(grey2, thresh2, t2);
 
 	dst1 = thresh1.clone();
 	dst2 = thresh2.clone();
 
 	cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-	if (first) {
-		tmp = t;
-		while (contours2.size() * 1.2 < contours1.size() && tmp > 0) {
+
+		tmp1 = t1;
+		while (tmp1 > 0 && abs(contours2.size() - contours1.size()) > (contours1.size() / 5.0) && contours1.size() > contours2.size()) {
 			assert(!contours1.empty() && !contours1.empty());
-			canny_threshold(grey2, thresh2, --tmp);
+			canny_threshold(grey2, thresh2, tmp1--);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		}
 
-		tmp = t;
-		while (contours1.size() * 1.2 < contours2.size() && tmp < 255) {
+		tmp2 = t2;
+		while (tmp2 < 255 && abs(contours2.size() - contours1.size()) > (contours1.size() / 5.0) && contours2.size() > contours1.size()) {
 			assert(!contours1.empty() && !contours1.empty());
-			canny_threshold(grey2, thresh2, ++tmp);
+			canny_threshold(grey2, thresh2, tmp2++);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		}
-		t = tmp;
-	}
-	first = false;
+
 	std::cerr << "contour1: " << contours1.size() << " + " << "contour2: " << contours2.size() << " -> ";
 	Mat cont1;
 	Mat cont2;
@@ -422,8 +440,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	for (size_t i = 0; i < contours2.size(); ++i)
 		cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
 
-	imshow("cont1", cont1);
-	imshow("cont2", cont2);
+//	imshow("cont1", cont1);
+//	imshow("cont2", cont2);
 }
 
 void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
@@ -582,6 +600,13 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
 
+	Mat grey1, grey2;
+	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+	Mat matMatches;
+	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
+	imshow("matches reduced", matMatches);
+
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
 	else
@@ -654,6 +679,10 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	dstPoints.insert(dstPoints.end(), morphedPoints.begin(), morphedPoints.end() - 4);
 
 	return 0;
+}
+
+double ease_in_out_sine(double x) {
+	return -(cos(M_PI * x) - 1) / 2;
 }
 
 int main(int argc, char **argv) {
@@ -758,11 +787,11 @@ int main(int argc, char **argv) {
 		}
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr  << int((j / number_of_frames) * 100.0) << "% ";
-			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, (j + 1) * step, (j + 1) * step);
+			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, ease_in_out_sine((j + 1) * step), ease_in_out_sine((j + 1) * step));
 			image1 = morphed.clone();
 			inputPts = outputPts;
 			imshow("morped", morphed);
-			waitKey(100);
+			waitKey(1);
 			output.write(morphed);
 		}
 
