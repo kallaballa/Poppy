@@ -1,3 +1,8 @@
+double number_of_frames = 60;
+double max_len_deviation = 20;
+double max_ang_deviation = 0.3;
+double max_chop_len = 3;
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -40,14 +45,15 @@ double distance(const Point2f &p1, const Point2f &p2) {
 	return hypot(p2.x - p1.x, p2.y - p1.y);
 }
 
-void canny_threshold(const Mat &src, const Mat &detected_edges, double thresh) {
+void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
+	detected_edges = src.clone();
 	GaussianBlur(src, detected_edges, Size(9, 9), 1);
 	/// Canny detector
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
 void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int cols) {
-	double maxDeviationPercent = 0.5;
+	double maxDeviationPercent = max_ang_deviation;
 	double avg = 0;
 	double total = 0;
 
@@ -73,10 +79,12 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 	}
 	kpv1 = new1;
 	kpv2 = new2;
-	std::cerr << "angle matches: " << new1.size() << std::endl;
+	std::cerr << "angle matches: " << new1.size() << " -> ";
 }
 
 void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+	double maxDeviationPercent = max_len_deviation;
+
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
 	edges.reserve(1000);
 	Point2f p1, p2;
@@ -86,7 +94,6 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 		}
 	}
 
-	double maxDeviationPercent = 33;
 	double avg = 0;
 	double total = 0;
 
@@ -111,7 +118,7 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 		}
 	}
 
-	std::cerr << "length matches: " << kpv1.size() << std::endl;
+	std::cerr << "length matches: " << kpv1.size() << " -> ";
 }
 
 // Draw delaunay triangles
@@ -367,21 +374,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	Mat thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
-
-	//	cv::threshold(grey1, thresh1, 127, 255, 0);
-	//	cv::threshold(grey1, thresh2, 127, 255, 0);
-	//	cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-	//	cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-
-	thresh1 = grey1.clone();
-	thresh2 = grey2.clone();
 
 	//FIXME
 	static double t = 40;
 	static bool first = true;
 	double tmp;
+	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+
 	canny_threshold(grey1, thresh1, t);
 	canny_threshold(grey2, thresh2, t);
 
@@ -409,8 +409,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 		t = tmp;
 	}
 	first = false;
-	std::cerr << "CONT1: " << contours1.size() << std::endl;
-	std::cerr << "CONT2: " << contours2.size() << std::endl;
+	std::cerr << "contours: " << contours1.size() << " -> ";
 
 	Mat cont1;
 	Mat cont2;
@@ -425,31 +424,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 
 	imshow("cont1", cont1);
 	imshow("cont2", cont2);
-//
-//	for (auto ct : contours1) {
-//		dstPoints1.insert(dstPoints1.end(), ct.begin(), ct.end());
-//	}
-//
-//	for (auto ct : contours2) {
-//		dstPoints2.insert(dstPoints2.end(), ct.begin(), ct.end());
-//	}
-//
-//	if (dstPoints1.size() > dstPoints2.size())
-//		dstPoints1.resize(dstPoints2.size());
-//	else
-//		dstPoints2.resize(dstPoints1.size());
 }
 
-double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, cv::Mat &dst, std::vector<Point2f> &prevPoints, std::vector<cv::Point2f> &dstPoints, float shapeRatio = 0.5, float colorRatio = -1) {
-	std::vector<cv::Point2f> srcPoints1;
-	std::vector<cv::Point2f> srcPoints2;
-
-	Mat contours1, contours2;
-	find_contours(origImg1, origImg2, srcPoints1, srcPoints2, contours1, contours2);
-	auto matches = generate_matches(contours1, contours2);
-	srcPoints1 = matches.first;
-	srcPoints2 = matches.second;
-
+void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
 	std::set<Point2f, LessPointOp> setpt2;
 	for (auto pt2 : srcPoints2) {
 		setpt2.insert(pt2);
@@ -457,7 +434,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 
 	std::vector<cv::Point2f> tmp1;
 	std::vector<cv::Point2f> tmp2;
-	double maxLen = hypot(img1.cols, img1.rows) / 20.0;
+	double maxLen = hypot(cols, rows) / 20.0;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
 		auto pt1 = srcPoints1[i];
 		double dist = 0;
@@ -545,26 +522,89 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < img1.cols && pt.y < img1.rows);
+		assert(pt.x < cols && pt.y < rows);
 	}
 
 	for (auto pt : srcPoints2) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < img1.cols && pt.y < img1.rows);
+		assert(pt.x < cols && pt.y < rows);
+	}
+}
+
+void chop_long_travel_paths(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
+	std::set<Point2f, LessPointOp> setpt2;
+	for (auto pt2 : srcPoints2) {
+		setpt2.insert(pt2);
 	}
 
-//	if (!prevPoints.empty())
-//		srcPoints1 = prevPoints;
+	std::vector<cv::Point2f> tmp1;
+	std::vector<cv::Point2f> tmp2;
+	double maxLen = max_chop_len;
+	for (size_t i = 0; i < srcPoints1.size(); ++i) {
+		auto pt1 = srcPoints1[i];
+		double dist = 0;
+		double currentMinDist = std::numeric_limits<double>::max();
 
-	if (srcPoints1.size() > srcPoints2.size())
-		srcPoints1.resize(srcPoints2.size());
-	else
-		srcPoints2.resize(srcPoints1.size());
+		Point2f closest(-1, -1);
+		bool erased = false;
+		for (auto pt2 : setpt2) {
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+			if (dist < currentMinDist) {
+				currentMinDist = dist;
+				closest = pt2;
+			}
+		}
 
-	float w = origImg1.size().width - 1;
-	float h = origImg1.size().height - 1;
+		if (erased)
+			continue;
+
+		if (closest.x == -1 && closest.y == -1)
+			assert(false);
+
+		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
+		if (dist < maxLen) {
+			tmp1.push_back(pt1);
+			tmp2.push_back(closest);
+			setpt2.erase(closest);
+		} else {
+			Point2f newPt = calculate_line_point(pt1.x, pt1.y, closest.x, closest.y, maxLen - 1);
+			setpt2.insert(newPt);
+			Point2f oldPt;
+			while (hypot(closest.x - newPt.x, closest.y - newPt.y) >= maxLen) {
+				oldPt = newPt;
+				newPt = calculate_line_point(newPt.x, newPt.y, closest.x, closest.y, maxLen - 1);
+				tmp1.push_back(pt1);
+				tmp2.push_back(newPt);
+			}
+			--i;
+		}
+	}
+
+	assert(tmp1.size() == tmp2.size());
+
+	srcPoints1 = tmp1;
+	srcPoints2 = tmp2;
+
+	for (auto pt : srcPoints1) {
+		assert(!isinf(pt.x) && !isinf(pt.y));
+		assert(!isnan(pt.x) && !isnan(pt.y));
+		assert(pt.x >= 0 && pt.y >= 0);
+		assert(pt.x < cols && pt.y < rows);
+	}
+
+	for (auto pt : srcPoints2) {
+		assert(!isinf(pt.x) && !isinf(pt.y));
+		assert(!isnan(pt.x) && !isnan(pt.y));
+		assert(pt.x >= 0 && pt.y >= 0);
+		assert(pt.x < cols && pt.y < rows);
+	}
+}
+
+void add_corners(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, MatSize sz) {
+	float w = sz().width - 1;
+	float h = sz().height - 1;
 	srcPoints1.push_back(cv::Point2f(0, 0));
 	srcPoints1.push_back(cv::Point2f(w, 0));
 	srcPoints1.push_back(cv::Point2f(0, h));
@@ -574,6 +614,30 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	srcPoints2.push_back(cv::Point2f(0, h));
 	srcPoints2.push_back(cv::Point2f(w, h));
 
+}
+double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, cv::Mat &dst, std::vector<Point2f> &prevPoints, std::vector<cv::Point2f> &dstPoints, float shapeRatio = 0.5, float colorRatio = -1) {
+	std::vector<cv::Point2f> srcPoints1;
+	std::vector<cv::Point2f> srcPoints2;
+
+	//find matches
+	Mat contours1, contours2;
+	find_contours(origImg1, origImg2, srcPoints1, srcPoints2, contours1, contours2);
+	auto matches = generate_matches(contours1, contours2);
+	srcPoints1 = matches.first;
+	srcPoints2 = matches.second;
+
+	//edit matches
+	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
+
+	if (srcPoints1.size() > srcPoints2.size())
+		srcPoints1.resize(srcPoints2.size());
+	else
+		srcPoints2.resize(srcPoints1.size());
+
+	add_corners(srcPoints1, srcPoints2, origImg1.size);
+
+	//morph based on matches
 	int numPoints = srcPoints1.size();
 	cv::Size SourceImgSize(srcPoints1[numPoints - 1].x + 1, srcPoints1[numPoints - 1].y + 1);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -591,7 +655,8 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 		assert(pt.x >= 0 && pt.y >= 0);
 		assert(pt.x < img1.cols && pt.y < img1.rows);
 	}
-	std::cerr << "MP size: " << morphedPoints.size() << std::endl << std::flush;
+	std::cerr << "morph points: " << morphedPoints.size() << std::endl << std::flush;
+
 	subDivMorph.insert(morphedPoints);
 
 	// Get the ID list of corners of Delaunay traiangles.
@@ -660,12 +725,12 @@ int main(int argc, char **argv) {
 		std::vector<Point2f> inputPts;
 		std::vector<Point2f> outputPts;
 
-		float step = 1.0 / 300.0;
+		float step = 1.0 / number_of_frames;
 		for (size_t j = 0; j < 10; ++j) {
 			output.write(orig1);
 		}
-		for (size_t j = 0; j < 300; ++j) {
-			std::cerr << '\r' << double((j / 300.0) * 100.0) << '%';
+		for (size_t j = 0; j < number_of_frames; ++j) {
+			std::cerr  << double((j / number_of_frames) * 100.0) << '%' << std::endl;
 			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, (j + 1) * step, (j + 1) * step);
 			image1 = morphed.clone();
 			inputPts = outputPts;
