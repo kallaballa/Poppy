@@ -410,8 +410,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 		t = tmp;
 	}
 	first = false;
-	std::cerr << "contours: " << contours1.size() << " -> ";
-
+	std::cerr << "contour1: " << contours1.size() << " + ";
+	std::cerr << "contour2: " << contours2.size() << " -> ";
 	Mat cont1;
 	Mat cont2;
 	cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
