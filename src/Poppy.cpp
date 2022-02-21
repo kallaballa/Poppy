@@ -898,7 +898,7 @@ int main(int argc, char **argv) {
 		}
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr  << int((j / number_of_frames) * 100.0) << "% ";
-			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step,4));
+			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, ease_in_out_sine((j + 1) * step), (j + 1) * step);
 			image1 = morphed.clone();
 			inputPts = outputPts;
 			imshow("morped", morphed);
