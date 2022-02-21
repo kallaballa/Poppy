@@ -82,7 +82,7 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 	}
 	kpv1 = new1;
 	kpv2 = new2;
-	std::cerr << "angle matches: " << new1.size() << " -> ";
+//	std::cerr << "angle matches: " << new1.size() << " -> ";
 }
 
 void angle_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int cols) {
@@ -136,12 +136,10 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 		}
 	}
 
-	std::cerr << "length matches: " << kpv1.size() << " -> ";
+//	std::cerr << "length matches: " << kpv1.size() << " -> ";
 }
 
 void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
-	double maxDeviationPercent = max_len_deviation;
-
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
 	edges.reserve(10000);
 	Point2f p1, p2;
@@ -284,8 +282,8 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	length_test(keypoints1, keypoints2, grey1.cols);
 	angle_test(keypoints1, keypoints2, grey1.cols);
 
-	draw_matches(grey1, grey2, matMatches, keypoints1, keypoints2);
-	imshow("matches", matMatches);
+//	draw_matches(grey1, grey2, matMatches, keypoints1, keypoints2);
+//	imshow("matches", matMatches);
 
 
 	std::vector<Point2f> points1;
@@ -479,7 +477,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
-	std::cerr << "1:" << std::endl;
 	for(off_t i = 0; i < 9; ++i) {
 //		canny_threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
@@ -488,7 +485,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 		//		std::cerr << contours1.size() << std::endl;
 	}
 
-	std::cerr << "2:" << std::endl;
 	for(off_t i = 0; i < 9; ++i) {
 //		canny_threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
@@ -497,7 +493,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 		//		std::cerr << contours2.size() << std::endl;
 	}
 
-	std::cerr << "contour1: " << collected1.size() << " + " << "contour2: " << collected2.size() << " -> ";
 	dst1.clear();
 	dst2.clear();
 	dst1.resize(collected1.size());
@@ -660,20 +655,7 @@ void add_corners(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>&
 	srcPoints2.push_back(cv::Point2f(w, h));
 
 }
-double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, cv::Mat &dst, std::vector<Point2f> &prevPoints, std::vector<cv::Point2f> &dstPoints, float shapeRatio = 0.5, float colorRatio = -1) {
-	std::vector<cv::Point2f> srcPoints1;
-	std::vector<cv::Point2f> srcPoints2;
-
-	//find matches
-	std::vector<Mat> contours1, contours2;
-	find_contours(origImg1, origImg2, contours1, contours2);
-
-	for(size_t i = 0; i < contours1.size(); ++i) {
-		auto matches = find_matches(contours1[i], contours2[i]);
-		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-	}
-
+double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, cv::Mat &dst, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
 	//edit matches
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
@@ -689,6 +671,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	std::vector<KeyPoint> kpv1;
 	std::vector<KeyPoint> kpv2;
 	length_test(edges, kpv1, kpv2, img1.cols);
+
 	srcPoints1.clear();
 	for(auto kp : kpv1) {
 		srcPoints1.push_back(kp.pt);
@@ -697,13 +680,15 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	for(auto kp : kpv2) {
 		srcPoints2.push_back(kp.pt);
 	}
+	std::cerr << "length test: " << srcPoints1.size() << " -> ";
 
 	angle_test(srcPoints1, srcPoints2, img1.cols);
+	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
 
+	Mat matMatches;
 	Mat grey1, grey2;
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
-	Mat matMatches;
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	imshow("matches reduced", matMatches);
 
@@ -711,6 +696,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 		srcPoints1.resize(srcPoints2.size());
 	else
 		srcPoints2.resize(srcPoints1.size());
+
 
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 
@@ -732,7 +718,6 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 		assert(pt.x >= 0 && pt.y >= 0);
 		assert(pt.x < img1.cols && pt.y < img1.rows);
 	}
-	std::cerr << "morph points: " << morphedPoints.size() << std::endl << std::flush;
 
 	subDivMorph.insert(morphedPoints);
 
@@ -775,9 +760,6 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	draw_delaunay(delaunay, SourceImgSize, subDiv2, { 0, 255, 0 });
 	draw_delaunay(delaunay, SourceImgSize, subDivMorph, { 0, 0, 255 });
 	imshow("delaunay", delaunay);
-	dstPoints.clear();
-	dstPoints.insert(dstPoints.end(), morphedPoints.begin(), morphedPoints.end() - 4);
-
 	return 0;
 }
 
@@ -877,19 +859,36 @@ int main(int argc, char **argv) {
 		orig2 = image2.clone();
 
 		Mat morphed;
-
-		std::vector<Point2f> inputPts;
-		std::vector<Point2f> outputPts;
-
 		float step = 1.0 / number_of_frames;
 		for (size_t j = 0; j < 10; ++j) {
 			output.write(orig1);
 		}
+
+		std::vector<Point2f> srcPoints1;
+		std::vector<Point2f> srcPoints2;
+
+		//find matches
+		std::vector<Mat> contours1, contours2;
+		find_contours(orig1, orig2, contours1, contours2);
+
+		for(size_t i = 0; i < contours1.size(); ++i) {
+			auto matches = find_matches(contours1[i], contours2[i]);
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+		}
+		std::cerr << "contour points: " << srcPoints1.size() << " -> ";
+
+		Mat matMatches;
+		Mat grey1, grey2;
+		cvtColor(orig1, grey1, cv::COLOR_RGB2GRAY);
+		cvtColor(orig2, grey2, cv::COLOR_RGB2GRAY);
+		draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
+		imshow("matches", matMatches);
+
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr  << int((j / number_of_frames) * 100.0) << "% ";
-			morph_images(orig1, orig2, image1, image2, morphed, inputPts, outputPts, ease_in_out_sine((j + 1) * step), (j + 1) * step);
+			morph_images(orig1, orig2, image1, image2, morphed, srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
 			image1 = morphed.clone();
-			inputPts = outputPts;
 			imshow("morped", morphed);
 			waitKey(1);
 			output.write(morphed);
