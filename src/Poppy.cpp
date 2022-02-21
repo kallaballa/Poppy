@@ -465,7 +465,7 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 	return {(float)px, (float)py};
 }
 
-void find_contours(const Mat &img1, const Mat &img2, Mat &dst1, Mat &dst2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std::vector<Mat>& dst2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat grey1, grey2;
@@ -476,17 +476,15 @@ void find_contours(const Mat &img1, const Mat &img2, Mat &dst1, Mat &dst2) {
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
-	std::vector<std::vector<cv::Point>> collected1;
-	std::vector<std::vector<cv::Point>> collected2;
+	std::vector<std::vector<std::vector<cv::Point>>> collected1;
+	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
 	std::cerr << "1:" << std::endl;
 	for(off_t i = 0; i < 9; ++i) {
 //		canny_threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		for(auto& c: contours1) {
-			collected1.push_back(c);
-		}
+		collected1.push_back(contours1);
 		//		std::cerr << contours1.size() << std::endl;
 	}
 
@@ -495,30 +493,30 @@ void find_contours(const Mat &img1, const Mat &img2, Mat &dst1, Mat &dst2) {
 //		canny_threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		for(auto& c: contours2) {
-			collected2.push_back(c);
-		}
-//		std::cerr << contours2.size() << std::endl;
+		collected2.push_back(contours2);
+		//		std::cerr << contours2.size() << std::endl;
 	}
 
-	contours1 = collected1;
-	contours2 = collected2;
-	std::cerr << "contour1: " << contours1.size() << " + " << "contour2: " << contours2.size() << " -> ";
-	Mat cont1;
-	Mat cont2;
-	cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
-	cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
+	std::cerr << "contour1: " << collected1.size() << " + " << "contour2: " << collected2.size() << " -> ";
+	dst1.clear();
+	dst2.clear();
+	dst1.resize(collected1.size());
+	dst2.resize(collected1.size());
+	for(size_t i = 0; i < collected1.size(); ++i) {
+		Mat& cont1 = dst1[i];
+		Mat& cont2 = dst2[i];
+		cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
+		cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
 
-	for (size_t i = 0; i < contours1.size(); ++i)
-		cv::drawContours(cont1, contours1, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy1, 0);
+		for (size_t i = 0; i < contours1.size(); ++i)
+			cv::drawContours(cont1, contours1, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy1, 0);
 
-	for (size_t i = 0; i < contours2.size(); ++i)
-		cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
+		for (size_t i = 0; i < contours2.size(); ++i)
+			cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
 
-	imshow("cont1", cont1);
-	imshow("cont2", cont2);
-	cvtColor(cont1, dst1, cv::COLOR_RGB2GRAY);
-	cvtColor(cont2, dst2, cv::COLOR_RGB2GRAY);
+		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
+		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
+	}
 }
 
 void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
@@ -667,12 +665,14 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	std::vector<cv::Point2f> srcPoints2;
 
 	//find matches
-	Mat contours1, contours2;
+	std::vector<Mat> contours1, contours2;
 	find_contours(origImg1, origImg2, contours1, contours2);
 
-	auto matches = find_matches(contours1, contours2);
-	srcPoints1 = matches.first;
-	srcPoints2 = matches.second;
+	for(size_t i = 0; i < contours1.size(); ++i) {
+		auto matches = find_matches(contours1[i], contours2[i]);
+		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+	}
 
 	//edit matches
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
