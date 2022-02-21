@@ -5,9 +5,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <chrono>
-#include <list>
-#include <unordered_set>
 #include <filesystem>
 
 #include <boost/program_options.hpp>
@@ -82,7 +79,6 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 	}
 	kpv1 = new1;
 	kpv2 = new2;
-//	std::cerr << "angle matches: " << new1.size() << " -> ";
 }
 
 void angle_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int cols) {
@@ -135,8 +131,6 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 			kpv2.push_back(std::get<1>(e));
 		}
 	}
-
-//	std::cerr << "length matches: " << kpv1.size() << " -> ";
 }
 
 void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
@@ -281,10 +275,6 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 
 	length_test(keypoints1, keypoints2, grey1.cols);
 	angle_test(keypoints1, keypoints2, grey1.cols);
-
-//	draw_matches(grey1, grey2, matMatches, keypoints1, keypoints2);
-//	imshow("matches", matMatches);
-
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
@@ -439,17 +429,6 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 	}
 }
 
-double l2_error(const Mat &a, const Mat &b) {
-	if (a.rows > 0 && a.rows == b.rows && a.cols > 0 && a.cols == b.cols) {
-		double errorL2 = cv::norm(a, b, cv::NORM_L2);
-		double similarity = errorL2 / (double) (a.rows * a.cols);
-		return similarity;
-	}
-	else {
-		return std::numeric_limits<double>::max();
-	}
-}
-
 Point2f calculate_line_point(double x1, double y1, double x2, double y2, double distance) {
 	double vx = x2 - x1; // x vector
 	double vy = y2 - y1; // y vector
@@ -478,19 +457,15 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
 	for(off_t i = 0; i < 9; ++i) {
-//		canny_threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
-		//		std::cerr << contours1.size() << std::endl;
 	}
 
 	for(off_t i = 0; i < 9; ++i) {
-//		canny_threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
 		cv::threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected2.push_back(contours2);
-		//		std::cerr << contours2.size() << std::endl;
 	}
 
 	dst1.clear();
@@ -522,7 +497,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 }
 
 void find_matches(Mat& orig1, Mat& orig2, std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2) {
-	//find matches
 	std::vector<Mat> contours1, contours2;
 	Mat allContours1, allContours2;
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
@@ -681,9 +655,7 @@ void add_corners(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>&
 	srcPoints2.push_back(cv::Point2f(w, 0));
 	srcPoints2.push_back(cv::Point2f(0, h));
 	srcPoints2.push_back(cv::Point2f(w, h));
-
 }
-
 
 void prepare_matches(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2) {
 	//edit matches
@@ -785,8 +757,6 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	// Blend 2 input images
 	float blend = (colorRatio < 0) ? shapeRatio : colorRatio;
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
-//	double error = l2_error(img2, dst);
-//	std::cerr << "Error: " << error << std::endl;
 	Mat delaunay = dst.clone();
 	draw_delaunay(delaunay, SourceImgSize, subDiv1, { 255, 0, 0 });
 	draw_delaunay(delaunay, SourceImgSize, subDiv2, { 0, 255, 0 });
