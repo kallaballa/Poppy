@@ -24,7 +24,7 @@ double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
 double max_pair_len_divider = 20;
 double max_chop_len = 2;
-double contour_sensitivity = 2;
+double contour_sensitivity = 1;
 
 using namespace cv;
 using std::vector;
