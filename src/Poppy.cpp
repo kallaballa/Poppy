@@ -24,7 +24,7 @@ double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
 double max_pair_len_divider = 20;
 double max_chop_len = 2;
-int contour_sensitivity = 40;
+double contour_sensitivity = 2;
 
 using namespace cv;
 using std::vector;
@@ -417,37 +417,42 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
 
-	//FIXME
-	static double t1 = contour_sensitivity;
-	static double t2 = contour_sensitivity;
-	static bool first = true;
-	double tmp1;
-	double tmp2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
-	canny_threshold(grey1, thresh1, t1);
-	canny_threshold(grey2, thresh2, t2);
+	std::vector<size_t> sizes1;
+	std::vector<size_t> sizes2;
 
-	dst1 = thresh1.clone();
-	dst2 = thresh2.clone();
+	for(size_t i = 1; i < 6; ++i) {
+		canny_threshold(grey1, thresh1, std::min(255, (int)round(i * 51 * contour_sensitivity)));
+		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		sizes1.push_back(contours1.size());
+	}
 
+	for(size_t i = 1; i < 6; ++i) {
+		canny_threshold(grey2, thresh2, std::min(255, (int)round(i * 51 * contour_sensitivity)));
+		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		sizes2.push_back(contours2.size());
+	}
+
+	size_t diff = 0;
+	size_t minDiff = std::numeric_limits<size_t>::max();
+	std::pair<size_t,size_t> candidate;
+	for(size_t i = 0; i < 5; ++i) {
+		for(size_t j = 0; j < 5; ++j) {
+			diff = abs(sizes1[i] - sizes2[j]);
+			if(diff < minDiff) {
+				minDiff = diff;
+				candidate = {i,j};
+			}
+		}
+	}
+
+	canny_threshold(grey1, thresh1, (candidate.first + 1) * 51);
 	cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+
+	canny_threshold(grey2, thresh2, (candidate.second + 1) * 51);
 	cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-
-		tmp1 = t1;
-		while (tmp1 > 0 && abs(contours2.size() - contours1.size()) > (contours1.size() / 5.0) && contours1.size() > contours2.size()) {
-			assert(!contours1.empty() && !contours1.empty());
-			canny_threshold(grey2, thresh2, tmp1--);
-			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		}
-
-		tmp2 = t2;
-		while (tmp2 < 255 && abs(contours2.size() - contours1.size()) > (contours1.size() / 5.0) && contours2.size() > contours1.size()) {
-			assert(!contours1.empty() && !contours1.empty());
-			canny_threshold(grey2, thresh2, tmp2++);
-			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		}
 
 	std::cerr << "contour1: " << contours1.size() << " + " << "contour2: " << contours2.size() << " -> ";
 	Mat cont1;
@@ -461,8 +466,10 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 	for (size_t i = 0; i < contours2.size(); ++i)
 		cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
 
-//	imshow("cont1", cont1);
-//	imshow("cont2", cont2);
+	imshow("cont1", cont1);
+	imshow("cont2", cont2);
+	cvtColor(cont1, dst1, cv::COLOR_RGB2GRAY);
+	cvtColor(cont2, dst2, cv::COLOR_RGB2GRAY);
 }
 
 void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
@@ -613,22 +620,8 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	//find matches
 	Mat contours1, contours2;
 	find_contours(origImg1, origImg2, srcPoints1, srcPoints2, contours1, contours2);
-	cv::Subdiv2D sd1(cv::Rect(0, 0, origImg1.size().width, origImg1.size().height));
-	cv::Subdiv2D sd2(cv::Rect(0, 0, origImg1.size().width, origImg1.size().height));
-	sd1.insert(srcPoints1);
-	sd2.insert(srcPoints2);
 
-
-	std::vector<cv::Point2f> srcDelPoints1;
-	std::vector<cv::Point2f> srcDelPoints2;
-
-	Mat d1 = contours1.clone();
-	Mat d2 = contours2.clone();
-
-	draw_delaunay(d1, origImg1.size(), sd1, { 255, 0, 0 });
-	draw_delaunay(d1, origImg1.size(), sd1, { 255, 0, 0 });
-
-	auto matches = find_matches(d1, d2);
+	auto matches = find_matches(contours1, contours2);
 	srcPoints1 = matches.first;
 	srcPoints2 = matches.second;
 
@@ -729,7 +722,7 @@ int main(int argc, char **argv) {
 	double maxAngDeviation = max_ang_deviation;
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
-	int contSensitivity = contour_sensitivity;
+	double contSensitivity = contour_sensitivity;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -740,7 +733,7 @@ int main(int argc, char **argv) {
 			("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
 			("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
 			("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
-			("sensitivity,s", po::value<int>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (1-255)")
+			("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
 			("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 			("help,h","Print help message");
 
