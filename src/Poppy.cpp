@@ -468,20 +468,21 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPoints1, std::vector<Point2f> &dstPoints2, Mat &dst1, Mat &dst2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
-	Mat grey1, grey2;
+//	Mat grey1, grey2;
 	Mat thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
 
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+//	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+//	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
 	std::vector<off_t> sizes1;
 	std::vector<off_t> sizes2;
 
 	std::cerr << "1:" << std::endl;
 	for(off_t i = 0; i < 9; ++i) {
-		canny_threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
+//		canny_threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
+		cv::threshold(img1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 0, 255);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		sizes1.push_back(contours1.size());
 //		std::cerr << contours1.size() << std::endl;
@@ -489,7 +490,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Point2f> &dstPo
 
 	std::cerr << "2:" << std::endl;
 	for(off_t i = 0; i < 9; ++i) {
-		canny_threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
+//		canny_threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)));
+		cv::threshold(img2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 0, 255);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		sizes2.push_back(contours2.size());
 //		std::cerr << contours2.size() << std::endl;
