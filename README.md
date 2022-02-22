@@ -42,9 +42,11 @@ Options:
                                         pairs
   -c [ --choplen ] arg (=2)             The interval in which traversal paths 
                                         (point pairs) are chopped
-  -o [ --outfile ] arg (=output.mp4)    The name of the video file to write to
+  -s [ --sensitivity ] arg (=0.5)       How sensitive to contours the matcher 
+                                        showed be (values less than 1.0 make it
+                                        more sensitive)
+  -o [ --outfile ] arg (=output.mkv)    The name of the video file to write to
   -h [ --help ]                         Print help message
-
 ```
 
 ## Run
