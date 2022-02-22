@@ -52,12 +52,12 @@ void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
-void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int cols) {
+void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	double maxDeviationPercent = max_ang_deviation;
 	double avg = 0;
 	double total = 0;
 
-	for(size_t i = 0; i < kpv1.size(); ++i) {
+	for (size_t i = 0; i < kpv1.size(); ++i) {
 		total += M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
 	}
 
@@ -69,10 +69,10 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 	std::vector<KeyPoint> new1;
 	std::vector<KeyPoint> new2;
 
-	for(size_t i = 0; i < kpv1.size(); ++i) {
+	for (size_t i = 0; i < kpv1.size(); ++i) {
 		double angle = M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
 
-		if(angle > min && angle < max) {
+		if (angle > min && angle < max) {
 			new1.push_back(kpv1[i]);
 			new2.push_back(kpv2[i]);
 		}
@@ -81,16 +81,16 @@ void angle_test(std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2, int co
 	kpv2 = new2;
 }
 
-void angle_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int cols) {
+void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
 	std::vector<KeyPoint> kpv1;
 	std::vector<KeyPoint> kpv2;
 
-	for(auto pt : ptv1) {
-		kpv1.push_back({pt,1});
+	for (auto pt : ptv1) {
+		kpv1.push_back( { pt, 1 });
 	}
 
-	for(auto pt : ptv2) {
-		kpv2.push_back({pt,1});
+	for (auto pt : ptv2) {
+		kpv2.push_back( { pt, 1 });
 	}
 
 	angle_test(kpv1, kpv2, cols);
@@ -98,11 +98,11 @@ void angle_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int cols
 	ptv1.clear();
 	ptv2.clear();
 
-	for(auto kp : kpv1) {
+	for (auto kp : kpv1) {
 		ptv1.push_back(kp.pt);
 	}
 
-	for(auto kp : kpv2) {
+	for (auto kp : kpv2) {
 		ptv2.push_back(kp.pt);
 	}
 }
@@ -111,7 +111,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 	double avg = 0;
 	double total = 0;
 
-	for(auto e : edges) {
+	for (auto e : edges) {
 		total += std::get<2>(e);
 	}
 
@@ -120,13 +120,12 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 	double min = avg - (dev / 2);
 	double max = min + dev;
 
-
 	kpv1.clear();
 	kpv2.clear();
 
-	for(auto e : edges) {
+	for (auto e : edges) {
 		double len = std::get<2>(e);
-		if(len > min && len < max) {
+		if (len > min && len < max) {
 			kpv1.push_back(std::get<0>(e));
 			kpv2.push_back(std::get<1>(e));
 		}
@@ -139,23 +138,23 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 	Point2f p1, p2;
 	for (auto &kp1 : kpv1) {
 		for (auto &kp2 : kpv2) {
-			edges.push_back({ kp1, kp2, distance(kp1.pt, Point2f(kp2.pt.x + cols, kp2.pt.y)) });
+			edges.push_back( { kp1, kp2, distance(kp1.pt, Point2f(kp2.pt.x + cols, kp2.pt.y)) });
 		}
 	}
 
 	length_test(edges, kpv1, kpv2, cols);
 }
 
-void length_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int cols) {
+void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
 	std::vector<KeyPoint> kpv1;
 	std::vector<KeyPoint> kpv2;
 
-	for(auto pt : ptv1) {
-		kpv1.push_back({pt,1});
+	for (auto pt : ptv1) {
+		kpv1.push_back( { pt, 1 });
 	}
 
-	for(auto pt : ptv2) {
-		kpv2.push_back({pt,1});
+	for (auto pt : ptv2) {
+		kpv2.push_back( { pt, 1 });
 	}
 
 	length_test(kpv1, kpv2, cols);
@@ -163,16 +162,16 @@ void length_test(std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2, int col
 	ptv1.clear();
 	ptv2.clear();
 
-	for(auto kp : kpv1) {
+	for (auto kp : kpv1) {
 		ptv1.push_back(kp.pt);
 	}
 
-	for(auto kp : kpv2) {
+	for (auto kp : kpv2) {
 		ptv2.push_back(kp.pt);
 	}
 }
 
-void make_delaunay_mesh(const Size& size, Subdiv2D& subdiv, std::vector<Point2f>& dstPoints) {
+void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f> &dstPoints) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
 	vector<Point> pt(3);
@@ -216,38 +215,93 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 	}
 }
 
-void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<Point2f>& ptv1, std::vector<Point2f>& ptv2) {
-	Mat grey1 = src1, grey2 = src2;
+void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
+	UMat flowUmat;
+	Mat flow;
+	Mat grey1, grey2;
+	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
 
-	Mat images = cv::Mat::zeros({grey1.cols * 2, grey1.rows}, CV_8UC1);
-	Mat lines = cv::Mat::ones({grey1.cols * 2, grey1.rows}, CV_8UC1);
+	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
+	flowUmat.copyTo(flow);
+	dst = morphed.clone();
+	uint32_t color;
 
-	grey1.copyTo(images(cv::Rect( 0, 0, grey1.cols, grey1.rows)));
-	grey2.copyTo(images(cv::Rect( grey1.cols, 0, grey1.cols, grey1.rows)));
+	double diag = hypot(morphed.cols, morphed.rows);
+	for(off_t x = 0; x < morphed.cols; ++x) {
+		for(off_t y = 0; y < morphed.rows; ++y) {
+			const Point2f flv1 = flow.at<Point2f>(y, x) * 100;
+			double len = hypot(flv1.x - x, flv1.y - y);
+			color = std::round(double(255) * (double(len) / diag));
+			line(dst, Point(x,y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color));
+		}
+	}
+}
 
-	for(size_t i = 0; i < ptv1.size(); ++i) {
+void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Size& size, Subdiv2D& subdiv1, Subdiv2D& subdiv2, Subdiv2D& subdivMorph, Scalar delaunay_color) {
+	UMat flowUmat;
+	Mat flow;
+	Mat grey1, grey2;
+	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
+
+	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
+	flowUmat.copyTo(flow);
+	dst = morphed.clone();
+	draw_delaunay(dst, size, subdiv1, { 255, 0, 0 });
+	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
+	draw_delaunay(dst, size, subdivMorph, { 0, 0, 255 });
+
+	vector<Vec6f> triangleList;
+	subdivMorph.getTriangleList(triangleList);
+	vector<Point> pt(3);
+	Rect rect(0, 0, size.width, size.height);
+
+	for (size_t i = 0; i < triangleList.size(); i++) {
+		Vec6f t = triangleList[i];
+		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
+		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
+		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
+
+		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
+			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 300;
+			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 300;
+			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 300;
+			line(dst, pt[0], Point(cvRound(pt[0].x + flow1.x), cvRound(pt[0].y + flow1.y)), Scalar(255, 255, 0));
+			line(dst, pt[1], Point(cvRound(pt[1].x + flow2.x), cvRound(pt[1].y + flow2.y)), Scalar(255, 255, 0));
+			line(dst, pt[2], Point(cvRound(pt[2].x + flow3.x), cvRound(pt[2].y + flow3.y)), Scalar(255, 255, 0));
+		}
+	}
+}
+
+void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2) {
+	Mat images = cv::Mat::zeros( { grey1.cols * 2, grey1.rows }, CV_8UC1);
+	Mat lines = cv::Mat::ones( { grey1.cols * 2, grey1.rows }, CV_8UC1);
+
+	grey1.copyTo(images(cv::Rect(0, 0, grey1.cols, grey1.rows)));
+	grey2.copyTo(images(cv::Rect(grey1.cols, 0, grey1.cols, grey1.rows)));
+
+	for (size_t i = 0; i < ptv1.size(); ++i) {
 		Point2f pt2 = ptv2[i];
-		pt2.x += src1.cols;
-		line(lines, ptv1[i], pt2, {127}, 1, cv::LINE_AA, 0);
+		pt2.x += grey1.cols;
+		line(lines, ptv1[i], pt2, { 127 }, 1, cv::LINE_AA, 0);
 	}
 
 	Mat result = images * 0.5 + lines * 0.5;
 	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
-void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<KeyPoint>& kpv1, std::vector<KeyPoint>& kpv2) {
-	Mat grey1 = src1, grey2 = src2;
+void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2) {
+	Mat images = cv::Mat::zeros( { grey1.cols * 2, grey1.rows }, CV_8UC1);
+	Mat lines = cv::Mat::ones( { grey1.cols * 2, grey1.rows }, CV_8UC1);
 
-	Mat images = cv::Mat::zeros({grey1.cols * 2, grey1.rows}, CV_8UC1);
-	Mat lines = cv::Mat::ones({grey1.cols * 2, grey1.rows}, CV_8UC1);
+	grey1.copyTo(images(cv::Rect(0, 0, grey1.cols, grey1.rows)));
+	grey2.copyTo(images(cv::Rect(grey1.cols, 0, grey1.cols, grey1.rows)));
 
-	grey1.copyTo(images(cv::Rect( 0, 0, grey1.cols, grey1.rows)));
-	grey2.copyTo(images(cv::Rect( grey1.cols, 0, grey1.cols, grey1.rows)));
-
-	for(size_t i = 0; i < kpv1.size(); ++i) {
+	for (size_t i = 0; i < kpv1.size(); ++i) {
 		Point2f pt2 = kpv2[i].pt;
-		pt2.x += src1.cols;
-		line(lines, kpv1[i].pt, pt2, {127}, 1, cv::LINE_AA, 0);
+		pt2.x += grey1.cols;
+		line(lines, kpv1[i].pt, pt2, { 127 }, 1, cv::LINE_AA, 0);
 	}
 
 	images += 1;
@@ -256,9 +310,6 @@ void draw_matches(const Mat& src1, const Mat& src2, Mat& dst, std::vector<KeyPoi
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
-	Mat edge1;
-	Mat edge2;
-
 	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
@@ -278,11 +329,11 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
-	for(auto pt1 : keypoints1) {
+	for (auto pt1 : keypoints1) {
 		points1.push_back(pt1.pt);
 	}
 
-	for(auto pt2 : keypoints2) {
+	for (auto pt2 : keypoints2) {
 		points2.push_back(pt2.pt);
 	}
 	return {points1,points2};
@@ -379,7 +430,7 @@ void solve_homography(const std::vector<std::vector<cv::Point2f>> &srcPts1,
 	}
 }
 
-void morph_homography(const cv::Mat& Hom, cv::Mat& MorphHom1, cv::Mat& MorphHom2, float blend_ratio) {
+void morph_homography(const cv::Mat &Hom, cv::Mat &MorphHom1, cv::Mat &MorphHom2, float blend_ratio) {
 	cv::Mat invHom = Hom.inv();
 	MorphHom1 = cv::Mat::eye(3, 3, CV_32FC1) * (1.0 - blend_ratio) + Hom * blend_ratio;
 	MorphHom2 = cv::Mat::eye(3, 3, CV_32FC1) * blend_ratio + invHom * (1.0 - blend_ratio);
@@ -442,7 +493,7 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 	return {(float)px, (float)py};
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std::vector<Mat>& dst2, Mat& allContours1, Mat& allContours2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat grey1, grey2;
@@ -456,14 +507,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
-	for(off_t i = 0; i < 9; ++i) {
-		cv::threshold(grey1, thresh1, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
+	for (off_t i = 0; i < 9; ++i) {
+		cv::threshold(grey1, thresh1, std::min(255, (int) round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
 
-	for(off_t i = 0; i < 9; ++i) {
-		cv::threshold(grey2, thresh2, std::min(255, (int)round((i + 1) * 25 * contour_sensitivity)), 255, 0);
+	for (off_t i = 0; i < 9; ++i) {
+		cv::threshold(grey2, thresh2, std::min(255, (int) round((i + 1) * 25 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected2.push_back(contours2);
 	}
@@ -472,12 +523,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 	dst2.clear();
 	dst1.resize(collected1.size());
 	dst2.resize(collected1.size());
-	allContours1 = cv::Mat::zeros({img1.cols,img1.rows}, img1.type());
-	allContours2 = cv::Mat::zeros({img1.cols,img1.rows}, img1.type());
+	allContours1 = cv::Mat::zeros( { img1.cols, img1.rows }, img1.type());
+	allContours2 = cv::Mat::zeros( { img1.cols, img1.rows }, img1.type());
 
-	for(size_t i = 0; i < collected1.size(); ++i) {
-		Mat& cont1 = dst1[i];
-		Mat& cont2 = dst2[i];
+	for (size_t i = 0; i < collected1.size(); ++i) {
+		Mat &cont1 = dst1[i];
+		Mat &cont2 = dst2[i];
 		cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
 		cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
 
@@ -496,12 +547,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat>& dst1, std
 	}
 }
 
-void find_matches(Mat& orig1, Mat& orig2, std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2) {
+void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
 	std::vector<Mat> contours1, contours2;
 	Mat allContours1, allContours2;
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
 
-	for(size_t i = 0; i < contours1.size(); ++i) {
+	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
 		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
@@ -516,7 +567,7 @@ void find_matches(Mat& orig1, Mat& orig2, std::vector<cv::Point2f>& srcPoints1, 
 	imshow("matches", matMatches);
 
 }
-void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
+void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
 	std::set<Point2f, LessPointOp> setpt2;
 	for (auto pt2 : srcPoints2) {
 		setpt2.insert(pt2);
@@ -575,7 +626,7 @@ void pair_points_by_proximity(std::vector<cv::Point2f>& srcPoints1, std::vector<
 	}
 }
 
-void chop_long_travel_paths(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, int cols, int rows) {
+void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
 	std::set<Point2f, LessPointOp> setpt2;
 	for (auto pt2 : srcPoints2) {
 		setpt2.insert(pt2);
@@ -644,7 +695,7 @@ void chop_long_travel_paths(std::vector<cv::Point2f>& srcPoints1, std::vector<cv
 	}
 }
 
-void add_corners(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2, MatSize sz) {
+void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, MatSize sz) {
 	float w = sz().width - 1;
 	float h = sz().height - 1;
 	srcPoints1.push_back(cv::Point2f(0, 0));
@@ -657,7 +708,29 @@ void add_corners(std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>&
 	srcPoints2.push_back(cv::Point2f(w, h));
 }
 
-void prepare_matches(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f>& srcPoints1, std::vector<cv::Point2f>& srcPoints2) {
+void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
+	UMat flowUmat;
+	Mat flow;
+	Mat grey1, grey2;
+	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
+	flowUmat.copyTo(flow);
+	dst = img1.clone();
+	// By y += 5, x += 5 you can specify the grid
+	for (int y = 0; y < dst.rows; y += 20) {
+		for (int x = 0; x < dst.cols; x += 20) {
+			// get the flow from y, x position * 10 for better visibility
+			const Point2f flowatxy = flow.at<Point2f>(y, x) * 10;
+			// draw line at flow direction
+			line(dst, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 0, 0));
+			// draw initial point
+			circle(dst, Point(x, y), 1, Scalar(0, 0, 255), -1);
+		}
+	}
+}
+
+void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
 	//edit matches
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
@@ -666,20 +739,20 @@ void prepare_matches(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv
 	edges.reserve(1000);
 	Point2f p1, p2;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-		auto& pt1 = srcPoints1[i];
-		auto& pt2 = srcPoints2[i];
-		edges.push_back({ {pt1, 1}, {pt2, 1}, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
+		auto &pt1 = srcPoints1[i];
+		auto &pt2 = srcPoints2[i];
+		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
 	}
 	std::vector<KeyPoint> kpv1;
 	std::vector<KeyPoint> kpv2;
 	length_test(edges, kpv1, kpv2, img1.cols);
 
 	srcPoints1.clear();
-	for(auto kp : kpv1) {
+	for (auto kp : kpv1) {
 		srcPoints1.push_back(kp.pt);
 	}
 	srcPoints2.clear();
-	for(auto kp : kpv2) {
+	for (auto kp : kpv2) {
 		srcPoints2.push_back(kp.pt);
 	}
 	std::cerr << "length test: " << srcPoints1.size() << " -> ";
@@ -699,11 +772,10 @@ void prepare_matches(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv
 	else
 		srcPoints2.resize(srcPoints1.size());
 
-
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv::Mat &img2, cv::Mat &dst, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
+double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& last, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
 	//morph based on matches
 	int numPoints = srcPoints1.size();
 	cv::Size SourceImgSize(srcPoints1[numPoints - 1].x + 1, srcPoints1[numPoints - 1].y + 1);
@@ -720,7 +792,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < img1.cols && pt.y < img1.rows);
+		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
 	}
 
 	subDivMorph.insert(morphedPoints);
@@ -758,10 +830,14 @@ double morph_images(Mat& origImg1, Mat& origImg2, const cv::Mat &img1, const cv:
 	float blend = (colorRatio < 0) ? shapeRatio : colorRatio;
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
 	Mat delaunay = dst.clone();
-	draw_delaunay(delaunay, SourceImgSize, subDiv1, { 255, 0, 0 });
-	draw_delaunay(delaunay, SourceImgSize, subDiv2, { 0, 255, 0 });
-	draw_delaunay(delaunay, SourceImgSize, subDivMorph, { 0, 0, 255 });
+	Mat prev = last.clone();
+	if(prev.empty())
+		prev = dst.clone();
+	draw_morph_analysis(dst, prev, delaunay, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
+	Mat flow;
+	draw_flow_vectors(dst, prev, flow);
 	imshow("delaunay", delaunay);
+	imshow("flow", flow);
 	return 0;
 }
 
@@ -783,17 +859,17 @@ int main(int argc, char **argv) {
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
-			("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
-			("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
-			("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
-			("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
-			("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
-			("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
-			("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
-			("help,h","Print help message");
+	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
+	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
+	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
+	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
+	("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
+	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
+	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
+	("help,h", "Print help message");
 
 	po::options_description hidden("Hidden options");
-	hidden.add_options()("files",po::value<std::vector<string>>(&imageFiles), "image files");
+	hidden.add_options()("files", po::value<std::vector<string>>(&imageFiles), "image files");
 
 	po::options_description cmdline_options;
 	cmdline_options.add(genericDesc).add(hidden);
@@ -816,8 +892,8 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	for(auto p : imageFiles) {
-		if(!std::filesystem::exists(p))
+	for (auto p : imageFiles) {
+		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 	number_of_frames = numberOfFrames;
@@ -830,11 +906,11 @@ int main(int argc, char **argv) {
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
-		if(image1.empty()) {
+		if (image1.empty()) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 			exit(2);
 		}
-	} catch(...) {
+	} catch (...) {
 		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 		exit(2);
 	}
@@ -847,13 +923,13 @@ int main(int argc, char **argv) {
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat image2;
-			try {
+		try {
 			image2 = imread(imageFiles[i], cv::IMREAD_COLOR);
-			if(image2.empty()) {
+			if (image2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 				exit(2);
 			}
-		} catch(...) {
+		} catch (...) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 			exit(2);
 		}
@@ -867,16 +943,15 @@ int main(int argc, char **argv) {
 		std::vector<Point2f> srcPoints2;
 
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
+		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr  << int((j / number_of_frames) * 100.0) << "% ";
+			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 
-			prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
-			morph_images(orig1, orig2, image1, image2, morphed, srcPoints1, srcPoints2, ((j + 1) * step), (j + 1) * step);
-
+			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ((j + 1) * step), (j + 1) * step);
 			image1 = morphed.clone();
-			imshow("morped", morphed);
+			imshow("morphed", morphed);
 			waitKey(1);
 			output.write(morphed);
 		}
