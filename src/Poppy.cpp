@@ -215,6 +215,33 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 	}
 }
 
+
+void draw_flow_heightmap(const Mat& morphed, const Mat& last, Mat& dst) {
+	UMat flowUmat;
+	Mat flow;
+	Mat grey1, grey2;
+	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
+
+	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
+	flowUmat.copyTo(flow);
+	dst = morphed.clone();
+	uint32_t color;
+
+	double diag = hypot(morphed.cols, morphed.rows);
+	for(off_t x = 0; x < morphed.cols; ++x) {
+		for(off_t y = 0; y < morphed.rows; ++y) {
+			circle(dst, Point(x, y), 1, Scalar(0), -1);
+			const Point2f flv1 = flow.at<Point2f>(y, x) * 100;
+			double len = hypot(flv1.x - x, flv1.y - y);
+			if(len > 100){
+			color = std::round(double(255) * (double(len) / diag));
+			circle(dst, Point(x, y), 1, Scalar(color), -1);
+			}
+		}
+	}
+}
+
 void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
 	UMat flowUmat;
 	Mat flow;
@@ -230,15 +257,28 @@ void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
 	double diag = hypot(morphed.cols, morphed.rows);
 	for(off_t x = 0; x < morphed.cols; ++x) {
 		for(off_t y = 0; y < morphed.rows; ++y) {
-			const Point2f flv1 = flow.at<Point2f>(y, x) * 100;
+			const Point2f flv1 = flow.at<Point2f>(y, x) * 10;
 			double len = hypot(flv1.x - x, flv1.y - y);
 			color = std::round(double(255) * (double(len) / diag));
 			line(dst, Point(x,y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color));
+			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
 }
 
+void draw_flow_highlight(const Mat& morphed, const Mat& last, Mat& dst) {
+	Mat flowv;
+	Mat flowm;
+	draw_flow_vectors(morphed, last, flowv);
+	draw_flow_heightmap(morphed, last, flowm);
+	Mat overlay;
+	normalize(flowv.mul(flowm), overlay, 255.0, 0.0, NORM_MINMAX);
+	dst = morphed * 0.7 + overlay * 0.3;
+}
+
 void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Size& size, Subdiv2D& subdiv1, Subdiv2D& subdiv2, Subdiv2D& subdivMorph, Scalar delaunay_color) {
+	draw_flow_highlight(morphed, last, dst);
+
 	UMat flowUmat;
 	Mat flow;
 	Mat grey1, grey2;
@@ -247,7 +287,7 @@ void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Si
 
 	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
 	flowUmat.copyTo(flow);
-	dst = morphed.clone();
+
 	draw_delaunay(dst, size, subdiv1, { 255, 0, 0 });
 	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
 	draw_delaunay(dst, size, subdivMorph, { 0, 0, 255 });
@@ -264,9 +304,9 @@ void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Si
 		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
 
 		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
-			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 300;
-			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 300;
-			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 300;
+			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 20;
+			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 20;
+			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 20;
 			line(dst, pt[0], Point(cvRound(pt[0].x + flow1.x), cvRound(pt[0].y + flow1.y)), Scalar(255, 255, 0));
 			line(dst, pt[1], Point(cvRound(pt[1].x + flow2.x), cvRound(pt[1].y + flow2.y)), Scalar(255, 255, 0));
 			line(dst, pt[2], Point(cvRound(pt[2].x + flow3.x), cvRound(pt[2].y + flow3.y)), Scalar(255, 255, 0));
@@ -829,15 +869,12 @@ double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& l
 	// Blend 2 input images
 	float blend = (colorRatio < 0) ? shapeRatio : colorRatio;
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
-	Mat delaunay = dst.clone();
+	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if(prev.empty())
 		prev = dst.clone();
-	draw_morph_analysis(dst, prev, delaunay, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	Mat flow;
-	draw_flow_vectors(dst, prev, flow);
-	imshow("delaunay", delaunay);
-	imshow("flow", flow);
+	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
+	imshow("analysis", analysis);
 	return 0;
 }
 
