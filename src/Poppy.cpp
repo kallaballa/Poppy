@@ -970,7 +970,7 @@ int main(int argc, char **argv) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 			exit(2);
 		}
-		std::cerr << imageFiles[i - 1] << " -> " << imageFiles[i] << std::endl;
+
 		orig1 = image1.clone();
 		orig2 = image2.clone();
 
@@ -978,7 +978,7 @@ int main(int argc, char **argv) {
 
 		std::vector<Point2f> srcPoints1;
 		std::vector<Point2f> srcPoints2;
-
+		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
