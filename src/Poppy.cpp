@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <algorithm>
+
 
 #include <boost/program_options.hpp>
 #include <opencv2/videoio.hpp>
@@ -19,9 +21,11 @@
 double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
-double max_pair_len_divider = 20;
-double max_chop_len = 2;
-double contour_sensitivity = 0.5;
+double max_pair_len_divider = 10;
+double max_chop_len = 5;
+double contour_sensitivity = 0.3;
+uint16_t highlight_steps = 5;
+
 
 using namespace cv;
 using std::vector;
@@ -228,18 +232,16 @@ void draw_flow_heightmap(const Mat& morphed, const Mat& last, Mat& dst) {
 	dst = morphed.clone();
 	uint32_t color;
 
-	double diag = hypot(morphed.cols, morphed.rows);
 	for(off_t x = 0; x < morphed.cols; ++x) {
 		for(off_t y = 0; y < morphed.rows; ++y) {
 			circle(dst, Point(x, y), 1, Scalar(0), -1);
-			const Point2f flv1 = flow.at<Point2f>(y, x) * 100;
-			double len = hypot(flv1.x - x, flv1.y - y);
-			if(len > 100){
-			color = std::round(double(255) * (double(len) / diag));
+			const Point2f flv1 = flow.at<Point2f>(y, x);
+			double mag = hypot(flv1.x, flv1.y);
+			color = std::round(double(255) * (double)mag);
 			circle(dst, Point(x, y), 1, Scalar(color), -1);
-			}
 		}
 	}
+	imshow("fhm", dst);
 }
 
 void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
@@ -266,6 +268,7 @@ void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
 	}
 }
 
+
 void draw_flow_highlight(const Mat& morphed, const Mat& last, Mat& dst) {
 	Mat flowv;
 	Mat flowm;
@@ -276,9 +279,39 @@ void draw_flow_highlight(const Mat& morphed, const Mat& last, Mat& dst) {
 	dst = morphed * 0.7 + overlay * 0.3;
 }
 
-void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Size& size, Subdiv2D& subdiv1, Subdiv2D& subdiv2, Subdiv2D& subdivMorph, Scalar delaunay_color) {
-	draw_flow_highlight(morphed, last, dst);
+void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<Point2f>& highlightCenters) {
+	Mat flowm;
+	Mat grey;
+	draw_flow_heightmap(morphed, last, flowm);
+	cvtColor(flowm, grey, cv::COLOR_RGB2GRAY);
 
+	Mat overlay;
+	Mat thresh;
+	normalize(grey, overlay, 255.0, 0.0, NORM_MINMAX);
+	GaussianBlur(overlay, overlay, Size(9, 9), 1);
+	cv::threshold(overlay, thresh, 250, 255, 0);
+
+	std::vector<std::vector<cv::Point>> contours;
+	vector<Vec4i> hierarchy;
+	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+	Rect rect(0, 0, morphed.cols, morphed.rows);
+
+	for(auto& ct : contours) {
+		auto br = boundingRect(ct);
+		double cx = br.x+br.width/2.0;
+		double cy = br.y+br.height/2.0;
+		Point2f pt(cx,cy);
+		if (rect.contains(pt)) {
+			highlightCenters.push_back(pt);
+		}
+	}
+}
+
+static std::vector<Point2f> highlights;
+
+void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Size& size, Subdiv2D& subdiv1, Subdiv2D& subdiv2, Subdiv2D& subdivMorph, Scalar delaunay_color) {
+	collect_flow_centers(morphed, last, highlights);
+	draw_flow_highlight(morphed, last, dst);
 	UMat flowUmat;
 	Mat flow;
 	Mat grey1, grey2;
@@ -292,25 +325,29 @@ void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Si
 	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
 	draw_delaunay(dst, size, subdivMorph, { 0, 0, 255 });
 
-	vector<Vec6f> triangleList;
-	subdivMorph.getTriangleList(triangleList);
-	vector<Point> pt(3);
-	Rect rect(0, 0, size.width, size.height);
-
-	for (size_t i = 0; i < triangleList.size(); i++) {
-		Vec6f t = triangleList[i];
-		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
-		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
-		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
-
-		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
-			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 20;
-			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 20;
-			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 20;
-			line(dst, pt[0], Point(cvRound(pt[0].x + flow1.x), cvRound(pt[0].y + flow1.y)), Scalar(255, 255, 0));
-			line(dst, pt[1], Point(cvRound(pt[1].x + flow2.x), cvRound(pt[1].y + flow2.y)), Scalar(255, 255, 0));
-			line(dst, pt[2], Point(cvRound(pt[2].x + flow3.x), cvRound(pt[2].y + flow3.y)), Scalar(255, 255, 0));
-		}
+//	vector<Vec6f> triangleList;
+//	subdivMorph.getTriangleList(triangleList);
+//	vector<Point> pt(3);
+//	Rect rect(0, 0, size.width, size.height);
+//
+//	for (size_t i = 0; i < triangleList.size(); i++) {
+//		Vec6f t = triangleList[i];
+//		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
+//		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
+//		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
+//
+//		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
+//			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 20;
+//			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 20;
+//			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 20;
+//			line(dst, pt[0], Point(cvRound(pt[0].x + flow1.x), cvRound(pt[0].y + flow1.y)), Scalar(255, 255, 0));
+//			line(dst, pt[1], Point(cvRound(pt[1].x + flow2.x), cvRound(pt[1].y + flow2.y)), Scalar(255, 255, 0));
+//			line(dst, pt[2], Point(cvRound(pt[2].x + flow3.x), cvRound(pt[2].y + flow3.y)), Scalar(255, 255, 0));
+//		}
+//	}
+//
+	for(auto& h : highlights) {
+		circle(dst, h, 2, Scalar(255,255,255), -1);
 	}
 }
 
@@ -817,13 +854,26 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 
 double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& last, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
 	//morph based on matches
-	int numPoints = srcPoints1.size();
-	cv::Size SourceImgSize(srcPoints1[numPoints - 1].x + 1, srcPoints1[numPoints - 1].y + 1);
+	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDivMorph(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
-	subDiv1.insert(srcPoints1);
-	subDiv2.insert(srcPoints2);
+	for (auto pt : srcPoints1) {
+		assert(!isinf(pt.x) && !isinf(pt.y));
+		assert(!isnan(pt.x) && !isnan(pt.y));
+		assert(pt.x >= 0 && pt.y >= 0);
+		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
+//		std::cerr << pt << std::endl;
+		subDiv1.insert(pt);
+	}
+	for (auto pt : srcPoints2) {
+		assert(!isinf(pt.x) && !isinf(pt.y));
+		assert(!isnan(pt.x) && !isnan(pt.y));
+		assert(pt.x >= 0 && pt.y >= 0);
+		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
+//		std::cerr << pt << std::endl;
+		subDiv2.insert(pt);
+	}
 
 	std::vector<cv::Point2f> morphedPoints;
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
@@ -833,9 +883,10 @@ double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& l
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
 		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
+//		std::cerr << pt << std::endl;
+		subDivMorph.insert(pt);
 	}
 
-	subDivMorph.insert(morphedPoints);
 
 	// Get the ID list of corners of Delaunay traiangles.
 	std::vector<cv::Vec3i> triangleIndices;
@@ -882,6 +933,24 @@ double ease_in_out_sine(double x) {
 	return -(cos(M_PI * x) - 1) / 2;
 }
 
+Point2f rotate_point(const Point2f& center, const Point2f trabant, float angle) {
+  float s = sin(angle);
+  float c = cos(angle);
+  Point2f newPoint = trabant;
+  // translate point back to origin:
+  newPoint.x -= center.x;
+  newPoint.y -= center.y;
+
+  // rotate point
+  float xnew = newPoint.x * c - newPoint.y * s;
+  float ynew = newPoint.x * s + newPoint.y * c;
+
+  // translate point back:
+  newPoint.x = xnew + center.x;
+  newPoint.y = ynew + center.y;
+  return newPoint;
+}
+
 int main(int argc, char **argv) {
 	using std::string;
 	srand(time(NULL));
@@ -891,6 +960,7 @@ int main(int argc, char **argv) {
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
 	double contSensitivity = contour_sensitivity;
+	uint32_t highlightSteps = highlight_steps;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -902,6 +972,7 @@ int main(int argc, char **argv) {
 	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
 	("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
 	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
+	("highsteps,i", po::value<uint32_t>(&highlightSteps)->default_value(highlightSteps), "How many highlight snapshots should be taken during the first pass.")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -939,6 +1010,7 @@ int main(int argc, char **argv) {
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len = maxChopLen;
 	contour_sensitivity = contSensitivity;
+	highlight_steps = highlightSteps;
 
 	Mat image1;
 	try {
@@ -982,15 +1054,96 @@ int main(int argc, char **argv) {
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
-		float step = 1.0 / number_of_frames;
-		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+		float step = 1.0 / highlight_steps;
+		for (size_t j = 0; j < highlight_steps; ++j) {
+			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
 
-			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ((j + 1) * step), (j + 1) * step);
+			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
 			image1 = morphed.clone();
 			imshow("morphed", morphed);
 			waitKey(1);
+		}
+		auto forward_hl = highlights;
+		highlights.clear();
+		morphed.release();
+		srcPoints1.clear();
+		srcPoints2.clear();
+
+		find_matches(orig2, orig1, srcPoints1, srcPoints2);
+		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
+
+		for (size_t j = 0; j < highlight_steps; ++j) {
+			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
+			morph_images(orig2, orig1, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
+			image1 = morphed.clone();
+			imshow("morphed", morphed);
+			waitKey(1);
+		}
+
+		auto backward_hl = highlights;
+		highlights.clear();
+		morphed.release();
+		srcPoints1.clear();
+		srcPoints2.clear();
+
+		if (backward_hl.size() > forward_hl.size())
+			backward_hl.resize(forward_hl.size());
+		else
+			forward_hl.resize(backward_hl.size());
+
+		double radius = hypot(orig1.cols, orig1.rows) / 15;
+		Rect2f rect(0, 0, orig1.cols, orig1.rows);
+
+		for(auto& bhl : backward_hl) {
+			Point2f p0(bhl.x + radius, bhl.y + radius);
+			Point2f p1 = rotate_point(bhl, p0, 60);
+			Point2f p2 = rotate_point(bhl, p0, 180);
+			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(bhl)) {
+				srcPoints1.push_back(bhl);
+				srcPoints1.push_back(p0);
+				srcPoints1.push_back(p1);
+				srcPoints1.push_back(p2);
+			}
+		}
+
+		for(auto& fhl : forward_hl) {
+			Point2f p0(fhl.x + radius, fhl.y + radius);
+			Point2f p1 = rotate_point(fhl, p0, 60);
+			Point2f p2 = rotate_point(fhl, p0, 180);
+
+			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(fhl)) {
+				srcPoints2.push_back(fhl);
+				srcPoints2.push_back(p0);
+				srcPoints2.push_back(p1);
+				srcPoints2.push_back(p2);
+			}
+		}
+
+		for (auto pt : srcPoints1) {
+			assert(!isinf(pt.x) && !isinf(pt.y));
+			assert(!isnan(pt.x) && !isnan(pt.y));
+			assert(pt.x >= 0 && pt.y >= 0);
+			assert(pt.x < orig1.cols && pt.y < orig1.rows);
+		}
+
+		for (auto pt : srcPoints2) {
+			assert(!isinf(pt.x) && !isinf(pt.y));
+			assert(!isnan(pt.x) && !isnan(pt.y));
+			assert(pt.x >= 0 && pt.y >= 0);
+			assert(pt.x < orig1.cols && pt.y < orig1.rows);
+		}
+			//Draw triangles completely inside the image.
+		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
+
+		step = 1.0 / number_of_frames;
+		std::cerr << "forward: " << srcPoints1.size() << " + backward: " << srcPoints2.size() << std::endl;
+		for (size_t j = 0; j < number_of_frames; ++j) {
+			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step,2));
+			image1 = morphed.clone();
 			output.write(morphed);
+			imshow("morphed", morphed);
+			waitKey(1);
 		}
 
 		image1 = image2.clone();
