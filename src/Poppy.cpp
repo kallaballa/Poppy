@@ -36,7 +36,6 @@ double max_ang_deviation = 0.3;
 double max_pair_len_divider = 10;
 double max_chop_len = 20;
 double contour_sensitivity = 0.3;
-uint16_t highlight_steps = 5;
 
 using namespace cv;
 using std::vector;
@@ -429,9 +428,10 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	}
 }
 
-static std::vector<std::pair<Point2f,double>> highlights;
+
 
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
+//	std::vector<std::pair<Point2f,double>> highlights;
 //	collect_flow_centers(morphed, last, highlights);
 //	draw_flow_highlight(morphed, last, dst);
 //	UMat flowUmat;
@@ -1154,7 +1154,6 @@ int main(int argc, char **argv) {
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLen = max_chop_len;
 	double contSensitivity = contour_sensitivity;
-	uint32_t highlightSteps = highlight_steps;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -1166,7 +1165,6 @@ int main(int argc, char **argv) {
 	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
 	("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
 	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
-	("highsteps,i", po::value<uint32_t>(&highlightSteps)->default_value(highlightSteps), "How many highlight snapshots should be taken during the first pass.")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -1204,8 +1202,6 @@ int main(int argc, char **argv) {
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len = maxChopLen;
 	contour_sensitivity = contSensitivity;
-	highlight_steps = highlightSteps;
-
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
