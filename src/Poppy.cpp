@@ -418,9 +418,6 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	Rect rect(0, 0, morphed.cols, morphed.rows);
 
-	imshow("thresh", thresh);
-//	waitKey(0);
-
 	for (auto &ct : contours) {
 		auto br = boundingRect(ct);
 		double cx = br.x + br.width / 2.0;
@@ -435,16 +432,16 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 static std::vector<std::pair<Point2f,double>> highlights;
 
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
-	collect_flow_centers(morphed, last, highlights);
-	draw_flow_highlight(morphed, last, dst);
-	UMat flowUmat;
-	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
-
-	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-	flowUmat.copyTo(flow);
+//	collect_flow_centers(morphed, last, highlights);
+//	draw_flow_highlight(morphed, last, dst);
+//	UMat flowUmat;
+//	Mat flow;
+//	Mat grey1, grey2;
+//	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
+//	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
+//
+//	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
+//	flowUmat.copyTo(flow);
 
 	draw_delaunay(dst, size, subdiv1, { 255, 0, 0 });
 	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
@@ -471,9 +468,9 @@ void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Si
 //		}
 //	}
 //
-	for (auto &h : highlights) {
-		circle(dst, h.first, 1, Scalar(255, 255, 255), -1);
-	}
+//	for (auto &h : highlights) {
+//		circle(dst, h.first, 1, Scalar(255, 255, 255), -1);
+//	}
 }
 
 void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2) {
@@ -549,18 +546,12 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const
 	Mat b2 = b1.clone();
 
 	for(auto h : high1) {
-//		circle(b1, h.first, h.second / 4.0, Scalar(0), -1);
 		circle(b1, h.first, h.second / 4.0, Scalar(255), 2);
 	}
 
 	for(auto h : high2) {
-//		circle(b1, h.first, h.second / 4.0, Scalar(0), -1);
 		circle(b2, h.first, h.second / 4.0, Scalar(255), 2);
 	}
-
-	imshow("b1", b1);
-	imshow("b2", b2);
-//	waitKey(0);
 
 	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000000);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
@@ -762,7 +753,7 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 	return {(float)px, (float)py};
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat grey1, grey2;
@@ -792,8 +783,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	dst2.clear();
 	dst1.resize(collected1.size());
 	dst2.resize(collected1.size());
-	allContours1 = cv::Mat::zeros( { img1.cols, img1.rows }, img1.type());
-	allContours2 = cv::Mat::zeros( { img1.cols, img1.rows }, img1.type());
 
 	for (size_t i = 0; i < collected1.size(); ++i) {
 		Mat &cont1 = dst1[i];
@@ -801,15 +790,11 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
 		cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
 
-		for (size_t i = 0; i < contours1.size(); ++i) {
-			cv::drawContours(cont1, contours1, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy1, 0);
-			cv::drawContours(allContours1, contours1, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy1, 0);
-		}
+		for (size_t i = 0; i < contours1.size(); ++i)
+			cv::drawContours(cont1, contours1, i, { 255, 0, 0 }, 1, cv::LINE_8, hierarchy1, 0);
 
-		for (size_t i = 0; i < contours2.size(); ++i) {
-			cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
-			cv::drawContours(allContours2, contours2, i, { 255, 0, 0 }, 2, cv::LINE_8, hierarchy2, 0);
-		}
+		for (size_t i = 0; i < contours2.size(); ++i)
+			cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 1, cv::LINE_8, hierarchy2, 0);
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
@@ -818,8 +803,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
 	std::vector<Mat> contours1, contours2;
-	Mat allContours1, allContours2;
-	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
+	find_contours(orig1, orig2, contours1, contours2);
 
 	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
@@ -830,8 +814,8 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 
 	Mat matMatches;
 	Mat grey1, grey2;
-	cvtColor(allContours1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(allContours2, grey2, cv::COLOR_RGB2GRAY);
+	cvtColor(orig1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(orig2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	imshow("matches", matMatches);
 
@@ -851,7 +835,6 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 		double currentMinDist = std::numeric_limits<double>::max();
 
 		Point2f closest(-1, -1);
-		bool erased = false;
 		for (auto pt2 : setpt2) {
 			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
 
@@ -860,9 +843,6 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 				closest = pt2;
 			}
 		}
-
-		if (erased)
-			continue;
 
 		if (closest.x == -1 && closest.y == -1)
 			continue;
@@ -1021,8 +1001,11 @@ void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
 
 void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
 	//edit matches
+	std::cerr << "prepare: " << srcPoints1.size() << " -> ";
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	std::cerr << "pair: " << srcPoints1.size() << " -> ";
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	std::cerr << "chop: " << srcPoints1.size() << " -> ";
 
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
 	edges.reserve(1000);
@@ -1276,91 +1259,9 @@ int main(int argc, char **argv) {
 			imshow("morphed", morphed);
 			waitKey(1);
 		}
-		auto forward_hl = highlights;
-		highlights.clear();
 		morphed.release();
 		srcPoints1.clear();
 		srcPoints2.clear();
-
-//		find_matches(orig2, orig1, srcPoints1, srcPoints2);
-//		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
-//
-//		for (size_t j = 0; j < highlight_steps; ++j) {
-//			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
-//			morph_images(orig2, orig1, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
-//			image1 = morphed.clone();
-//			imshow("morphed", morphed);
-//			waitKey(1);
-//		}
-//
-//		auto backward_hl = highlights;
-//		highlights.clear();
-//		morphed.release();
-//		srcPoints1.clear();
-//		srcPoints2.clear();
-//
-//		if (backward_hl.size() > forward_hl.size())
-//			backward_hl.resize(forward_hl.size());
-//		else
-//			forward_hl.resize(backward_hl.size());
-//
-////		double radius = hypot(orig1.cols, orig1.rows) / 15;
-////		Rect2f rect(0, 0, orig1.cols, orig1.rows);
-////
-////		for (auto &bhl : backward_hl) {
-////			Point2f p0(bhl.x + radius, bhl.y + radius);
-////			Point2f p1 = rotate_point(bhl, p0, 60);
-////			Point2f p2 = rotate_point(bhl, p0, 180);
-////			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(bhl)) {
-////				srcPoints1.push_back(bhl);
-////				srcPoints1.push_back(p0);
-////				srcPoints1.push_back(p1);
-////				srcPoints1.push_back(p2);
-////			}
-////		}
-////
-////		for (auto &fhl : forward_hl) {
-////			Point2f p0(fhl.x + radius, fhl.y + radius);
-////			Point2f p1 = rotate_point(fhl, p0, 60);
-////			Point2f p2 = rotate_point(fhl, p0, 180);
-////
-////			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(fhl)) {
-////				srcPoints2.push_back(fhl);
-////				srcPoints2.push_back(p0);
-////				srcPoints2.push_back(p1);
-////				srcPoints2.push_back(p2);
-////			}
-////		}
-//
-//		auto m = find_matches_classic(orig2, orig1, backward_hl, forward_hl);
-//		srcPoints1 = m.first;
-//		srcPoints2 = m.second;
-////		add_corners(srcPoints1, srcPoints2, orig1.size);
-//
-//		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
-//		for (auto pt : srcPoints1) {
-//			assert(!isinf(pt.x) && !isinf(pt.y));
-//			assert(!isnan(pt.x) && !isnan(pt.y));
-//			assert(pt.x >= 0 && pt.y >= 0);
-//			assert(pt.x < orig1.cols && pt.y < orig1.rows);
-//		}
-//
-//		for (auto pt : srcPoints2) {
-//			assert(!isinf(pt.x) && !isinf(pt.y));
-//			assert(!isnan(pt.x) && !isnan(pt.y));
-//			assert(pt.x >= 0 && pt.y >= 0);
-//			assert(pt.x < orig1.cols && pt.y < orig1.rows);
-//		}
-//		step = 1.0 / number_of_frames;
-//		std::cerr << "forward: " << srcPoints1.size() << " + backward: " << srcPoints2.size() << std::endl;
-//		for (size_t j = 0; j < number_of_frames; ++j) {
-//			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-//			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step, 2));
-//			image1 = morphed.clone();
-//			output.write(morphed);
-//			imshow("morphed", morphed);
-//			waitKey(1);
-//		}
 
 		image1 = image2.clone();
 	}
