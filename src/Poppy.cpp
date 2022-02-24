@@ -8,8 +8,14 @@
 #include <filesystem>
 #include <algorithm>
 
-
 #include <boost/program_options.hpp>
+
+#include <CGAL/Cartesian.h>
+#include <CGAL/MP_Float.h>
+#include <CGAL/Quotient.h>
+#include <CGAL/Arr_segment_traits_2.h>
+#include <CGAL/Sweep_line_2_algorithms.h>
+
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -17,6 +23,12 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+
+typedef CGAL::Quotient<CGAL::MP_Float>                  NT;
+typedef CGAL::Cartesian<NT>                             Kernel;
+typedef Kernel::Point_2                                 Point_2;
+typedef CGAL::Arr_segment_traits_2<Kernel>              Traits_2;
+typedef Traits_2::Curve_2                               Segment_2;
 
 double number_of_frames = 60;
 double max_len_deviation = 20;
@@ -26,7 +38,6 @@ double max_chop_len = 5;
 double contour_sensitivity = 0.3;
 uint16_t highlight_steps = 5;
 
-
 using namespace cv;
 using std::vector;
 using std::chrono::microseconds;
@@ -34,6 +45,120 @@ using std::chrono::microseconds;
 namespace po = boost::program_options;
 
 typedef unsigned char sample_t;
+
+int ratioTest(std::vector<std::vector<cv::DMatch> >
+		&matches) {
+#ifndef _NO_OPENCV
+	int removed = 0;
+	// for all matches
+	for (std::vector<std::vector<cv::DMatch> >::iterator
+	matchIterator = matches.begin();
+			matchIterator != matches.end(); ++matchIterator) {
+		// if 2 NN has been identified
+		if (matchIterator->size() > 1) {
+			// check distance ratio
+			if ((*matchIterator)[0].distance /
+					(*matchIterator)[1].distance > 0.7) {
+				matchIterator->clear(); // remove match
+				removed++;
+			}
+		} else { // does not have 2 neighbours
+			matchIterator->clear(); // remove match
+			removed++;
+		}
+	}
+	return removed;
+#else
+        return 0;
+#endif
+}
+
+cv::Mat ransacTest(
+		const std::vector<cv::DMatch> &matches,
+		const std::vector<cv::KeyPoint> &keypoints1,
+		const std::vector<cv::KeyPoint> &keypoints2,
+		std::vector<cv::DMatch> &outMatches)
+		{
+#ifndef _NO_OPENCV
+	// Convert keypoints into Point2f
+	std::vector<cv::Point2f> points1, points2;
+	for (std::vector<cv::DMatch>::
+	const_iterator it = matches.begin();
+			it != matches.end(); ++it) {
+		// Get the position of left keypoints
+		float x = keypoints1[it->queryIdx].pt.x;
+		float y = keypoints1[it->queryIdx].pt.y;
+		points1.push_back(cv::Point2f(x, y));
+		// Get the position of right keypoints
+		x = keypoints2[it->trainIdx].pt.x;
+		y = keypoints2[it->trainIdx].pt.y;
+		points2.push_back(cv::Point2f(x, y));
+	}
+	// Compute F matrix using RANSAC
+	std::vector<uchar> inliers(points1.size(), 0);
+	std::vector<cv::Point2f> out;
+	//cv::Mat fundemental= cv::findFundamentalMat(points1, points2, out, CV_FM_RANSAC, 3, 0.99);
+
+	cv::Mat fundemental = findFundamentalMat(
+			cv::Mat(points1), cv::Mat(points2), // matching points
+			inliers,      // match status (inlier or outlier)
+			cv::FM_RANSAC, // RANSAC method
+			3.0,     // distance to epipolar line
+			0.99);  // confidence probability
+
+	// extract the surviving (inliers) matches
+	std::vector<uchar>::const_iterator
+	itIn = inliers.begin();
+	std::vector<cv::DMatch>::const_iterator
+	itM = matches.begin();
+	// for all matches
+	for (; itIn != inliers.end(); ++itIn, ++itM) {
+		if (*itIn) { // it is a valid match
+			outMatches.push_back(*itM);
+		}
+	}
+	return fundemental;
+#else
+    return cv::Mat();
+#endif
+}
+
+void symmetryTest(
+		const std::vector<std::vector<cv::DMatch>> &matches1,
+		const std::vector<std::vector<cv::DMatch>> &matches2,
+		std::vector<cv::DMatch> &symMatches) {
+#ifndef _NO_OPENCV
+	// for all matches image 1 -> image 2
+	for (std::vector<std::vector<cv::DMatch>>::
+	const_iterator matchIterator1 = matches1.begin();
+			matchIterator1 != matches1.end(); ++matchIterator1) {
+		// ignore deleted matches
+		if (matchIterator1->size() < 2)
+			continue;
+		// for all matches image 2 -> image 1
+		for (std::vector<std::vector<cv::DMatch>>::
+		const_iterator matchIterator2 = matches2.begin();
+				matchIterator2 != matches2.end();
+				++matchIterator2) {
+			// ignore deleted matches
+			if (matchIterator2->size() < 2)
+				continue;
+			// Match symmetry test
+			if ((*matchIterator1)[0].queryIdx ==
+					(*matchIterator2)[0].trainIdx &&
+					(*matchIterator2)[0].queryIdx ==
+							(*matchIterator1)[0].trainIdx) {
+				// add symmetrical match
+				symMatches.push_back(
+						cv::DMatch((*matchIterator1)[0].queryIdx,
+								(*matchIterator1)[0].trainIdx,
+								(*matchIterator1)[0].distance));
+				break; // next match in image 1 -> image 2
+			}
+		}
+	}
+#endif
+}
 
 struct LessPointOp {
 	bool operator()(const Point2f &lhs, const Point2f &rhs) const {
@@ -219,8 +344,7 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 	}
 }
 
-
-void draw_flow_heightmap(const Mat& morphed, const Mat& last, Mat& dst) {
+void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 	UMat flowUmat;
 	Mat flow;
 	Mat grey1, grey2;
@@ -232,19 +356,19 @@ void draw_flow_heightmap(const Mat& morphed, const Mat& last, Mat& dst) {
 	dst = morphed.clone();
 	uint32_t color;
 
-	for(off_t x = 0; x < morphed.cols; ++x) {
-		for(off_t y = 0; y < morphed.rows; ++y) {
+	for (off_t x = 0; x < morphed.cols; ++x) {
+		for (off_t y = 0; y < morphed.rows; ++y) {
 			circle(dst, Point(x, y), 1, Scalar(0), -1);
 			const Point2f flv1 = flow.at<Point2f>(y, x);
 			double mag = hypot(flv1.x, flv1.y);
-			color = std::round(double(255) * (double)mag);
+			color = std::round(double(255) * (double) mag);
 			circle(dst, Point(x, y), 1, Scalar(color), -1);
 		}
 	}
 	imshow("fhm", dst);
 }
 
-void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
+void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 	UMat flowUmat;
 	Mat flow;
 	Mat grey1, grey2;
@@ -257,19 +381,18 @@ void draw_flow_vectors(const Mat& morphed, const Mat& last, Mat& dst) {
 	uint32_t color;
 
 	double diag = hypot(morphed.cols, morphed.rows);
-	for(off_t x = 0; x < morphed.cols; ++x) {
-		for(off_t y = 0; y < morphed.rows; ++y) {
+	for (off_t x = 0; x < morphed.cols; ++x) {
+		for (off_t y = 0; y < morphed.rows; ++y) {
 			const Point2f flv1 = flow.at<Point2f>(y, x) * 10;
 			double len = hypot(flv1.x - x, flv1.y - y);
 			color = std::round(double(255) * (double(len) / diag));
-			line(dst, Point(x,y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color));
+			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color));
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
 }
 
-
-void draw_flow_highlight(const Mat& morphed, const Mat& last, Mat& dst) {
+void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
 	Mat flowv;
 	Mat flowm;
 	draw_flow_vectors(morphed, last, flowv);
@@ -279,7 +402,7 @@ void draw_flow_highlight(const Mat& morphed, const Mat& last, Mat& dst) {
 	dst = morphed * 0.7 + overlay * 0.3;
 }
 
-void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<Point2f>& highlightCenters) {
+void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<Point2f> &highlightCenters) {
 	Mat flowm;
 	Mat grey;
 	draw_flow_heightmap(morphed, last, flowm);
@@ -296,11 +419,11 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<Point
 	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	Rect rect(0, 0, morphed.cols, morphed.rows);
 
-	for(auto& ct : contours) {
+	for (auto &ct : contours) {
 		auto br = boundingRect(ct);
-		double cx = br.x+br.width/2.0;
-		double cy = br.y+br.height/2.0;
-		Point2f pt(cx,cy);
+		double cx = br.x + br.width / 2.0;
+		double cy = br.y + br.height / 2.0;
+		Point2f pt(cx, cy);
 		if (rect.contains(pt)) {
 			highlightCenters.push_back(pt);
 		}
@@ -309,7 +432,7 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<Point
 
 static std::vector<Point2f> highlights;
 
-void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Size& size, Subdiv2D& subdiv1, Subdiv2D& subdiv2, Subdiv2D& subdivMorph, Scalar delaunay_color) {
+void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
 	collect_flow_centers(morphed, last, highlights);
 	draw_flow_highlight(morphed, last, dst);
 	UMat flowUmat;
@@ -346,8 +469,8 @@ void draw_morph_analysis(const Mat& morphed, const Mat& last, Mat& dst, const Si
 //		}
 //	}
 //
-	for(auto& h : highlights) {
-		circle(dst, h, 2, Scalar(255,255,255), -1);
+	for (auto &h : highlights) {
+		circle(dst, h, 2, Scalar(255, 255, 255), -1);
 	}
 }
 
@@ -403,6 +526,55 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 
 	length_test(keypoints1, keypoints2, grey1.cols);
 	angle_test(keypoints1, keypoints2, grey1.cols);
+
+	std::vector<Point2f> points1;
+	std::vector<Point2f> points2;
+	for (auto pt1 : keypoints1) {
+		points1.push_back(pt1.pt);
+	}
+
+	for (auto pt2 : keypoints2) {
+		points2.push_back(pt2.pt);
+	}
+	return {points1,points2};
+}
+
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat &grey1, const Mat &grey2) {
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000);
+	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
+
+	std::vector<KeyPoint> keypoints1, keypoints2;
+
+	Mat descriptors1, descriptors2;
+	detector->detect(grey1, keypoints1);
+	detector->detect(grey2, keypoints2);
+
+	detector->compute(grey1, keypoints1, descriptors1);
+	detector->compute(grey2, keypoints2, descriptors2);
+
+	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(12, 20, 2);
+	FlannBasedMatcher matcher1(indexParams);
+	FlannBasedMatcher matcher2(indexParams);
+	std::vector<std::vector<cv::DMatch>> matches1, matches2;
+	std::vector<DMatch> goodMatches;
+	std::vector<DMatch> symMatches;
+
+	matcher1.knnMatch(descriptors1, descriptors2, matches1, 2);
+	matcher2.knnMatch(descriptors2, descriptors1, matches2, 2);
+
+	ratioTest(matches1);
+	ratioTest(matches2);
+
+	symmetryTest(matches1, matches2, symMatches);
+
+	if (symMatches.empty()) {
+		assert(false);
+	}
+	cv::Mat fundamental = ransacTest(symMatches, keypoints1, keypoints2, goodMatches);
+
+	if (goodMatches.empty()) {
+		assert(false);
+	}
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
@@ -683,6 +855,26 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 		}
 	}
 
+	  std::vector<Segment_2> segs;
+	  for(size_t i = 0; i < tmp1.size(); i++) {
+		  if(tmp1[i] != tmp2[i])
+			  segs.push_back(Segment_2(Point_2(tmp1[i].x, tmp1[i].y), Point_2(tmp2[i].x, tmp2[i].y)));
+	  }
+	  std::list<Segment_2> sub_segs;
+
+	  CGAL::compute_subcurves(segs.data(), segs.data() + segs.size(), std::back_inserter(sub_segs));
+
+	  tmp1.clear();
+	  tmp2.clear();
+	  for(const Segment_2& subseg : sub_segs) {
+	    double x1 = CGAL::to_double(subseg.source()[0]);
+	    double y1 = CGAL::to_double(subseg.source()[1]);
+	    double x2 = CGAL::to_double(subseg.target()[0]);
+	    double y2 = CGAL::to_double(subseg.target()[1]);
+	    tmp1.push_back(Point2f(x1,y1));
+	    tmp2.push_back(Point2f(x2,y2));
+	  }
+
 	assert(tmp1.size() == tmp2.size());
 
 	srcPoints1 = tmp1;
@@ -852,7 +1044,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& last, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
+double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -886,7 +1078,6 @@ double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& l
 //		std::cerr << pt << std::endl;
 		subDivMorph.insert(pt);
 	}
-
 
 	// Get the ID list of corners of Delaunay traiangles.
 	std::vector<cv::Vec3i> triangleIndices;
@@ -922,7 +1113,7 @@ double morph_images(Mat& origImg1, Mat& origImg2, cv::Mat& dst, const cv::Mat& l
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
-	if(prev.empty())
+	if (prev.empty())
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	imshow("analysis", analysis);
@@ -933,22 +1124,22 @@ double ease_in_out_sine(double x) {
 	return -(cos(M_PI * x) - 1) / 2;
 }
 
-Point2f rotate_point(const Point2f& center, const Point2f trabant, float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-  Point2f newPoint = trabant;
-  // translate point back to origin:
-  newPoint.x -= center.x;
-  newPoint.y -= center.y;
+Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	Point2f newPoint = trabant;
+	// translate point back to origin:
+	newPoint.x -= center.x;
+	newPoint.y -= center.y;
 
-  // rotate point
-  float xnew = newPoint.x * c - newPoint.y * s;
-  float ynew = newPoint.x * s + newPoint.y * c;
+	// rotate point
+	float xnew = newPoint.x * c - newPoint.y * s;
+	float ynew = newPoint.x * s + newPoint.y * c;
 
-  // translate point back:
-  newPoint.x = xnew + center.x;
-  newPoint.y = ynew + center.y;
-  return newPoint;
+	// translate point back:
+	newPoint.x = xnew + center.x;
+	newPoint.y = ynew + center.y;
+	return newPoint;
 }
 
 int main(int argc, char **argv) {
@@ -1094,7 +1285,7 @@ int main(int argc, char **argv) {
 		double radius = hypot(orig1.cols, orig1.rows) / 15;
 		Rect2f rect(0, 0, orig1.cols, orig1.rows);
 
-		for(auto& bhl : backward_hl) {
+		for (auto &bhl : backward_hl) {
 			Point2f p0(bhl.x + radius, bhl.y + radius);
 			Point2f p1 = rotate_point(bhl, p0, 60);
 			Point2f p2 = rotate_point(bhl, p0, 180);
@@ -1106,7 +1297,7 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		for(auto& fhl : forward_hl) {
+		for (auto &fhl : forward_hl) {
 			Point2f p0(fhl.x + radius, fhl.y + radius);
 			Point2f p1 = rotate_point(fhl, p0, 60);
 			Point2f p2 = rotate_point(fhl, p0, 180);
@@ -1132,14 +1323,14 @@ int main(int argc, char **argv) {
 			assert(pt.x >= 0 && pt.y >= 0);
 			assert(pt.x < orig1.cols && pt.y < orig1.rows);
 		}
-			//Draw triangles completely inside the image.
+
 		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
 
 		step = 1.0 / number_of_frames;
 		std::cerr << "forward: " << srcPoints1.size() << " + backward: " << srcPoints2.size() << std::endl;
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step,2));
+			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step, 2));
 			image1 = morphed.clone();
 			output.write(morphed);
 			imshow("morphed", morphed);
