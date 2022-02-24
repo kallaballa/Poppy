@@ -402,7 +402,7 @@ void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
 	dst = morphed * 0.7 + overlay * 0.3;
 }
 
-void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<Point2f> &highlightCenters) {
+void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::pair<Point2f,double>>& highlightCenters) {
 	Mat flowm;
 	Mat grey;
 	draw_flow_heightmap(morphed, last, flowm);
@@ -411,13 +411,15 @@ void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<Point
 	Mat overlay;
 	Mat thresh;
 	normalize(grey, overlay, 255.0, 0.0, NORM_MINMAX);
-	GaussianBlur(overlay, overlay, Size(9, 9), 1);
-	cv::threshold(overlay, thresh, 250, 255, 0);
-
+	GaussianBlur(overlay, overlay, Size(13, 13), 2);
+	cv::threshold(overlay, thresh, 254, 255, 0);
 	std::vector<std::vector<cv::Point>> contours;
 	vector<Vec4i> hierarchy;
 	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	Rect rect(0, 0, morphed.cols, morphed.rows);
+	std::cerr << contours.size() << std::endl;
+	imshow("thresh", thresh);
+	waitKey(0);
 
 	for (auto &ct : contours) {
 		auto br = boundingRect(ct);
@@ -425,12 +427,12 @@ void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<Point
 		double cy = br.y + br.height / 2.0;
 		Point2f pt(cx, cy);
 		if (rect.contains(pt)) {
-			highlightCenters.push_back(pt);
+			highlightCenters.push_back({pt, hypot(br.width, br.height)});
 		}
 	}
 }
 
-static std::vector<Point2f> highlights;
+static std::vector<std::pair<Point2f,double>> highlights;
 
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
 	collect_flow_centers(morphed, last, highlights);
@@ -470,7 +472,7 @@ void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Si
 //	}
 //
 	for (auto &h : highlights) {
-		circle(dst, h, 2, Scalar(255, 255, 255), -1);
+		circle(dst, h.first, h.second, Scalar(255, 255, 255), -1);
 	}
 }
 
@@ -510,7 +512,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000);
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
@@ -524,8 +526,8 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 
 	Mat matMatches;
 
-	length_test(keypoints1, keypoints2, grey1.cols);
-	angle_test(keypoints1, keypoints2, grey1.cols);
+//	length_test(keypoints1, keypoints2, grey1.cols);
+//	angle_test(keypoints1, keypoints2, grey1.cols);
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
@@ -539,18 +541,35 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	return {points1,points2};
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat &grey1, const Mat &grey2) {
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000);
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat& img1, const Mat& img2, std::vector<Point2f>& srcPoints1, std::vector<Point2f>& srcPoints2) {
+	Mat grey1, grey2;
+	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+	Mat b1 = Mat::zeros({grey1.cols, grey1.rows}, grey1.type());
+	Mat b2 = b1.clone();
+
+	cv::Subdiv2D subDiv1(cv::Rect(0, 0, grey1.cols, grey1.rows));
+	cv::Subdiv2D subDiv2(cv::Rect(0, 0, grey1.cols, grey1.rows));
+	subDiv1.insert(srcPoints1);
+	subDiv2.insert(srcPoints2);
+	draw_delaunay(b1, {grey1.cols, grey1.rows}, subDiv1, { 255, 255, 255 });
+	draw_delaunay(b2, {grey1.cols, grey1.rows}, subDiv2, { 255, 255, 255 });
+
+	imshow("b1", b1);
+	imshow("b2", b2);
+	waitKey(0);
+
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(100000);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
 
 	Mat descriptors1, descriptors2;
-	detector->detect(grey1, keypoints1);
-	detector->detect(grey2, keypoints2);
+	detector->detect(b1, keypoints1);
+	detector->detect(b2, keypoints2);
 
-	detector->compute(grey1, keypoints1, descriptors1);
-	detector->compute(grey2, keypoints2, descriptors2);
+	detector->compute(b1, keypoints1, descriptors1);
+	detector->compute(b2, keypoints2, descriptors2);
 
 	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(12, 20, 2);
 	FlannBasedMatcher matcher1(indexParams);
@@ -562,11 +581,12 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const
 	matcher1.knnMatch(descriptors1, descriptors2, matches1, 2);
 	matcher2.knnMatch(descriptors2, descriptors1, matches2, 2);
 
+	std::cerr << "1: " << matches1.size() << " + " << matches2.size() << std::endl;
 	ratioTest(matches1);
 	ratioTest(matches2);
-
+	std::cerr << "2: " << matches1.size() << " + " << matches2.size() << std::endl;
 	symmetryTest(matches1, matches2, symMatches);
-
+	std::cerr << "3: " << symMatches.size() << std::endl;
 	if (symMatches.empty()) {
 		assert(false);
 	}
@@ -578,13 +598,12 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
-	for (auto pt1 : keypoints1) {
-		points1.push_back(pt1.pt);
+
+	for(auto& gm : goodMatches) {
+		points1.push_back(keypoints1[gm.queryIdx].pt);
+		points2.push_back(keypoints2[gm.trainIdx].pt);
 	}
 
-	for (auto pt2 : keypoints2) {
-		points2.push_back(pt2.pt);
-	}
 	return {points1,points2};
 }
 
@@ -1004,30 +1023,30 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
 
-	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
-	edges.reserve(1000);
-	Point2f p1, p2;
-	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-		auto &pt1 = srcPoints1[i];
-		auto &pt2 = srcPoints2[i];
-		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
-	}
-	std::vector<KeyPoint> kpv1;
-	std::vector<KeyPoint> kpv2;
-	length_test(edges, kpv1, kpv2, img1.cols);
-
-	srcPoints1.clear();
-	for (auto kp : kpv1) {
-		srcPoints1.push_back(kp.pt);
-	}
-	srcPoints2.clear();
-	for (auto kp : kpv2) {
-		srcPoints2.push_back(kp.pt);
-	}
-	std::cerr << "length test: " << srcPoints1.size() << " -> ";
-
-	angle_test(srcPoints1, srcPoints2, img1.cols);
-	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
+//	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
+//	edges.reserve(1000);
+//	Point2f p1, p2;
+//	for (size_t i = 0; i < srcPoints1.size(); ++i) {
+//		auto &pt1 = srcPoints1[i];
+//		auto &pt2 = srcPoints2[i];
+//		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
+//	}
+//	std::vector<KeyPoint> kpv1;
+//	std::vector<KeyPoint> kpv2;
+//	length_test(edges, kpv1, kpv2, img1.cols);
+//
+//	srcPoints1.clear();
+//	for (auto kp : kpv1) {
+//		srcPoints1.push_back(kp.pt);
+//	}
+//	srcPoints2.clear();
+//	for (auto kp : kpv2) {
+//		srcPoints2.push_back(kp.pt);
+//	}
+//	std::cerr << "length test: " << srcPoints1.size() << " -> ";
+//
+//	angle_test(srcPoints1, srcPoints2, img1.cols);
+//	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
@@ -1324,6 +1343,7 @@ int main(int argc, char **argv) {
 			assert(pt.x < orig1.cols && pt.y < orig1.rows);
 		}
 
+//		find_matches_classic(orig2, orig1, srcPoints1, srcPoints2);
 		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
 
 		step = 1.0 / number_of_frames;
