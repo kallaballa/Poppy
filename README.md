@@ -7,7 +7,7 @@ An non-domain-specific morph algorithm that doesn't require manual keypoints
 
 ![Car morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/cars.gif?raw=true)
 
-![Cat to dog morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
+![Fractal morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/fract.gif?raw=true)
 
 (Images from http://vision.ucsd.edu/content/yale-face-database)
 
