@@ -34,7 +34,7 @@ double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
 double max_pair_len_divider = 10;
-double max_chop_len = 5;
+double max_chop_len = 20;
 double contour_sensitivity = 0.3;
 uint16_t highlight_steps = 5;
 
@@ -417,9 +417,9 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	vector<Vec4i> hierarchy;
 	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 	Rect rect(0, 0, morphed.cols, morphed.rows);
-	std::cerr << contours.size() << std::endl;
+
 	imshow("thresh", thresh);
-	waitKey(0);
+//	waitKey(0);
 
 	for (auto &ct : contours) {
 		auto br = boundingRect(ct);
@@ -472,7 +472,7 @@ void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Si
 //	}
 //
 	for (auto &h : highlights) {
-		circle(dst, h.first, h.second, Scalar(255, 255, 255), -1);
+		circle(dst, h.first, 1, Scalar(255, 255, 255), -1);
 	}
 }
 
@@ -541,25 +541,28 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	return {points1,points2};
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat& img1, const Mat& img2, std::vector<Point2f>& srcPoints1, std::vector<Point2f>& srcPoints2) {
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat& img1, const Mat& img2, std::vector<std::pair<Point2f,double>>& high1, std::vector<std::pair<Point2f,double>>& high2) {
 	Mat grey1, grey2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 	Mat b1 = Mat::zeros({grey1.cols, grey1.rows}, grey1.type());
 	Mat b2 = b1.clone();
 
-	cv::Subdiv2D subDiv1(cv::Rect(0, 0, grey1.cols, grey1.rows));
-	cv::Subdiv2D subDiv2(cv::Rect(0, 0, grey1.cols, grey1.rows));
-	subDiv1.insert(srcPoints1);
-	subDiv2.insert(srcPoints2);
-	draw_delaunay(b1, {grey1.cols, grey1.rows}, subDiv1, { 255, 255, 255 });
-	draw_delaunay(b2, {grey1.cols, grey1.rows}, subDiv2, { 255, 255, 255 });
+	for(auto h : high1) {
+//		circle(b1, h.first, h.second / 4.0, Scalar(0), -1);
+		circle(b1, h.first, h.second / 4.0, Scalar(255), 2);
+	}
+
+	for(auto h : high2) {
+//		circle(b1, h.first, h.second / 4.0, Scalar(0), -1);
+		circle(b2, h.first, h.second / 4.0, Scalar(255), 2);
+	}
 
 	imshow("b1", b1);
 	imshow("b2", b2);
-	waitKey(0);
+//	waitKey(0);
 
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(100000);
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000000);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
@@ -581,12 +584,10 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const
 	matcher1.knnMatch(descriptors1, descriptors2, matches1, 2);
 	matcher2.knnMatch(descriptors2, descriptors1, matches2, 2);
 
-	std::cerr << "1: " << matches1.size() << " + " << matches2.size() << std::endl;
 	ratioTest(matches1);
 	ratioTest(matches2);
-	std::cerr << "2: " << matches1.size() << " + " << matches2.size() << std::endl;
 	symmetryTest(matches1, matches2, symMatches);
-	std::cerr << "3: " << symMatches.size() << std::endl;
+
 	if (symMatches.empty()) {
 		assert(false);
 	}
@@ -1023,30 +1024,30 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
 
-//	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
-//	edges.reserve(1000);
-//	Point2f p1, p2;
-//	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-//		auto &pt1 = srcPoints1[i];
-//		auto &pt2 = srcPoints2[i];
-//		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
-//	}
-//	std::vector<KeyPoint> kpv1;
-//	std::vector<KeyPoint> kpv2;
-//	length_test(edges, kpv1, kpv2, img1.cols);
-//
-//	srcPoints1.clear();
-//	for (auto kp : kpv1) {
-//		srcPoints1.push_back(kp.pt);
-//	}
-//	srcPoints2.clear();
-//	for (auto kp : kpv2) {
-//		srcPoints2.push_back(kp.pt);
-//	}
-//	std::cerr << "length test: " << srcPoints1.size() << " -> ";
-//
-//	angle_test(srcPoints1, srcPoints2, img1.cols);
-//	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
+	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
+	edges.reserve(1000);
+	Point2f p1, p2;
+	for (size_t i = 0; i < srcPoints1.size(); ++i) {
+		auto &pt1 = srcPoints1[i];
+		auto &pt2 = srcPoints2[i];
+		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
+	}
+	std::vector<KeyPoint> kpv1;
+	std::vector<KeyPoint> kpv2;
+	length_test(edges, kpv1, kpv2, img1.cols);
+
+	srcPoints1.clear();
+	for (auto kp : kpv1) {
+		srcPoints1.push_back(kp.pt);
+	}
+	srcPoints2.clear();
+	for (auto kp : kpv2) {
+		srcPoints2.push_back(kp.pt);
+	}
+	std::cerr << "length test: " << srcPoints1.size() << " -> ";
+
+	angle_test(srcPoints1, srcPoints2, img1.cols);
+	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
@@ -1088,7 +1089,7 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 
 	std::vector<cv::Point2f> morphedPoints;
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
-
+	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 	for (auto pt : morphedPoints) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
@@ -1264,12 +1265,14 @@ int main(int argc, char **argv) {
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
-		float step = 1.0 / highlight_steps;
-		for (size_t j = 0; j < highlight_steps; ++j) {
-			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
+		float step = 1.0 / number_of_frames;
+		for (size_t j = 0; j < number_of_frames; ++j) {
+			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 
 			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
 			image1 = morphed.clone();
+			output.write(morphed);
+
 			imshow("morphed", morphed);
 			waitKey(1);
 		}
@@ -1279,83 +1282,85 @@ int main(int argc, char **argv) {
 		srcPoints1.clear();
 		srcPoints2.clear();
 
-		find_matches(orig2, orig1, srcPoints1, srcPoints2);
-		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
-
-		for (size_t j = 0; j < highlight_steps; ++j) {
-			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
-			morph_images(orig2, orig1, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
-			image1 = morphed.clone();
-			imshow("morphed", morphed);
-			waitKey(1);
-		}
-
-		auto backward_hl = highlights;
-		highlights.clear();
-		morphed.release();
-		srcPoints1.clear();
-		srcPoints2.clear();
-
-		if (backward_hl.size() > forward_hl.size())
-			backward_hl.resize(forward_hl.size());
-		else
-			forward_hl.resize(backward_hl.size());
-
-		double radius = hypot(orig1.cols, orig1.rows) / 15;
-		Rect2f rect(0, 0, orig1.cols, orig1.rows);
-
-		for (auto &bhl : backward_hl) {
-			Point2f p0(bhl.x + radius, bhl.y + radius);
-			Point2f p1 = rotate_point(bhl, p0, 60);
-			Point2f p2 = rotate_point(bhl, p0, 180);
-			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(bhl)) {
-				srcPoints1.push_back(bhl);
-				srcPoints1.push_back(p0);
-				srcPoints1.push_back(p1);
-				srcPoints1.push_back(p2);
-			}
-		}
-
-		for (auto &fhl : forward_hl) {
-			Point2f p0(fhl.x + radius, fhl.y + radius);
-			Point2f p1 = rotate_point(fhl, p0, 60);
-			Point2f p2 = rotate_point(fhl, p0, 180);
-
-			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(fhl)) {
-				srcPoints2.push_back(fhl);
-				srcPoints2.push_back(p0);
-				srcPoints2.push_back(p1);
-				srcPoints2.push_back(p2);
-			}
-		}
-
-		for (auto pt : srcPoints1) {
-			assert(!isinf(pt.x) && !isinf(pt.y));
-			assert(!isnan(pt.x) && !isnan(pt.y));
-			assert(pt.x >= 0 && pt.y >= 0);
-			assert(pt.x < orig1.cols && pt.y < orig1.rows);
-		}
-
-		for (auto pt : srcPoints2) {
-			assert(!isinf(pt.x) && !isinf(pt.y));
-			assert(!isnan(pt.x) && !isnan(pt.y));
-			assert(pt.x >= 0 && pt.y >= 0);
-			assert(pt.x < orig1.cols && pt.y < orig1.rows);
-		}
-
-//		find_matches_classic(orig2, orig1, srcPoints1, srcPoints2);
-		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
-
-		step = 1.0 / number_of_frames;
-		std::cerr << "forward: " << srcPoints1.size() << " + backward: " << srcPoints2.size() << std::endl;
-		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step, 2));
-			image1 = morphed.clone();
-			output.write(morphed);
-			imshow("morphed", morphed);
-			waitKey(1);
-		}
+//		find_matches(orig2, orig1, srcPoints1, srcPoints2);
+//		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
+//
+//		for (size_t j = 0; j < highlight_steps; ++j) {
+//			std::cerr << int((j / highlight_steps) * 100.0) << "%\r";
+//			morph_images(orig2, orig1, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
+//			image1 = morphed.clone();
+//			imshow("morphed", morphed);
+//			waitKey(1);
+//		}
+//
+//		auto backward_hl = highlights;
+//		highlights.clear();
+//		morphed.release();
+//		srcPoints1.clear();
+//		srcPoints2.clear();
+//
+//		if (backward_hl.size() > forward_hl.size())
+//			backward_hl.resize(forward_hl.size());
+//		else
+//			forward_hl.resize(backward_hl.size());
+//
+////		double radius = hypot(orig1.cols, orig1.rows) / 15;
+////		Rect2f rect(0, 0, orig1.cols, orig1.rows);
+////
+////		for (auto &bhl : backward_hl) {
+////			Point2f p0(bhl.x + radius, bhl.y + radius);
+////			Point2f p1 = rotate_point(bhl, p0, 60);
+////			Point2f p2 = rotate_point(bhl, p0, 180);
+////			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(bhl)) {
+////				srcPoints1.push_back(bhl);
+////				srcPoints1.push_back(p0);
+////				srcPoints1.push_back(p1);
+////				srcPoints1.push_back(p2);
+////			}
+////		}
+////
+////		for (auto &fhl : forward_hl) {
+////			Point2f p0(fhl.x + radius, fhl.y + radius);
+////			Point2f p1 = rotate_point(fhl, p0, 60);
+////			Point2f p2 = rotate_point(fhl, p0, 180);
+////
+////			if (rect.contains(p0) && rect.contains(p1) && rect.contains(p2) && rect.contains(fhl)) {
+////				srcPoints2.push_back(fhl);
+////				srcPoints2.push_back(p0);
+////				srcPoints2.push_back(p1);
+////				srcPoints2.push_back(p2);
+////			}
+////		}
+//
+//		auto m = find_matches_classic(orig2, orig1, backward_hl, forward_hl);
+//		srcPoints1 = m.first;
+//		srcPoints2 = m.second;
+////		add_corners(srcPoints1, srcPoints2, orig1.size);
+//
+//		prepare_matches(orig2, orig1, image2, image1, srcPoints1, srcPoints2);
+//		for (auto pt : srcPoints1) {
+//			assert(!isinf(pt.x) && !isinf(pt.y));
+//			assert(!isnan(pt.x) && !isnan(pt.y));
+//			assert(pt.x >= 0 && pt.y >= 0);
+//			assert(pt.x < orig1.cols && pt.y < orig1.rows);
+//		}
+//
+//		for (auto pt : srcPoints2) {
+//			assert(!isinf(pt.x) && !isinf(pt.y));
+//			assert(!isnan(pt.x) && !isnan(pt.y));
+//			assert(pt.x >= 0 && pt.y >= 0);
+//			assert(pt.x < orig1.cols && pt.y < orig1.rows);
+//		}
+//		step = 1.0 / number_of_frames;
+//		std::cerr << "forward: " << srcPoints1.size() << " + backward: " << srcPoints2.size() << std::endl;
+//		for (size_t j = 0; j < number_of_frames; ++j) {
+//			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+//			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), std::pow((j + 1) * step, 2));
+//			image1 = morphed.clone();
+//			output.write(morphed);
+//			imshow("morphed", morphed);
+//			waitKey(1);
+//		}
 
 		image1 = image2.clone();
 	}
