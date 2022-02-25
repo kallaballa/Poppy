@@ -5,4 +5,5 @@
 *.mp4
 *.o
 *.dep
+*.gif
 src/poppy
