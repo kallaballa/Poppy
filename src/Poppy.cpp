@@ -1030,7 +1030,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	std::cerr << "length test: " << srcPoints1.size() << " -> ";
 
 	angle_test(srcPoints1, srcPoints2, img1.cols);
-	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
+	std::cerr << "angle test: " << srcPoints1.size() << " -> ";
 
 	Mat matMatches;
 	Mat grey1, grey2;
@@ -1039,6 +1039,13 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	imshow("matches reduced", matMatches);
 
+//	double diag = hypot(origImg1.cols, origImg1.rows);
+//	for(off_t x = 0; x < origImg1.cols; x+=std::round((diag/max_chop_len)/4.0)) {
+//		for(off_t y = 0; y < origImg1.rows; y+=std::round((diag/max_chop_len)/4.0)) {
+//			srcPoints1.push_back(Point2f(x,y));
+//			srcPoints2.push_back(Point2f(x,y));
+//		}
+//	}
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
 	else
@@ -1047,7 +1054,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
+double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1070,7 +1077,6 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 		subDiv2.insert(pt);
 	}
 
-	std::vector<cv::Point2f> morphedPoints;
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 	for (auto pt : morphedPoints) {
@@ -1120,6 +1126,7 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	imshow("analysis", analysis);
+	std::cerr << std::endl;
 	return 0;
 }
 
@@ -1240,16 +1247,25 @@ int main(int argc, char **argv) {
 
 		std::vector<Point2f> srcPoints1;
 		std::vector<Point2f> srcPoints2;
+		std::vector<Point2f> morphedPoints;
+		std::vector<Point2f> lastMorphedPoints;
+
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
+		double progress = 0;
+
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-
-			morph_images(orig1, orig2, morphed, morphed.clone(), srcPoints1, srcPoints2, ease_in_out_sine((j + 1) * step), (j + 1) * step);
+			if(!lastMorphedPoints.empty())
+				srcPoints1 = lastMorphedPoints;
+			morphedPoints.clear();
+			progress = std::pow((j + 1) * step + 0.5, 6) / 10.0;
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, progress);
 			image1 = morphed.clone();
+			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
 
 			imshow("morphed", morphed);
