@@ -45,118 +45,13 @@ namespace po = boost::program_options;
 
 typedef unsigned char sample_t;
 
-int ratioTest(std::vector<std::vector<cv::DMatch> >
-		&matches) {
-#ifndef _NO_OPENCV
-	int removed = 0;
-	// for all matches
-	for (std::vector<std::vector<cv::DMatch> >::iterator
-	matchIterator = matches.begin();
-			matchIterator != matches.end(); ++matchIterator) {
-		// if 2 NN has been identified
-		if (matchIterator->size() > 1) {
-			// check distance ratio
-			if ((*matchIterator)[0].distance /
-					(*matchIterator)[1].distance > 0.7) {
-				matchIterator->clear(); // remove match
-				removed++;
-			}
-		} else { // does not have 2 neighbours
-			matchIterator->clear(); // remove match
-			removed++;
-		}
+void check_points(const std::vector<Point2f>& pts, int cols, int rows) {
+	for (const auto& pt : pts) {
+		assert(!isinf(pt.x) && !isinf(pt.y));
+		assert(!isnan(pt.x) && !isnan(pt.y));
+		assert(pt.x >= 0 && pt.y >= 0);
+		assert(pt.x < cols && pt.y < rows);
 	}
-	return removed;
-#else
-        return 0;
-#endif
-}
-
-cv::Mat ransacTest(
-		const std::vector<cv::DMatch> &matches,
-		const std::vector<cv::KeyPoint> &keypoints1,
-		const std::vector<cv::KeyPoint> &keypoints2,
-		std::vector<cv::DMatch> &outMatches)
-		{
-#ifndef _NO_OPENCV
-	// Convert keypoints into Point2f
-	std::vector<cv::Point2f> points1, points2;
-	for (std::vector<cv::DMatch>::
-	const_iterator it = matches.begin();
-			it != matches.end(); ++it) {
-		// Get the position of left keypoints
-		float x = keypoints1[it->queryIdx].pt.x;
-		float y = keypoints1[it->queryIdx].pt.y;
-		points1.push_back(cv::Point2f(x, y));
-		// Get the position of right keypoints
-		x = keypoints2[it->trainIdx].pt.x;
-		y = keypoints2[it->trainIdx].pt.y;
-		points2.push_back(cv::Point2f(x, y));
-	}
-	// Compute F matrix using RANSAC
-	std::vector<uchar> inliers(points1.size(), 0);
-	std::vector<cv::Point2f> out;
-	//cv::Mat fundemental= cv::findFundamentalMat(points1, points2, out, CV_FM_RANSAC, 3, 0.99);
-
-	cv::Mat fundemental = findFundamentalMat(
-			cv::Mat(points1), cv::Mat(points2), // matching points
-			inliers,      // match status (inlier or outlier)
-			cv::FM_RANSAC, // RANSAC method
-			3.0,     // distance to epipolar line
-			0.99);  // confidence probability
-
-	// extract the surviving (inliers) matches
-	std::vector<uchar>::const_iterator
-	itIn = inliers.begin();
-	std::vector<cv::DMatch>::const_iterator
-	itM = matches.begin();
-	// for all matches
-	for (; itIn != inliers.end(); ++itIn, ++itM) {
-		if (*itIn) { // it is a valid match
-			outMatches.push_back(*itM);
-		}
-	}
-	return fundemental;
-#else
-    return cv::Mat();
-#endif
-}
-
-void symmetryTest(
-		const std::vector<std::vector<cv::DMatch>> &matches1,
-		const std::vector<std::vector<cv::DMatch>> &matches2,
-		std::vector<cv::DMatch> &symMatches) {
-#ifndef _NO_OPENCV
-	// for all matches image 1 -> image 2
-	for (std::vector<std::vector<cv::DMatch>>::
-	const_iterator matchIterator1 = matches1.begin();
-			matchIterator1 != matches1.end(); ++matchIterator1) {
-		// ignore deleted matches
-		if (matchIterator1->size() < 2)
-			continue;
-		// for all matches image 2 -> image 1
-		for (std::vector<std::vector<cv::DMatch>>::
-		const_iterator matchIterator2 = matches2.begin();
-				matchIterator2 != matches2.end();
-				++matchIterator2) {
-			// ignore deleted matches
-			if (matchIterator2->size() < 2)
-				continue;
-			// Match symmetry test
-			if ((*matchIterator1)[0].queryIdx ==
-					(*matchIterator2)[0].trainIdx &&
-					(*matchIterator2)[0].queryIdx ==
-							(*matchIterator1)[0].trainIdx) {
-				// add symmetrical match
-				symMatches.push_back(
-						cv::DMatch((*matchIterator1)[0].queryIdx,
-								(*matchIterator1)[0].trainIdx,
-								(*matchIterator1)[0].distance));
-				break; // next match in image 1 -> image 2
-			}
-		}
-	}
-#endif
 }
 
 struct LessPointOp {
@@ -538,67 +433,6 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	return {points1,points2};
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches_classic(const Mat& img1, const Mat& img2, std::vector<std::pair<Point2f,double>>& high1, std::vector<std::pair<Point2f,double>>& high2) {
-	Mat grey1, grey2;
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
-	Mat b1 = Mat::zeros({grey1.cols, grey1.rows}, grey1.type());
-	Mat b2 = b1.clone();
-
-	for(auto h : high1) {
-		circle(b1, h.first, h.second / 4.0, Scalar(255), 2);
-	}
-
-	for(auto h : high2) {
-		circle(b2, h.first, h.second / 4.0, Scalar(255), 2);
-	}
-
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(1000000);
-	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
-
-	std::vector<KeyPoint> keypoints1, keypoints2;
-
-	Mat descriptors1, descriptors2;
-	detector->detect(b1, keypoints1);
-	detector->detect(b2, keypoints2);
-
-	detector->compute(b1, keypoints1, descriptors1);
-	detector->compute(b2, keypoints2, descriptors2);
-
-	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(12, 20, 2);
-	FlannBasedMatcher matcher1(indexParams);
-	FlannBasedMatcher matcher2(indexParams);
-	std::vector<std::vector<cv::DMatch>> matches1, matches2;
-	std::vector<DMatch> goodMatches;
-	std::vector<DMatch> symMatches;
-
-	matcher1.knnMatch(descriptors1, descriptors2, matches1, 2);
-	matcher2.knnMatch(descriptors2, descriptors1, matches2, 2);
-
-	ratioTest(matches1);
-	ratioTest(matches2);
-	symmetryTest(matches1, matches2, symMatches);
-
-	if (symMatches.empty()) {
-		assert(false);
-	}
-	cv::Mat fundamental = ransacTest(symMatches, keypoints1, keypoints2, goodMatches);
-
-	if (goodMatches.empty()) {
-		assert(false);
-	}
-
-	std::vector<Point2f> points1;
-	std::vector<Point2f> points2;
-
-	for(auto& gm : goodMatches) {
-		points1.push_back(keypoints1[gm.queryIdx].pt);
-		points2.push_back(keypoints2[gm.trainIdx].pt);
-	}
-
-	return {points1,points2};
-}
-
 cv::Mat points_to_homogenous_mat(const std::vector<cv::Point2f> &pts) {
 	int numPts = pts.size();
 	cv::Mat homMat(3, numPts, CV_32FC1);
@@ -880,19 +714,8 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 	srcPoints1 = tmp1;
 	srcPoints2 = tmp2;
 
-	for (auto pt : srcPoints1) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
-	}
-
-	for (auto pt : srcPoints2) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
-	}
+	check_points(srcPoints1, cols, rows);
+	check_points(srcPoints2, cols, rows);
 }
 
 void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
@@ -910,7 +733,6 @@ void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv
 		double currentMinDist = std::numeric_limits<double>::max();
 
 		Point2f closest(-1, -1);
-		bool erased = false;
 		for (auto pt2 : setpt2) {
 			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
 			if (dist < currentMinDist) {
@@ -918,9 +740,6 @@ void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv
 				closest = pt2;
 			}
 		}
-
-		if (erased)
-			continue;
 
 		if (closest.x == -1 && closest.y == -1)
 			continue;
@@ -949,20 +768,10 @@ void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv
 	srcPoints1 = tmp1;
 	srcPoints2 = tmp2;
 
-	for (auto pt : srcPoints1) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
-	}
-
-	for (auto pt : srcPoints2) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
-	}
+	check_points(srcPoints1, cols, rows);
+	check_points(srcPoints2, cols, rows);
 }
+
 
 void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, MatSize sz) {
 	float w = sz().width - 1;
@@ -1054,40 +863,29 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio = 0.5, float colorRatio = -1) {
+double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDivMorph(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
+	check_points(srcPoints1, origImg1.cols, origImg1.rows);
+	check_points(srcPoints2, origImg1.cols, origImg1.rows);
+
 	for (auto pt : srcPoints1) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
-//		std::cerr << pt << std::endl;
 		subDiv1.insert(pt);
 	}
+
 	for (auto pt : srcPoints2) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
-//		std::cerr << pt << std::endl;
 		subDiv2.insert(pt);
 	}
 
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
+	check_points(morphedPoints, origImg1.cols, origImg1.rows);
 	for (auto pt : morphedPoints) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < origImg1.cols && pt.y < origImg1.rows);
-//		std::cerr << pt << std::endl;
 		subDivMorph.insert(pt);
 	}
-
 	// Get the ID list of corners of Delaunay traiangles.
 	std::vector<cv::Vec3i> triangleIndices;
 	get_triangle_indices(subDivMorph, morphedPoints, triangleIndices);
@@ -1150,6 +948,10 @@ Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) 
 	newPoint.x = xnew + center.x;
 	newPoint.y = ynew + center.y;
 	return newPoint;
+}
+
+double ease_in_out_cubic(double x) {
+	return x < 0.5 ? 4 * x * x * x : 1 - std::pow(-2 * x + 2, 3) / 2;
 }
 
 int main(int argc, char **argv) {
@@ -1255,6 +1057,8 @@ int main(int argc, char **argv) {
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
+		double linear = 0;
+		double offset = 0;
 		double progress = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
@@ -1262,8 +1066,10 @@ int main(int argc, char **argv) {
 			if(!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
-			progress = std::pow((j + 1) * step + 0.5, 6) / 10.0;
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, progress);
+			linear = (j / number_of_frames);
+			offset = 0.5 + linear / 2.0;
+			progress = (1.0 / (1.0 - offset)) / number_of_frames;
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, progress, (j + 1.0) * step);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
