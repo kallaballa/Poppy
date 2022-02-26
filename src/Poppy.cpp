@@ -1010,11 +1010,10 @@ int main(int argc, char **argv) {
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
-			shape = (1.0 / (1.0 - linear)) / number_of_frames;
-			shape *= 2;
-			if(shape > 1)
+			shape = ((1.0 / (1.0 - linear)) / number_of_frames) * 2.0;
+			if(shape > 1.0)
 				shape = 1.0;
-			color = std::pow(j / number_of_frames,2);
+			color = std::pow(j / number_of_frames,3);
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
