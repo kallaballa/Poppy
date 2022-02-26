@@ -30,11 +30,12 @@ typedef Kernel::Point_2                                 Point_2;
 typedef CGAL::Arr_segment_traits_2<Kernel>              Traits_2;
 typedef Traits_2::Curve_2                               Segment_2;
 
+bool show_gui = false;
 double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
 double max_pair_len_divider = 10;
-double max_chop_len = 20;
+double max_chop_len_divider = 10;
 double contour_sensitivity = 0.3;
 
 using namespace cv;
@@ -246,7 +247,7 @@ void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 			circle(dst, Point(x, y), 1, Scalar(color), -1);
 		}
 	}
-	imshow("fhm", dst);
+	if(show_gui) imshow("fhm", dst);
 }
 
 void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -633,7 +634,7 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 	cvtColor(orig1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(orig2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	imshow("matches", matMatches);
+	if(show_gui) imshow("matches", matMatches);
 
 }
 void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
@@ -708,7 +709,8 @@ void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv
 
 	std::vector<cv::Point2f> tmp1;
 	std::vector<cv::Point2f> tmp2;
-	double maxLen = max_chop_len;
+	double diag = hypot(cols, rows);
+	double maxLen = diag / max_chop_len_divider;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
 		auto pt1 = srcPoints1[i];
 		double dist = 0;
@@ -828,7 +830,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	imshow("matches reduced", matMatches);
+	if(show_gui) imshow("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -897,29 +899,31 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 	if (prev.empty())
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	imshow("analysis", analysis);
+	if(show_gui) imshow("analysis", analysis);
 	return 0;
 }
 
 int main(int argc, char **argv) {
 	using std::string;
 	srand(time(NULL));
+	bool showGui = show_gui;
 	double numberOfFrames = number_of_frames;
 	double maxLenDeviation = max_len_deviation;
 	double maxAngDeviation = max_ang_deviation;
 	double maxPairLenDivider = max_pair_len_divider;
-	double maxChopLen = max_chop_len;
+	double maxChopLenDivider = max_chop_len_divider;
 	double contSensitivity = contour_sensitivity;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
+	("gui,g", po::value<bool>(&showGui)->default_value(showGui), "Show analysis windows.")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
 	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
-	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider that controls the maximum distance (diagonal/divider) for point pairs")
-	("choplen,c", po::value<double>(&maxChopLen)->default_value(maxChopLen), "The interval in which traversal paths (point pairs) are chopped")
+	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
+	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (point pairs) are chopped")
 	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
@@ -952,11 +956,13 @@ int main(int argc, char **argv) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
+
+	show_gui = showGui;
 	number_of_frames = numberOfFrames;
 	max_len_deviation = maxLenDeviation;
 	max_ang_deviation = maxAngDeviation;
 	max_pair_len_divider = maxPairLenDivider;
-	max_chop_len = maxChopLen;
+	max_chop_len_divider = maxChopLenDivider;
 	contour_sensitivity = contSensitivity;
 	Mat image1;
 	try {
@@ -984,8 +990,13 @@ int main(int argc, char **argv) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 				exit(2);
 			}
+
+			if(image1.cols != image2.cols || image1.rows != image2.rows) {
+				std::cerr << "Image file sizes don't match: " << imageFiles[i] << std::endl;
+				exit(3);
+			}
 		} catch (...) {
-			std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
+			std::cerr << "Can't read (invalid?) image file: " << imageFiles[i] << std::endl;
 			exit(2);
 		}
 
@@ -1019,8 +1030,10 @@ int main(int argc, char **argv) {
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
 
-			imshow("morphed", morphed);
-			waitKey(1);
+			if(show_gui) {
+				imshow("morphed", morphed);
+				waitKey(1);
+			}
 		}
 		morphed.release();
 		srcPoints1.clear();
