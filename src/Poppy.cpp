@@ -35,7 +35,7 @@ double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 0.3;
 double max_pair_len_divider = 10;
-double max_chop_len_divider = 10;
+double max_chop_len_divider = 50;
 double contour_sensitivity = 0.3;
 
 using namespace cv;
