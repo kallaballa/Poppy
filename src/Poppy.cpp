@@ -105,29 +105,23 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 }
 
 void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
-	std::vector<KeyPoint> kpv1;
-	std::vector<KeyPoint> kpv2;
+	std::vector<KeyPoint> kpv1, kpv2;
 
-	for (auto pt : ptv1) {
+	for (auto pt : ptv1)
 		kpv1.push_back( { pt, 1 });
-	}
 
-	for (auto pt : ptv2) {
+	for (auto pt : ptv2)
 		kpv2.push_back( { pt, 1 });
-	}
 
 	angle_test(kpv1, kpv2, cols);
-
 	ptv1.clear();
 	ptv2.clear();
 
-	for (auto kp : kpv1) {
+	for (auto kp : kpv1)
 		ptv1.push_back(kp.pt);
-	}
 
-	for (auto kp : kpv2) {
+	for (auto kp : kpv2)
 		ptv2.push_back(kp.pt);
-	}
 }
 void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	double maxDeviationPercent = max_len_deviation;
@@ -169,29 +163,23 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 }
 
 void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
-	std::vector<KeyPoint> kpv1;
-	std::vector<KeyPoint> kpv2;
+	std::vector<KeyPoint> kpv1, kpv2;
 
-	for (auto pt : ptv1) {
+	for (auto pt : ptv1)
 		kpv1.push_back( { pt, 1 });
-	}
 
-	for (auto pt : ptv2) {
+	for (auto pt : ptv2)
 		kpv2.push_back( { pt, 1 });
-	}
 
 	length_test(kpv1, kpv2, cols);
-
 	ptv1.clear();
 	ptv2.clear();
 
-	for (auto kp : kpv1) {
+	for (auto kp : kpv1)
 		ptv1.push_back(kp.pt);
-	}
 
-	for (auto kp : kpv2) {
+	for (auto kp : kpv2)
 		ptv2.push_back(kp.pt);
-	}
 }
 
 void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f> &dstPoints) {
@@ -206,7 +194,6 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f>
 		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
 		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
 
-		//Draw triangles completely inside the image.
 		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
 			dstPoints.push_back(pt[0]);
 			dstPoints.push_back(pt[1]);
@@ -417,9 +404,6 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 	detector->compute(grey2, keypoints2, descriptors2);
 
 	Mat matMatches;
-
-//	length_test(keypoints1, keypoints2, grey1.cols);
-//	angle_test(keypoints1, keypoints2, grey1.cols);
 
 	std::vector<Point2f> points1;
 	std::vector<Point2f> points2;
@@ -839,7 +823,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	std::cerr << "length test: " << srcPoints1.size() << " -> ";
 
 	angle_test(srcPoints1, srcPoints2, img1.cols);
-	std::cerr << "angle test: " << srcPoints1.size() << " -> ";
+	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
@@ -848,13 +832,6 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	imshow("matches reduced", matMatches);
 
-//	double diag = hypot(origImg1.cols, origImg1.rows);
-//	for(off_t x = 0; x < origImg1.cols; x+=std::round((diag/max_chop_len)/4.0)) {
-//		for(off_t y = 0; y < origImg1.rows; y+=std::round((diag/max_chop_len)/4.0)) {
-//			srcPoints1.push_back(Point2f(x,y));
-//			srcPoints2.push_back(Point2f(x,y));
-//		}
-//	}
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
 	else
@@ -869,23 +846,22 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDivMorph(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
+
 	check_points(srcPoints1, origImg1.cols, origImg1.rows);
-	check_points(srcPoints2, origImg1.cols, origImg1.rows);
-
-	for (auto pt : srcPoints1) {
+	for (auto pt : srcPoints1)
 		subDiv1.insert(pt);
-	}
 
-	for (auto pt : srcPoints2) {
+	check_points(srcPoints2, origImg1.cols, origImg1.rows);
+	for (auto pt : srcPoints2)
 		subDiv2.insert(pt);
-	}
 
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
+
 	check_points(morphedPoints, origImg1.cols, origImg1.rows);
-	for (auto pt : morphedPoints) {
+	for (auto pt : morphedPoints)
 		subDivMorph.insert(pt);
-	}
+
 	// Get the ID list of corners of Delaunay traiangles.
 	std::vector<cv::Vec3i> triangleIndices;
 	get_triangle_indices(subDivMorph, morphedPoints, triangleIndices);
@@ -924,34 +900,7 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	imshow("analysis", analysis);
-	std::cerr << std::endl;
 	return 0;
-}
-
-double ease_in_out_sine(double x) {
-	return -(cos(M_PI * x) - 1) / 2;
-}
-
-Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
-	float s = sin(angle);
-	float c = cos(angle);
-	Point2f newPoint = trabant;
-	// translate point back to origin:
-	newPoint.x -= center.x;
-	newPoint.y -= center.y;
-
-	// rotate point
-	float xnew = newPoint.x * c - newPoint.y * s;
-	float ynew = newPoint.x * s + newPoint.y * c;
-
-	// translate point back:
-	newPoint.x = xnew + center.x;
-	newPoint.y = ynew + center.y;
-	return newPoint;
-}
-
-double ease_in_out_cubic(double x) {
-	return x < 0.5 ? 4 * x * x * x : 1 - std::pow(-2 * x + 2, 3) / 2;
 }
 
 int main(int argc, char **argv) {
@@ -1047,29 +996,25 @@ int main(int argc, char **argv) {
 
 		Mat morphed;
 
-		std::vector<Point2f> srcPoints1;
-		std::vector<Point2f> srcPoints2;
-		std::vector<Point2f> morphedPoints;
-		std::vector<Point2f> lastMorphedPoints;
-
+		std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 		find_matches(orig1, orig2, srcPoints1, srcPoints2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
 		double linear = 0;
-		double offset = 0;
-		double progress = 0;
+		double shape = 0;
+		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 			if(!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
-			linear = (j / number_of_frames);
-			offset = 0.5 + linear / 2.0;
-			progress = (1.0 / (1.0 - offset)) / number_of_frames;
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, progress, (j + 1.0) * step);
+			linear = j * step;
+			shape = (1.0 / (1.0 - linear)) / number_of_frames;
+			color = j / number_of_frames;
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
