@@ -33,8 +33,8 @@ typedef Traits_2::Curve_2                               Segment_2;
 bool show_gui = false;
 double number_of_frames = 60;
 double max_len_deviation = 20;
-double max_ang_deviation = 0.3;
-double max_pair_len_divider = 10;
+double max_ang_deviation = 5;
+double max_pair_len_divider = 0;
 double max_chop_len_divider = 50;
 double contour_sensitivity = 0.3;
 
@@ -1024,8 +1024,8 @@ int main(int argc, char **argv) {
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames) * 2.0;
 			if(shape > 1.0)
 				shape = 1.0;
-			color = std::pow(j / number_of_frames,3);
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+			color = std::pow(j / number_of_frames,2);
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, shape);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
