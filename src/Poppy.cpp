@@ -405,15 +405,13 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &gr
 
 	Mat matMatches;
 
-	std::vector<Point2f> points1;
-	std::vector<Point2f> points2;
-	for (auto pt1 : keypoints1) {
+	std::vector<Point2f> points1, points2;
+	for (auto pt1 : keypoints1)
 		points1.push_back(pt1.pt);
-	}
 
-	for (auto pt2 : keypoints2) {
+	for (auto pt2 : keypoints2)
 		points2.push_back(pt2.pt);
-	}
+
 	return {points1,points2};
 }
 
