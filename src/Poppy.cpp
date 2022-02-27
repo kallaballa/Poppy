@@ -34,8 +34,8 @@ bool show_gui = false;
 double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 5;
-double max_pair_len_divider = 0;
-double max_chop_len_divider = 50;
+double max_pair_len_divider = 1;
+double max_chop_len_divider = 90;
 double contour_sensitivity = 0.3;
 
 using namespace cv;
@@ -363,7 +363,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<Poin
 	grey1.copyTo(images(cv::Rect(0, 0, grey1.cols, grey1.rows)));
 	grey2.copyTo(images(cv::Rect(grey1.cols, 0, grey1.cols, grey1.rows)));
 
-	for (size_t i = 0; i < ptv1.size(); ++i) {
+	for (size_t i = 0; i < std::min(ptv1.size(), ptv2.size()); ++i) {
 		Point2f pt2 = ptv2[i];
 		pt2.x += grey1.cols;
 		line(lines, ptv1[i], pt2, { 127 }, 1, cv::LINE_AA, 0);
@@ -392,7 +392,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(100);
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(hypot(grey1.cols, grey1.rows) / 4.0);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
@@ -570,7 +570,7 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 	return {(float)px, (float)py};
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat& allContours1, Mat& allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat grey1, grey2;
@@ -601,6 +601,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	dst1.resize(collected1.size());
 	dst2.resize(collected1.size());
 
+	allContours1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+	allContours2 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+
 	for (size_t i = 0; i < collected1.size(); ++i) {
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
@@ -613,20 +616,33 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		for (size_t i = 0; i < contours2.size(); ++i)
 			cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 1, cv::LINE_8, hierarchy2, 0);
 
+
+
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
+		bitwise_or(allContours1, cont1, allContours1);
+		bitwise_or(allContours2, cont2, allContours2);
 	}
+
+	imshow("AC1", allContours1);
+	imshow("AC2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
+	Mat allContours1, allContours2;
 	std::vector<Mat> contours1, contours2;
-	find_contours(orig1, orig2, contours1, contours2);
+	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
 
 	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
 		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 	}
+
+	auto matches = find_matches(allContours1, allContours2);
+	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
@@ -892,7 +908,7 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 	cv::remap(origImg2, trImg2, trMapX2, trMapY2, cv::INTER_LINEAR);
 
 	// Blend 2 input images
-	float blend = (colorRatio < 0) ? shapeRatio : colorRatio;
+	float blend = colorRatio;
 	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
@@ -1013,7 +1029,7 @@ int main(int argc, char **argv) {
 		float step = 1.0 / number_of_frames;
 		double linear = 0;
 		double shape = 0;
-		double color = 0;
+//		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
@@ -1021,10 +1037,9 @@ int main(int argc, char **argv) {
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
-			shape = ((1.0 / (1.0 - linear)) / number_of_frames) * 2.0;
-			if(shape > 1.0)
-				shape = 1.0;
-			color = std::pow(j / number_of_frames,2);
+			shape = (1.0 / (1.0 - linear)) / number_of_frames;
+//			color = (j + 1) * step;
+//			std::cerr << color << std::endl;
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, shape);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
