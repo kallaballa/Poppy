@@ -627,8 +627,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		bitwise_or(allContours2, cont2, allContours2);
 	}
 
-	imshow("AC1", allContours1);
-	imshow("AC2", allContours2);
+	if(show_gui) imshow("Contours1", allContours1);
+	if(show_gui) imshow("Contours2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
@@ -642,20 +642,16 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 	}
 
-//	auto matches = find_matches(allContours1, allContours2);
-//	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-//	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
 	cvtColor(orig1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(orig2, grey2, cv::COLOR_RGB2GRAY);
-	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	if(show_gui) imshow("matches", matMatches);
-
+//	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
+//	if(show_gui) imshow("matches", matMatches);
 }
+
 void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
 	std::set<Point2f, LessPointOp> setpt2;
 	for (auto pt2 : srcPoints2) {
@@ -938,7 +934,7 @@ int main(int argc, char **argv) {
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
-	("gui,g", po::value<bool>(&showGui)->default_value(showGui), "Show analysis windows.")
+	("gui,g", "Show analysis windows")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
@@ -971,6 +967,10 @@ int main(int argc, char **argv) {
 		std::cerr << "Usage: poppy [options] <imageFiles>..." << std::endl;
 		std::cerr << visible;
 		return 0;
+	}
+
+	if(vm.count("gui")) {
+		showGui = true;
 	}
 
 	for (auto p : imageFiles) {
