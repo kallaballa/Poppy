@@ -10,12 +10,6 @@
 
 #include <boost/program_options.hpp>
 
-#include <CGAL/Cartesian.h>
-#include <CGAL/MP_Float.h>
-#include <CGAL/Quotient.h>
-#include <CGAL/Arr_segment_traits_2.h>
-#include <CGAL/Sweep_line_2_algorithms.h>
-
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -23,12 +17,6 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
-
-typedef CGAL::Quotient<CGAL::MP_Float>                  NT;
-typedef CGAL::Cartesian<NT>                             Kernel;
-typedef Kernel::Point_2                                 Point_2;
-typedef CGAL::Arr_segment_traits_2<Kernel>              Traits_2;
-typedef Traits_2::Curve_2                               Segment_2;
 
 bool show_gui = false;
 double number_of_frames = 60;
@@ -312,8 +300,6 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	}
 }
 
-
-
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
 //	std::vector<std::pair<Point2f,double>> highlights;
 //	collect_flow_centers(morphed, last, highlights);
@@ -392,7 +378,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat& grey1, const Mat& grey2) {
 	if(max_keypoints == -1)
 		max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
 	cv::Ptr<cv::ORB> detector = cv::ORB::create(max_keypoints);
@@ -686,26 +672,6 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 			setpt2.erase(closest);
 		}
 	}
-
-	  std::vector<Segment_2> segs;
-	  for(size_t i = 0; i < tmp1.size(); i++) {
-		  if(tmp1[i] != tmp2[i])
-			  segs.push_back(Segment_2(Point_2(tmp1[i].x, tmp1[i].y), Point_2(tmp2[i].x, tmp2[i].y)));
-	  }
-	  std::list<Segment_2> sub_segs;
-
-	  CGAL::compute_subcurves(segs.data(), segs.data() + segs.size(), std::back_inserter(sub_segs));
-
-	  tmp1.clear();
-	  tmp2.clear();
-	  for(const Segment_2& subseg : sub_segs) {
-	    double x1 = CGAL::to_double(subseg.source()[0]);
-	    double y1 = CGAL::to_double(subseg.source()[1]);
-	    double x2 = CGAL::to_double(subseg.target()[0]);
-	    double y2 = CGAL::to_double(subseg.target()[1]);
-	    tmp1.push_back(Point2f(x1,y1));
-	    tmp2.push_back(Point2f(x2,y2));
-	  }
 
 	assert(tmp1.size() == tmp2.size());
 
