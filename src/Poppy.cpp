@@ -36,7 +36,7 @@ double max_len_deviation = 5;
 double max_ang_deviation = 3;
 double max_pair_len_divider = 40;
 double max_chop_len_divider = 80;
-double contour_sensitivity = 0.5;
+double contour_sensitivity = 0.4;
 off_t max_keypoints = -1;
 
 using namespace cv;
