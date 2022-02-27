@@ -34,7 +34,7 @@ bool show_gui = false;
 double number_of_frames = 60;
 double max_len_deviation = 20;
 double max_ang_deviation = 5;
-double max_pair_len_divider = 1;
+double max_pair_len_divider = 45;
 double max_chop_len_divider = 90;
 double contour_sensitivity = 0.3;
 off_t max_keypoints = -1;
@@ -642,9 +642,9 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 	}
 
-	auto matches = find_matches(allContours1, allContours2);
-	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+//	auto matches = find_matches(allContours1, allContours2);
+//	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+//	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
 
@@ -1035,18 +1035,32 @@ int main(int argc, char **argv) {
 		float step = 1.0 / number_of_frames;
 		double linear = 0;
 		double shape = 0;
-//		double color = 0;
+		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+			std::cerr << int((j / number_of_frames) * 100.0) << "% ";
 			if(!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
 			shape = (1.0 / (1.0 - linear)) / number_of_frames;
-//			color = (j + 1) * step;
-//			std::cerr << color << std::endl;
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, shape);
+
+			if(std::ceil(number_of_frames / 1.5) < j)
+				color *= 1.04;
+			else if(std::ceil(number_of_frames / 2) < j)
+				color += 1.0 / (number_of_frames * 0.33);
+			else if(std::ceil(number_of_frames / 10) < j)
+				color += 1.0 / (number_of_frames * 2);
+			else if(std::ceil(number_of_frames / 20) < j)
+				color += 1.0 / (number_of_frames * 5);
+			else
+				color += 1.0 / (number_of_frames * 11);
+
+			if(color > 10.0 || shape >= 1.0)
+				color = 10.0;
+
+			std::cerr << color << std::endl;
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color / 10.0);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
