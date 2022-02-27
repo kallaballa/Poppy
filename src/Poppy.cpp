@@ -1035,32 +1035,25 @@ int main(int argc, char **argv) {
 		float step = 1.0 / number_of_frames;
 		double linear = 0;
 		double shape = 0;
+		double ease = 0;
 		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "% ";
+			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 			if(!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
-			shape = (1.0 / (1.0 - linear)) / number_of_frames;
+			shape = std::log10(1.0 + ((1.0 / (1.0 - linear)) / number_of_frames) * 9);
+			if(shape < 0.001)
+				shape = 0.001;
 
-			if(std::ceil(number_of_frames / 1.5) < j)
-				color *= 1.04;
-			else if(std::ceil(number_of_frames / 2) < j)
-				color += 1.0 / (number_of_frames * 0.33);
-			else if(std::ceil(number_of_frames / 10) < j)
-				color += 1.0 / (number_of_frames * 2);
-			else if(std::ceil(number_of_frames / 20) < j)
-				color += 1.0 / (number_of_frames * 5);
-			else
-				color += 1.0 / (number_of_frames * 11);
+			color = log10(1 + (pow(j * (1.0 / number_of_frames),3) * 9));
 
-			if(color > 10.0 || shape >= 1.0)
-				color = 10.0;
+			if(shape >= 1.0 || color >= 1.0)
+				color = 1;
 
-			std::cerr << color << std::endl;
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color / 10.0);
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color * 2);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
