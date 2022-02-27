@@ -32,11 +32,11 @@ typedef Traits_2::Curve_2                               Segment_2;
 
 bool show_gui = false;
 double number_of_frames = 60;
-double max_len_deviation = 20;
-double max_ang_deviation = 5;
-double max_pair_len_divider = 45;
-double max_chop_len_divider = 90;
-double contour_sensitivity = 0.3;
+double max_len_deviation = 5;
+double max_ang_deviation = 3;
+double max_pair_len_divider = 40;
+double max_chop_len_divider = 80;
+double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
 
 using namespace cv;
@@ -1039,21 +1039,18 @@ int main(int argc, char **argv) {
 		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+			std::cerr << int((j / number_of_frames) * 100.0) << "%";
 			if(!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
-			shape = std::log10(1.0 + ((1.0 / (1.0 - linear)) / number_of_frames) * 9);
-			if(shape < 0.001)
-				shape = 0.001;
 
-			color = log10(1 + (pow(j * (1.0 / number_of_frames),3) * 9));
+			shape =	((1.0 / (1.0 - linear)) / number_of_frames);
 
-			if(shape >= 1.0 || color >= 1.0)
-				color = 1;
+			color = shape;// log10(1 + (pow(j * (1.0 / number_of_frames),3)));
 
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color * 2);
+			std::cerr << shape << std::endl;
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
