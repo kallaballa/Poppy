@@ -37,6 +37,7 @@ double max_ang_deviation = 5;
 double max_pair_len_divider = 1;
 double max_chop_len_divider = 90;
 double contour_sensitivity = 0.3;
+off_t max_keypoints = -1;
 
 using namespace cv;
 using std::vector;
@@ -392,7 +393,9 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(hypot(grey1.cols, grey1.rows) / 4.0);
+	if(max_keypoints == -1)
+		max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(max_keypoints);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
@@ -929,12 +932,14 @@ int main(int argc, char **argv) {
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLenDivider = max_chop_len_divider;
 	double contSensitivity = contour_sensitivity;
+	off_t maxKeypoints = max_keypoints;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", po::value<bool>(&showGui)->default_value(showGui), "Show analysis windows.")
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
 	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
@@ -980,6 +985,7 @@ int main(int argc, char **argv) {
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len_divider = maxChopLenDivider;
 	contour_sensitivity = contSensitivity;
+	max_keypoints = maxKeypoints;
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
