@@ -573,14 +573,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
-	for (off_t i = 0; i < 9; ++i) {
-		cv::threshold(grey1, thresh1, std::min(255, (int) round((i + 1) * 25 * contour_sensitivity)), 255, 0);
+	for (off_t i = 0; i < 16; ++i) {
+		cv::threshold(grey1, thresh1, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
 
-	for (off_t i = 0; i < 9; ++i) {
-		cv::threshold(grey2, thresh2, std::min(255, (int) round((i + 1) * 25 * contour_sensitivity)), 255, 0);
+	for (off_t i = 0; i < 16; ++i) {
+		cv::threshold(grey2, thresh2, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected2.push_back(contours2);
 	}
@@ -598,19 +598,24 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		Mat &cont2 = dst2[i];
 		cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
 		cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
+		contours1 = collected1[i];
+		contours2 = collected2[i];
+		double shade = 0;
 
-		for (size_t i = 0; i < contours1.size(); ++i)
-			cv::drawContours(cont1, contours1, i, { 255, 0, 0 }, 1, cv::LINE_8, hierarchy1, 0);
+		for (size_t j = 0; j < contours1.size(); ++j) {
+			shade = 128 + 128 * (j / contours1.size());
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy1, 0);
+			cv::drawContours(allContours1, contours1, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy1, 0);
+		}
 
-		for (size_t i = 0; i < contours2.size(); ++i)
-			cv::drawContours(cont2, contours2, i, { 255, 0, 0 }, 1, cv::LINE_8, hierarchy2, 0);
-
-
+		for (size_t j = 0; j < contours2.size(); ++j) {
+			shade = 128 + 128 * (j / contours2.size());
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy2, 0);
+			cv::drawContours(allContours2, contours2, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy2, 0);
+		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
-		bitwise_or(allContours1, cont1, allContours1);
-		bitwise_or(allContours2, cont2, allContours2);
 	}
 
 	if(show_gui) imshow("Contours1", allContours1);
@@ -623,9 +628,11 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
 
 	for (size_t i = 0; i < contours1.size(); ++i) {
-		auto matches = find_matches(contours1[i], contours2[i]);
-		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+		for (size_t j = 0; j < contours2.size(); ++j) {
+			auto matches = find_matches(contours1[i], contours2[j]);
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+		}
 	}
 
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
