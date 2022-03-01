@@ -27,7 +27,6 @@ double max_chop_len_divider = 80;
 double contour_sensitivity = 0.4;
 off_t max_keypoints = -1;
 
-using namespace cv;
 using std::vector;
 using std::chrono::microseconds;
 
@@ -36,9 +35,26 @@ namespace po = boost::program_options;
 typedef unsigned char sample_t;
 
 using namespace std;
-
-#include "opencv2/opencv.hpp"
 using namespace cv;
+
+Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	Point2f newPoint = trabant;
+	// translate point back to origin:
+	newPoint.x -= center.x;
+	newPoint.y -= center.y;
+
+	// rotate point
+	float xnew = newPoint.x * c - newPoint.y * s;
+	float ynew = newPoint.x * s + newPoint.y * c;
+
+	// translate point back:
+	newPoint.x = xnew + center.x;
+	newPoint.y = ynew + center.y;
+	return newPoint;
+}
+
 class LaplacianBlending {
 private:
     Mat_<Vec3f> left;
@@ -327,14 +343,17 @@ void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 	flowUmat.copyTo(flow);
 	dst = morphed.clone();
 	uint32_t color;
+	Mat norm;
+	normalize(flow, norm, 1.0, 0.0, NORM_MINMAX);
+
 
 	for (off_t x = 0; x < morphed.cols; ++x) {
 		for (off_t y = 0; y < morphed.rows; ++y) {
 			circle(dst, Point(x, y), 1, Scalar(0), -1);
-			const Point2f flv1 = flow.at<Point2f>(y, x);
+			const Point2f flv1 = norm.at<Point2f>(y, x);
 			double mag = hypot(flv1.x, flv1.y);
 			color = std::round(double(255) * (double) mag);
-			circle(dst, Point(x, y), 1, Scalar(color), -1);
+			circle(dst, Point(x, y), 1, Scalar(color,color,color), -1);
 		}
 	}
 	if(show_gui) imshow("fhm", dst);
@@ -358,10 +377,11 @@ void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 			const Point2f flv1 = flow.at<Point2f>(y, x) * 10;
 			double len = hypot(flv1.x - x, flv1.y - y);
 			color = std::round(double(255) * (double(len) / diag));
-			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color));
+			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color,color,color));
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
+	imshow("fv", dst);
 }
 
 void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -383,8 +403,8 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	Mat overlay;
 	Mat thresh;
 	normalize(grey, overlay, 255.0, 0.0, NORM_MINMAX);
-	GaussianBlur(overlay, overlay, Size(13, 13), 2);
-	cv::threshold(overlay, thresh, 254, 255, 0);
+//	GaussianBlur(overlay, overlay, Size(13, 13), 2);
+	cv::threshold(overlay, thresh, 200, 255, 0);
 	std::vector<std::vector<cv::Point>> contours;
 	vector<Vec4i> hierarchy;
 	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
@@ -401,8 +421,9 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 	}
 }
 
+static std::vector<std::pair<Point2f,double>> highlights;
+
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
-//	std::vector<std::pair<Point2f,double>> highlights;
 //	collect_flow_centers(morphed, last, highlights);
 //	draw_flow_highlight(morphed, last, dst);
 //	UMat flowUmat;
@@ -929,6 +950,22 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
+void saturate(cv::Mat &img, cv::Mat &saturated, double changeBy) {
+    Mat imgHsv;
+    cvtColor(img,imgHsv,COLOR_RGB2HSV);
+
+    for(int y=0; y<imgHsv.cols; y++){
+        for(int x=0; x<imgHsv.rows; x++) {
+            int cur2 = imgHsv.at<Vec3b>(Point(y,x))[1];
+            cur2 += changeBy;
+            if(cur2 < 0) cur2=0; else if(cur2 > 255) cur2 = 255;
+            imgHsv.at<Vec3b>(Point(y,x))[1] = cur2;
+        }
+    }
+
+    cvtColor(imgHsv,saturated,COLOR_HSV2RGB);
+
+}
 double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
@@ -982,7 +1019,9 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 
 	// Blend 2 input images
 	float blend = colorRatio;
-	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
+	Mat trImg2Sat;
+	saturate(trImg2, trImg2Sat, (1.0 - blend) * -25);
+	dst = trImg1 * (1.0 - blend) + trImg2Sat * blend;
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
@@ -1009,13 +1048,13 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to let Poppy determine that number automatically.")
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
 	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
-	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for matched point pairs")
-	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (match pairs) are chopped")
-	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher should be (values less than 1.0 make it more sensitive). This option is only useful for experiments and source material of low quality because Poppy adjusts the sensitivity automatically")
+	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
+	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (point pairs) are chopped")
+	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -1071,6 +1110,7 @@ int main(int argc, char **argv) {
 		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 		exit(2);
 	}
+
 	Mat image2;
 	Mat orig1;
 	Mat orig2;
@@ -1118,7 +1158,7 @@ int main(int argc, char **argv) {
 			morphedPoints.clear();
 			linear = j * step;
 			shape =	((1.0 / (1.0 - linear)) / number_of_frames);
-			color = shape;
+			color = shape;// log10(1 + (pow(j * (1.0 / number_of_frames),3)));
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
