@@ -24,8 +24,8 @@ double max_len_deviation = 20;
 double max_len_diff = 10;
 size_t max_ang_deviation = 20;
 double max_ang_diff = 5;
-double max_pair_len_divider = 40;
-double max_chop_len_divider = 80;
+double max_pair_len_divider = 10;
+double max_chop_len_divider = 20;
 double contour_sensitivity = 0.4;
 off_t max_keypoints = -1;
 
