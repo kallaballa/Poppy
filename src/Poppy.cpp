@@ -342,6 +342,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 		}
 
 		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / max_len_diff))) / (edges.size() / (100.0 / (100.0 - max_len_diff)));
+		std::cerr << score << std::endl;
 		assert(score >= 0 && score <= 1.0);
 		diffs.push_back( { score, new1, new2 });
 	}
