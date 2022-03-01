@@ -966,7 +966,31 @@ void saturate(cv::Mat &img, cv::Mat &saturated, double changeBy) {
     cvtColor(imgHsv,saturated,COLOR_HSV2RGB);
 
 }
-double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio) {
+
+void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
+	std::cerr << "channels: " << img.channels() << std::endl;
+	dst = img.clone();
+	for(int y=0; y<img.cols; y++){
+        for(int x=0; x<img.rows; x++) {
+        	const Vec3b& imgPix = img.at<Vec3b>(Point(y,x));
+            int b = imgPix[0];
+            int g = imgPix[1];
+            int r = imgPix[2];
+            b += changeBy;
+            g += changeBy;
+            r += changeBy;
+            if(b < 0) b=0; else if(b > 255) b = 255;
+            if(g < 0) g=0; else if(g > 255) g = 255;
+            if(r < 0) r=0; else if(r > 255) r = 255;
+            Vec3b& dstPix = dst.at<Vec3b>(Point(y,x));
+            dstPix[0] = b;
+            dstPix[1] = g;
+            dstPix[2] = r;
+        }
+    }
+}
+
+double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio, float bright) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1019,9 +1043,7 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 
 	// Blend 2 input images
 	float blend = colorRatio;
-	Mat trImg2Sat;
-	saturate(trImg2, trImg2Sat, (1.0 - blend) * -25);
-	dst = trImg1 * (1.0 - blend) + trImg2Sat * blend;
+	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
@@ -1159,7 +1181,7 @@ int main(int argc, char **argv) {
 			linear = j * step;
 			shape =	((1.0 / (1.0 - linear)) / number_of_frames);
 			color = shape;// log10(1 + (pow(j * (1.0 / number_of_frames),3)));
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
