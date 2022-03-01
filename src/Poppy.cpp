@@ -20,8 +20,10 @@
 
 bool show_gui = false;
 double number_of_frames = 60;
-double max_len_deviation = 5;
-double max_ang_deviation = 3;
+double max_len_deviation = 20;
+double max_len_diff = 10;
+size_t max_ang_deviation = 20;
+double max_ang_diff = 5;
 double max_pair_len_divider = 40;
 double max_chop_len_divider = 80;
 double contour_sensitivity = 0.4;
@@ -57,103 +59,108 @@ Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) 
 
 class LaplacianBlending {
 private:
-    Mat_<Vec3f> left;
-    Mat_<Vec3f> right;
-    Mat_<float> blendMask;
-    vector<Mat_<Vec3f> > leftLapPyr,rightLapPyr,resultLapPyr;
-    Mat leftSmallestLevel, rightSmallestLevel, resultSmallestLevel;
-    vector<Mat_<Vec3f> > maskGaussianPyramid; //masks are 3-channels for easier multiplication with RGB
-    int levels;
-    void buildPyramids() {
-        buildLaplacianPyramid(left,leftLapPyr,leftSmallestLevel);
-        buildLaplacianPyramid(right,rightLapPyr,rightSmallestLevel);
-        buildGaussianPyramid();
-    }
-    void buildGaussianPyramid() {
-        assert(leftLapPyr.size()>0);
-        maskGaussianPyramid.clear();
-        Mat currentImg;
-        cvtColor(blendMask, currentImg, COLOR_GRAY2BGR);
-        maskGaussianPyramid.push_back(currentImg); //highest level
-        currentImg = blendMask;
-        for (int l=1; l<levels+1; l++) {
-            Mat _down;
-            if (leftLapPyr.size() > l) {
-                pyrDown(currentImg, _down, leftLapPyr[l].size());
-            } else {
-                pyrDown(currentImg, _down, leftSmallestLevel.size()); //smallest level
-            }
-            Mat down;
-            cvtColor(_down, down, COLOR_GRAY2BGR);
-            maskGaussianPyramid.push_back(down);
-            currentImg = _down;
-        }
-    }
-    void buildLaplacianPyramid(const Mat& img, vector<Mat_<Vec3f> >& lapPyr, Mat& smallestLevel) {
-        lapPyr.clear();
-        Mat currentImg = img;
-        for (int l=0; l<levels; l++) {
-            Mat down,up;
-            pyrDown(currentImg, down);
-            pyrUp(down, up, currentImg.size());
-            Mat lap = currentImg - up;
-            lapPyr.push_back(lap);
-            currentImg = down;
-        }
-        currentImg.copyTo(smallestLevel);
-    }
-    Mat_<Vec3f> reconstructImgFromLapPyramid() {
-        Mat currentImg = resultSmallestLevel;
-        for (int l=levels-1; l>=0; l--) {
-            Mat up;
-            pyrUp(currentImg, up, resultLapPyr[l].size());
-            currentImg = up + resultLapPyr[l];
-        }
-        return currentImg;
-    }
-    void blendLapPyrs() {
-        resultSmallestLevel = leftSmallestLevel.mul(maskGaussianPyramid.back()) +
-                                    rightSmallestLevel.mul(Scalar(1.0,1.0,1.0) - maskGaussianPyramid.back());
-        for (int l=0; l<levels; l++) {
-            Mat A = leftLapPyr[l].mul(maskGaussianPyramid[l]);
-            Mat antiMask = Scalar(1.0,1.0,1.0) - maskGaussianPyramid[l];
-            Mat B = rightLapPyr[l].mul(antiMask);
-            Mat_<Vec3f> blendedLevel = A + B;
-            resultLapPyr.push_back(blendedLevel);
-        }
-    }
+	Mat_<Vec3f> left;
+	Mat_<Vec3f> right;
+	Mat_<float> blendMask;
+	vector<Mat_<Vec3f> > leftLapPyr, rightLapPyr, resultLapPyr;
+	Mat leftSmallestLevel, rightSmallestLevel, resultSmallestLevel;
+	vector<Mat_<Vec3f> > maskGaussianPyramid; //masks are 3-channels for easier multiplication with RGB
+	int levels;
+	void buildPyramids() {
+		buildLaplacianPyramid(left, leftLapPyr, leftSmallestLevel);
+		buildLaplacianPyramid(right, rightLapPyr, rightSmallestLevel);
+		buildGaussianPyramid();
+	}
+	void buildGaussianPyramid() {
+		assert(leftLapPyr.size() > 0);
+		maskGaussianPyramid.clear();
+		Mat currentImg;
+		cvtColor(blendMask, currentImg, COLOR_GRAY2BGR);
+		maskGaussianPyramid.push_back(currentImg); //highest level
+		currentImg = blendMask;
+		for (int l = 1; l < levels + 1; l++) {
+			Mat _down;
+			if (leftLapPyr.size() > l) {
+				pyrDown(currentImg, _down, leftLapPyr[l].size());
+			} else {
+				pyrDown(currentImg, _down, leftSmallestLevel.size()); //smallest level
+			}
+			Mat down;
+			cvtColor(_down, down, COLOR_GRAY2BGR);
+			maskGaussianPyramid.push_back(down);
+			currentImg = _down;
+		}
+	}
+	void buildLaplacianPyramid(const Mat &img, vector<Mat_<Vec3f> > &lapPyr, Mat &smallestLevel) {
+		lapPyr.clear();
+		Mat currentImg = img;
+		for (int l = 0; l < levels; l++) {
+			Mat down, up;
+			pyrDown(currentImg, down);
+			pyrUp(down, up, currentImg.size());
+			Mat lap = currentImg - up;
+			lapPyr.push_back(lap);
+			currentImg = down;
+		}
+		currentImg.copyTo(smallestLevel);
+	}
+	Mat_<Vec3f> reconstructImgFromLapPyramid() {
+		Mat currentImg = resultSmallestLevel;
+		for (int l = levels - 1; l >= 0; l--) {
+			Mat up;
+			pyrUp(currentImg, up, resultLapPyr[l].size());
+			imshow("currentImg", currentImg);
+			currentImg = up + resultLapPyr[l];
+		}
+		return currentImg;
+	}
+	void blendLapPyrs() {
+		resultSmallestLevel = leftSmallestLevel.mul(maskGaussianPyramid.back()) +
+				rightSmallestLevel.mul(Scalar(1.0, 1.0, 1.0) - maskGaussianPyramid.back());
+		for (int l = 0; l < levels; l++) {
+			Mat A = leftLapPyr[l].mul(maskGaussianPyramid[l]);
+			Mat antiMask = Scalar(1.0, 1.0, 1.0) - maskGaussianPyramid[l];
+			Mat B = rightLapPyr[l].mul(antiMask);
+			Mat_<Vec3f> blendedLevel = A + B;
+			resultLapPyr.push_back(blendedLevel);
+		}
+	}
 public:
-    LaplacianBlending(const Mat_<Vec3f>& _left, const Mat_<Vec3f>& _right, const Mat_<float>& _blendMask, int _levels):
-    left(_left),right(_right),blendMask(_blendMask),levels(_levels)
-    {
-        assert(_left.size() == _right.size());
-        assert(_left.size() == _blendMask.size());
-        buildPyramids();
-        blendLapPyrs();
-    };
-    Mat_<Vec3f> blend() {
-        return reconstructImgFromLapPyramid();
-    }
+	LaplacianBlending(const Mat_<Vec3f> &_left, const Mat_<Vec3f> &_right, const Mat_<float> &_blendMask, int _levels) :
+			left(_left), right(_right), blendMask(_blendMask), levels(_levels)
+	{
+		assert(_left.size() == _right.size());
+		assert(_left.size() == _blendMask.size());
+		buildPyramids();
+		blendLapPyrs();
+	}
+	;
+	Mat_<Vec3f> blend() {
+		return reconstructImgFromLapPyramid();
+	}
 };
-Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f>& l, const Mat_<Vec3f>& r, const Mat_<float>& m) {
-    LaplacianBlending lb(l,r,m,4);
-    return lb.blend();
+Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f> &l, const Mat_<Vec3f> &r, const Mat_<float> &m) {
+	LaplacianBlending lb(l, r, m, 4);
+	return lb.blend();
 }
 
 void test(Mat l8u, Mat r8u) {
-   Mat_<Vec3f> l;
-   Mat_<Vec3f> r;
-   l8u.convertTo(l,CV_32F,1.0/255.0);
-   r8u.convertTo(r,CV_32F,1.0/255.0);
-   Mat_<float> m(l.rows,l.cols,0.0);
-   m(Range::all(),Range(0,m.cols/2)) = 1.0;
-   Mat_<Vec3f> blend = LaplacianBlend(l, r, m);
-   imshow("blended",blend);
-   waitKey(0);
+	Mat_<Vec3f> l;
+	Mat_<Vec3f> r;
+	l8u.convertTo(l, CV_32F, 1.0 / 255.0);
+	r8u.convertTo(r, CV_32F, 1.0 / 255.0);
+	Mat_<float> m(l.rows, l.cols, 0.0);
+	m(Range::all(), Range::all()) = 0.5;
+	Mat_<Vec3f> blend = LaplacianBlend(l, r, m);
+
+	Mat linear = l8u * 0.5 + r8u * 0.5;
+	imshow("laplace blend", blend);
+	imshow("linear blend", blend);
+	waitKey(0);
 }
 
-void check_points(const std::vector<Point2f>& pts, int cols, int rows) {
-	for (const auto& pt : pts) {
+void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
+	for (const auto &pt : pts) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
@@ -182,33 +189,110 @@ void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
-void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
-	double maxDeviationPercent = max_ang_deviation;
-	double avg = 0;
-	double total = 0;
+void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
+	Mat imgHsv;
+	cvtColor(img, imgHsv, COLOR_RGB2HSV);
 
-	for (size_t i = 0; i < kpv1.size(); ++i) {
-		total += M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
-	}
-
-	avg = total / kpv1.size();
-	double dev = avg / (100 / maxDeviationPercent);
-	double min = avg - (dev / 2);
-	double max = min + dev;
-
-	std::vector<KeyPoint> new1;
-	std::vector<KeyPoint> new2;
-
-	for (size_t i = 0; i < kpv1.size(); ++i) {
-		double angle = M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
-
-		if (angle > min && angle < max) {
-			new1.push_back(kpv1[i]);
-			new2.push_back(kpv2[i]);
+	for (int y = 0; y < imgHsv.cols; y++) {
+		for (int x = 0; x < imgHsv.rows; x++) {
+			Vec3b &pix = imgHsv.at<Vec3b>(Point(y, x));
+			int s = pix[1];
+			s += changeBy;
+			if (s < 0)
+				s = 0;
+			else if (s > 255)
+				s = 255;
+			pix[1] = s;
 		}
 	}
-	kpv1 = new1;
-	kpv2 = new2;
+
+	cvtColor(imgHsv, saturated, COLOR_HSV2RGB);
+}
+
+void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
+	std::cerr << "channels: " << img.channels() << std::endl;
+	dst = img.clone();
+	for (int y = 0; y < img.cols; y++) {
+		for (int x = 0; x < img.rows; x++) {
+			const Vec3b &imgPix = img.at<Vec3b>(Point(y, x));
+			int b = imgPix[0];
+			int g = imgPix[1];
+			int r = imgPix[2];
+			b += changeBy;
+			g += changeBy;
+			r += changeBy;
+			if (b < 0)
+				b = 0;
+			else if (b > 255)
+				b = 255;
+			if (g < 0)
+				g = 0;
+			else if (g > 255)
+				g = 255;
+			if (r < 0)
+				r = 0;
+			else if (r > 255)
+				r = 255;
+			Vec3b &dstPix = dst.at<Vec3b>(Point(y, x));
+			dstPix[0] = b;
+			dstPix[1] = g;
+			dstPix[2] = r;
+		}
+	}
+}
+
+void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
+	for (size_t i = 0; i < max_ang_deviation * 100; ++i) {
+		double avg = 0;
+		double total = 0;
+		for (size_t j = 0; j < kpv1.size(); ++j) {
+			total += M_PI + std::atan2(kpv2[j].pt.y - kpv1[j].pt.y, (cols + kpv2[j].pt.x) - kpv1[j].pt.x);
+		}
+
+		avg = total / kpv1.size();
+//		std::cerr << "dev: " << avg /(100.0 / ((i + 1.0))) << std::endl;;
+		double dev = avg / ((100.0 / ((i + 1.0))) * 100.0);
+		double min = avg - (dev / 2.0);
+		double max = min + dev;
+
+		std::vector<KeyPoint> new1;
+		std::vector<KeyPoint> new2;
+
+		for (size_t i = 0; i < kpv1.size(); ++i) {
+			double angle = M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
+
+			if (angle > min && angle < max) {
+				new1.push_back(kpv1[i]);
+				new2.push_back(kpv2[i]);
+			}
+		}
+		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
+		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / max_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - max_ang_diff)));
+		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / max_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - max_ang_diff)));
+		//		std::cerr << i << " score2: " << score2 << ":" << off_t(kpv1.size()) << ":" << off_t(new1.size()) << std::endl;
+		assert(score1 >= 0 && score2 >= 0);
+		assert(score1 <= 1.0);
+		assert(score2 <= 1.0);
+		diffs.push_back( { (score1 * 0.5) * score2 * score3, new1, new2 });
+	}
+
+	double score = 0;
+	double maxScore = -1;
+	size_t candidate = 0;
+
+	for (size_t i = 0; i < diffs.size(); ++i) {
+		auto &dt = diffs[i];
+		score = std::get<0>(dt);
+		if (score > maxScore) {
+			maxScore = score;
+			candidate = i;
+		}
+	}
+//	std::cerr << "-a " << ((kpv1.size() - std::get<1>(diffs[candidate]).size()) / double(kpv1.size())) * 100;
+	std::cerr << "angle test: " << std::get<1>(diffs[candidate]).size() << "/" << (((kpv1.size() - std::get<1>(diffs[candidate]).size()) / double(kpv1.size())) * 100) << std::endl;
+	kpv1 = std::get<1>(diffs[candidate]);
+	kpv2 = std::get<2>(diffs[candidate]);
 }
 
 void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
@@ -230,30 +314,53 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 	for (auto kp : kpv2)
 		ptv2.push_back(kp.pt);
 }
-void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
-	double maxDeviationPercent = max_len_deviation;
-	double avg = 0;
-	double total = 0;
 
-	for (auto e : edges) {
-		total += std::get<2>(e);
+void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
+	for (size_t i = 0; i < max_len_deviation * 100; ++i) {
+		double avg = 0;
+		double total = 0;
+
+		for (auto e : edges) {
+			total += std::get<2>(e);
+		}
+
+		avg = total / edges.size();
+		double dev = avg / ((100.0 / ((i + 1.0))) * 100.0);
+		double min = avg - (dev / 2.0);
+		double max = min + dev;
+
+		std::vector<KeyPoint> new1;
+		std::vector<KeyPoint> new2;
+
+		for (auto e : edges) {
+			double len = std::get<2>(e);
+			if (len > min && len < max) {
+				new1.push_back(std::get<0>(e));
+				new2.push_back(std::get<1>(e));
+			}
+		}
+
+		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / max_len_diff))) / (edges.size() / (100.0 / (100.0 - max_len_diff)));
+		assert(score >= 0 && score <= 1.0);
+		diffs.push_back( { score, new1, new2 });
 	}
 
-	avg = total / edges.size();
-	double dev = avg / (100 / maxDeviationPercent);
-	double min = avg - (dev / 2);
-	double max = min + dev;
+	double score = 0;
+	double maxScore = -1;
+	size_t candidate = 0;
 
-	kpv1.clear();
-	kpv2.clear();
-
-	for (auto e : edges) {
-		double len = std::get<2>(e);
-		if (len > min && len < max) {
-			kpv1.push_back(std::get<0>(e));
-			kpv2.push_back(std::get<1>(e));
+	for (size_t i = 0; i < diffs.size(); ++i) {
+		auto &dt = diffs[i];
+		score = std::get<0>(dt);
+		if (score > maxScore) {
+			maxScore = score;
+			candidate = i;
 		}
 	}
+	std::cerr << "length test: " << std::get<1>(diffs[candidate]).size() << "/" << (((edges.size() - std::get<1>(diffs[candidate]).size()) / double(edges.size())) * 100) << std::endl;
+	kpv1 = std::get<1>(diffs[candidate]);
+	kpv2 = std::get<2>(diffs[candidate]);
 }
 
 void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
@@ -309,7 +416,6 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f>
 	}
 }
 
-// Draw delaunay triangles
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
@@ -346,17 +452,17 @@ void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 	Mat norm;
 	normalize(flow, norm, 1.0, 0.0, NORM_MINMAX);
 
-
 	for (off_t x = 0; x < morphed.cols; ++x) {
 		for (off_t y = 0; y < morphed.rows; ++y) {
 			circle(dst, Point(x, y), 1, Scalar(0), -1);
 			const Point2f flv1 = norm.at<Point2f>(y, x);
 			double mag = hypot(flv1.x, flv1.y);
 			color = std::round(double(255) * (double) mag);
-			circle(dst, Point(x, y), 1, Scalar(color,color,color), -1);
+			circle(dst, Point(x, y), 1, Scalar(color, color, color), -1);
 		}
 	}
-	if(show_gui) imshow("fhm", dst);
+	if (show_gui)
+		imshow("fhm", dst);
 }
 
 void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -377,7 +483,7 @@ void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 			const Point2f flv1 = flow.at<Point2f>(y, x) * 10;
 			double len = hypot(flv1.x - x, flv1.y - y);
 			color = std::round(double(255) * (double(len) / diag));
-			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color,color,color));
+			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color, color, color));
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
@@ -394,7 +500,7 @@ void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
 	dst = morphed * 0.7 + overlay * 0.3;
 }
 
-void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::pair<Point2f,double>>& highlightCenters) {
+void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<std::pair<Point2f, double>> &highlightCenters) {
 	Mat flowm;
 	Mat grey;
 	draw_flow_heightmap(morphed, last, flowm);
@@ -416,12 +522,12 @@ void collect_flow_centers(const Mat& morphed, const Mat& last, std::vector<std::
 		double cy = br.y + br.height / 2.0;
 		Point2f pt(cx, cy);
 		if (rect.contains(pt)) {
-			highlightCenters.push_back({pt, hypot(br.width, br.height)});
+			highlightCenters.push_back( { pt, hypot(br.width, br.height) });
 		}
 	}
 }
 
-static std::vector<std::pair<Point2f,double>> highlights;
+static std::vector<std::pair<Point2f, double>> highlights;
 
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
 //	collect_flow_centers(morphed, last, highlights);
@@ -500,8 +606,8 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
-std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat& grey1, const Mat& grey2) {
-	if(max_keypoints == -1)
+std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
+	if (max_keypoints == -1)
 		max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
 	cv::Ptr<cv::ORB> detector = cv::ORB::create(max_keypoints);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
@@ -681,16 +787,19 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 	return {(float)px, (float)py};
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat& allContours1, Mat& allContours2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
-	Mat grey1, grey2;
-	Mat thresh1, thresh2;
+	Mat sat1, sat2, grey1, grey2, thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
 
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+	saturate(img1, sat1, 255.0);
+	saturate(img2, sat2, 255.0);
+	imshow("sat1", sat1);
+	imshow("sat2", sat2);
+	cvtColor(sat1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(sat2, grey2, cv::COLOR_RGB2GRAY);
 
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
@@ -740,8 +849,10 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
 
-	if(show_gui) imshow("Contours1", allContours1);
-	if(show_gui) imshow("Contours2", allContours2);
+	if (show_gui)
+		imshow("Contours1", allContours1);
+	if (show_gui)
+		imshow("Contours2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
@@ -866,7 +977,6 @@ void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv
 	check_points(srcPoints2, cols, rows);
 }
 
-
 void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, MatSize sz) {
 	float w = sz().width - 1;
 	float h = sz().height - 1;
@@ -933,14 +1043,14 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	std::cerr << "length test: " << srcPoints1.size() << " -> ";
 
 	angle_test(srcPoints1, srcPoints2, img1.cols);
-	std::cerr << "angle test: " << srcPoints1.size() << std::endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	if(show_gui) imshow("matches reduced", matMatches);
+	if (show_gui)
+		imshow("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -950,47 +1060,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-void saturate(cv::Mat &img, cv::Mat &saturated, double changeBy) {
-    Mat imgHsv;
-    cvtColor(img,imgHsv,COLOR_RGB2HSV);
-
-    for(int y=0; y<imgHsv.cols; y++){
-        for(int x=0; x<imgHsv.rows; x++) {
-            int cur2 = imgHsv.at<Vec3b>(Point(y,x))[1];
-            cur2 += changeBy;
-            if(cur2 < 0) cur2=0; else if(cur2 > 255) cur2 = 255;
-            imgHsv.at<Vec3b>(Point(y,x))[1] = cur2;
-        }
-    }
-
-    cvtColor(imgHsv,saturated,COLOR_HSV2RGB);
-
-}
-
-void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
-	std::cerr << "channels: " << img.channels() << std::endl;
-	dst = img.clone();
-	for(int y=0; y<img.cols; y++){
-        for(int x=0; x<img.rows; x++) {
-        	const Vec3b& imgPix = img.at<Vec3b>(Point(y,x));
-            int b = imgPix[0];
-            int g = imgPix[1];
-            int r = imgPix[2];
-            b += changeBy;
-            g += changeBy;
-            r += changeBy;
-            if(b < 0) b=0; else if(b > 255) b = 255;
-            if(g < 0) g=0; else if(g > 255) g = 255;
-            if(r < 0) r=0; else if(r > 255) r = 255;
-            Vec3b& dstPix = dst.at<Vec3b>(Point(y,x));
-            dstPix[0] = b;
-            dstPix[1] = g;
-            dstPix[2] = r;
-        }
-    }
-}
-
-double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f>& morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio, float bright) {
+double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio, float bright) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1049,7 +1119,8 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 	if (prev.empty())
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	if(show_gui) imshow("analysis", analysis);
+	if (show_gui)
+		imshow("analysis", analysis);
 	return 0;
 }
 
@@ -1104,7 +1175,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	if(vm.count("gui")) {
+	if (vm.count("gui")) {
 		showGui = true;
 	}
 
@@ -1148,7 +1219,7 @@ int main(int argc, char **argv) {
 				exit(2);
 			}
 
-			if(image1.cols != image2.cols || image1.rows != image2.rows) {
+			if (image1.cols != image2.cols || image1.rows != image2.rows) {
 				std::cerr << "Image file sizes don't match: " << imageFiles[i] << std::endl;
 				exit(3);
 			}
@@ -1159,7 +1230,7 @@ int main(int argc, char **argv) {
 
 		orig1 = image1.clone();
 		orig2 = image2.clone();
-
+//		test(orig1, orig2);
 		Mat morphed;
 
 		std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
@@ -1168,25 +1239,33 @@ int main(int argc, char **argv) {
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
+		double base = 0;
 		double linear = 0;
+		double logN = 0;
 		double shape = 0;
-		double ease = 0;
 		double color = 0;
 
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-			if(!lastMorphedPoints.empty())
+			if (!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 			linear = j * step;
-			shape =	((1.0 / (1.0 - linear)) / number_of_frames);
-			color = shape;// log10(1 + (pow(j * (1.0 / number_of_frames),3)));
+			base = pow(10, std::ceil(number_of_frames / 240.0));
+			logN = log2(1 + linear * (base - 1)) / log2(base);
+			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
+			color = ((1.0 / (1.0 - logN)) / number_of_frames);
+			if (color > 1.0)
+				color = 1.0;
+			if (shape > 1.0)
+				shape = 1.0;
+
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
 
-			if(show_gui) {
+			if (show_gui) {
 				imshow("morphed", morphed);
 				waitKey(1);
 			}
