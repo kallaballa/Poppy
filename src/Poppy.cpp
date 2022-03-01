@@ -35,6 +35,107 @@ namespace po = boost::program_options;
 
 typedef unsigned char sample_t;
 
+using namespace std;
+
+#include "opencv2/opencv.hpp"
+using namespace cv;
+class LaplacianBlending {
+private:
+    Mat_<Vec3f> left;
+    Mat_<Vec3f> right;
+    Mat_<float> blendMask;
+    vector<Mat_<Vec3f> > leftLapPyr,rightLapPyr,resultLapPyr;
+    Mat leftSmallestLevel, rightSmallestLevel, resultSmallestLevel;
+    vector<Mat_<Vec3f> > maskGaussianPyramid; //masks are 3-channels for easier multiplication with RGB
+    int levels;
+    void buildPyramids() {
+        buildLaplacianPyramid(left,leftLapPyr,leftSmallestLevel);
+        buildLaplacianPyramid(right,rightLapPyr,rightSmallestLevel);
+        buildGaussianPyramid();
+    }
+    void buildGaussianPyramid() {
+        assert(leftLapPyr.size()>0);
+        maskGaussianPyramid.clear();
+        Mat currentImg;
+        cvtColor(blendMask, currentImg, COLOR_GRAY2BGR);
+        maskGaussianPyramid.push_back(currentImg); //highest level
+        currentImg = blendMask;
+        for (int l=1; l<levels+1; l++) {
+            Mat _down;
+            if (leftLapPyr.size() > l) {
+                pyrDown(currentImg, _down, leftLapPyr[l].size());
+            } else {
+                pyrDown(currentImg, _down, leftSmallestLevel.size()); //smallest level
+            }
+            Mat down;
+            cvtColor(_down, down, COLOR_GRAY2BGR);
+            maskGaussianPyramid.push_back(down);
+            currentImg = _down;
+        }
+    }
+    void buildLaplacianPyramid(const Mat& img, vector<Mat_<Vec3f> >& lapPyr, Mat& smallestLevel) {
+        lapPyr.clear();
+        Mat currentImg = img;
+        for (int l=0; l<levels; l++) {
+            Mat down,up;
+            pyrDown(currentImg, down);
+            pyrUp(down, up, currentImg.size());
+            Mat lap = currentImg - up;
+            lapPyr.push_back(lap);
+            currentImg = down;
+        }
+        currentImg.copyTo(smallestLevel);
+    }
+    Mat_<Vec3f> reconstructImgFromLapPyramid() {
+        Mat currentImg = resultSmallestLevel;
+        for (int l=levels-1; l>=0; l--) {
+            Mat up;
+            pyrUp(currentImg, up, resultLapPyr[l].size());
+            currentImg = up + resultLapPyr[l];
+        }
+        return currentImg;
+    }
+    void blendLapPyrs() {
+        resultSmallestLevel = leftSmallestLevel.mul(maskGaussianPyramid.back()) +
+                                    rightSmallestLevel.mul(Scalar(1.0,1.0,1.0) - maskGaussianPyramid.back());
+        for (int l=0; l<levels; l++) {
+            Mat A = leftLapPyr[l].mul(maskGaussianPyramid[l]);
+            Mat antiMask = Scalar(1.0,1.0,1.0) - maskGaussianPyramid[l];
+            Mat B = rightLapPyr[l].mul(antiMask);
+            Mat_<Vec3f> blendedLevel = A + B;
+            resultLapPyr.push_back(blendedLevel);
+        }
+    }
+public:
+    LaplacianBlending(const Mat_<Vec3f>& _left, const Mat_<Vec3f>& _right, const Mat_<float>& _blendMask, int _levels):
+    left(_left),right(_right),blendMask(_blendMask),levels(_levels)
+    {
+        assert(_left.size() == _right.size());
+        assert(_left.size() == _blendMask.size());
+        buildPyramids();
+        blendLapPyrs();
+    };
+    Mat_<Vec3f> blend() {
+        return reconstructImgFromLapPyramid();
+    }
+};
+Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f>& l, const Mat_<Vec3f>& r, const Mat_<float>& m) {
+    LaplacianBlending lb(l,r,m,4);
+    return lb.blend();
+}
+
+void test(Mat l8u, Mat r8u) {
+   Mat_<Vec3f> l;
+   Mat_<Vec3f> r;
+   l8u.convertTo(l,CV_32F,1.0/255.0);
+   r8u.convertTo(r,CV_32F,1.0/255.0);
+   Mat_<float> m(l.rows,l.cols,0.0);
+   m(Range::all(),Range(0,m.cols/2)) = 1.0;
+   Mat_<Vec3f> blend = LaplacianBlend(l, r, m);
+   imshow("blended",blend);
+   waitKey(0);
+}
+
 void check_points(const std::vector<Point2f>& pts, int cols, int rows) {
 	for (const auto& pt : pts) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
@@ -603,13 +704,13 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		double shade = 0;
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
-			shade = 128 + 128 * (j / contours1.size());
+			shade = 128.0 + 128.0 * (double(j) / contours1.size());
 			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy1, 0);
 			cv::drawContours(allContours1, contours1, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
-			shade = 128 + 128 * (j / contours2.size());
+			shade = 128.0 + 128.0 * (double(j) / contours1.size());
 			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy2, 0);
 			cv::drawContours(allContours2, contours2, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy2, 0);
 		}
@@ -908,13 +1009,13 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to let Poppy determine that number automatically.")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
 	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
-	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
-	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (point pairs) are chopped")
-	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
+	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for matched point pairs")
+	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (match pairs) are chopped")
+	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher should be (values less than 1.0 make it more sensitive). This option is only useful for experiments and source material of low quality because Poppy adjusts the sensitivity automatically")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -970,7 +1071,6 @@ int main(int argc, char **argv) {
 		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 		exit(2);
 	}
-
 	Mat image2;
 	Mat orig1;
 	Mat orig2;
@@ -1018,7 +1118,7 @@ int main(int argc, char **argv) {
 			morphedPoints.clear();
 			linear = j * step;
 			shape =	((1.0 / (1.0 - linear)) / number_of_frames);
-			color = shape;// log10(1 + (pow(j * (1.0 / number_of_frames),3)));
+			color = shape;
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
