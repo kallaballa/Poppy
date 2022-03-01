@@ -24,9 +24,9 @@ double max_len_deviation = 20;
 double max_len_diff = 10;
 size_t max_ang_deviation = 20;
 double max_ang_diff = 5;
-double max_pair_len_divider = 10;
-double max_chop_len_divider = 20;
-double contour_sensitivity = 0.4;
+double max_pair_len_divider = 30;
+double max_chop_len_divider = 60;
+double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
 
 using std::vector;
@@ -790,16 +790,20 @@ Point2f calculate_line_point(double x1, double y1, double x2, double y2, double 
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
-	Mat sat1, sat2, grey1, grey2, thresh1, thresh2;
+	Mat sat1, sat2, contrast1, contrast2, blur1, blur2, grey1, grey2, thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
 
 	saturate(img1, sat1, 255.0);
 	saturate(img2, sat2, 255.0);
-	imshow("sat1", sat1);
-	imshow("sat2", sat2);
-	cvtColor(sat1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(sat2, grey2, cv::COLOR_RGB2GRAY);
+	sat1.convertTo(contrast1, -1, 1.2, 0);
+	sat2.convertTo(contrast2, -1, 1.2, 0);
+	GaussianBlur(contrast1, blur1, Size(13, 13), 2);
+	GaussianBlur(contrast2, blur2, Size(13, 13), 2);
+	imshow("enh1", blur1);
+	imshow("enh2", blur2);
+	cvtColor(blur1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(blur2, grey2, cv::COLOR_RGB2GRAY);
 
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
@@ -834,13 +838,13 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		double shade = 0;
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
-			shade = 128.0 + 128.0 * (double(j) / contours1.size());
+			shade = 32.0 + 223.0 * (double(j) / contours1.size());
 			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy1, 0);
 			cv::drawContours(allContours1, contours1, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
-			shade = 128.0 + 128.0 * (double(j) / contours1.size());
+			shade = 32.0 + 223.0 * (double(j) / contours1.size());
 			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy2, 0);
 			cv::drawContours(allContours2, contours2, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy2, 0);
 		}
@@ -861,11 +865,9 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
 
 	for (size_t i = 0; i < contours1.size(); ++i) {
-		for (size_t j = 0; j < contours2.size(); ++j) {
-			auto matches = find_matches(contours1[i], contours2[j]);
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-		}
+		auto matches = find_matches(contours1[i], contours2[i]);
+		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 	}
 
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
@@ -1129,11 +1131,8 @@ int main(int argc, char **argv) {
 	srand(time(NULL));
 	bool showGui = show_gui;
 	double numberOfFrames = number_of_frames;
-	double maxLenDeviation = max_len_deviation;
-	double maxAngDeviation = max_ang_deviation;
 	double maxPairLenDivider = max_pair_len_divider;
 	double maxChopLenDivider = max_chop_len_divider;
-	double contSensitivity = contour_sensitivity;
 	off_t maxKeypoints = max_keypoints;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
@@ -1143,11 +1142,8 @@ int main(int argc, char **argv) {
 	("gui,g", "Show analysis windows")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
-	("lendev,l", po::value<double>(&maxLenDeviation)->default_value(maxLenDeviation), "The maximum length deviation in percent for the length test")
-	("angdev,a", po::value<double>(&maxAngDeviation)->default_value(maxAngDeviation), "The maximum angular deviation in percent for the angle test")
 	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
 	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (point pairs) are chopped")
-	("sensitivity,s", po::value<double>(&contSensitivity)->default_value(contSensitivity), "How sensitive to contours the matcher showed be (values less than 1.0 make it more sensitive)")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -1186,11 +1182,8 @@ int main(int argc, char **argv) {
 
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
-	max_len_deviation = maxLenDeviation;
-	max_ang_deviation = maxAngDeviation;
 	max_pair_len_divider = maxPairLenDivider;
 	max_chop_len_divider = maxChopLenDivider;
-	contour_sensitivity = contSensitivity;
 	max_keypoints = maxKeypoints;
 	Mat image1;
 	try {
