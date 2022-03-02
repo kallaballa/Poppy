@@ -341,7 +341,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 		}
 
 		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / max_len_diff))) / (edges.size() / (100.0 / (100.0 - max_len_diff)));
-		if(score < 0)
+		if (score < 0)
 			score = 0;
 		assert(score <= 1.0);
 		diffs.push_back( { score, new1, new2 });
@@ -860,7 +860,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		imshow("Contours2", allContours2);
 }
 
-void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat& allContours1, Mat& allContours2) {
+void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
 
 	std::vector<Mat> contours1, contours2;
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
@@ -1063,7 +1063,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat& allContours1, Mat& allContours2, float shapeRatio, float colorRatio, float maskRatio) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1121,45 +1121,57 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-	for(off_t x = 0; x < m1.cols; ++x) {
-		for(off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y,x) = allContours1.at<uint8_t>(y,x) / 255.0;
+	for (off_t x = 0; x < m1.cols; ++x) {
+		for (off_t y = 0; y < m1.rows; ++y) {
+			m1.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
-	for(off_t x = 0; x < m2.cols; ++x) {
-		for(off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y,x) = allContours2.at<uint8_t>(y,x) / 255.0;
+	for (off_t x = 0; x < m2.cols; ++x) {
+		for (off_t y = 0; y < m2.rows; ++y) {
+			m2.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
-//	m2(Range::all(), Range::all()) = 1.0;
+	m2(Range::all(), Range::all()) = 1.0;
 //	maskRatio+=0.5;
-	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
-	Mat gauss, norm, mask;
+	Mat mask;
+	if (maskRatio > 0.5) {
+		m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
 
-	GaussianBlur(m, gauss, Size(23, 23), 3);
-	threshold(gauss, mask, 0.5, 1.0, 0.0);
+		Mat gauss, norm;
+		off_t kx = std::round(m.cols / 4.0);
+		off_t ky = std::round(m.rows / 4.0);
+		if(kx % 2 != 1)
+			kx -= 1;
 
-//
-//
-//	float minV = 1.0;
-//	float maxV = 0.0;
-//	for(off_t x = 0; x < mask.cols; ++x) {
-//		for(off_t y = 0; y < mask.rows; ++y) {
-//			float& v = mask.at<float>(y,x);
-//			minV = std::min(minV, v);
-//			maxV = std::max(maxV, v);
+		if(ky % 2 != 1)
+			ky -= 1;
+
+		GaussianBlur(m, gauss, Size(kx, ky), 6);
+		imshow("gauss", gauss);
+//		float minV = 1.0;
+//		float maxV = 0.0;
+//		for(off_t x = 0; x < gauss.cols; ++x) {
+//			for(off_t y = 0; y < gauss.rows; ++y) {
+//				float& v = gauss.at<float>(y,x);
+//				minV = std::min(minV, v);
+//				maxV = std::max(maxV, v);
+//			}
 //		}
-//	}
 //
-//	float stretch_factor  = 1.0 / maxV;
-//	for(off_t x = 0; x < mask.cols; ++x) {
-//		for(off_t y = 0; y < mask.rows; ++y) {
-//			float& v = mask.at<float>(y,x);
-//			v = (v - minV) / (maxV - minV);
+//		for(off_t x = 0; x < gauss.cols; ++x) {
+//			for(off_t y = 0; y < gauss.rows; ++y) {
+//				float& v = gauss.at<float>(y,x);
+//				v = (v - minV) / (maxV - minV);
+//			}
 //		}
-//	}
+		threshold(gauss, mask, 0.500000001, 1.0, 0.0);
+	}
+	else {
+		mask = m2;
+	}
+
 //	mask.at<float>(0,0) = 0.0;
 
 //	normalize(gauss, mask, 1.0, 0.0, NORM_MINMAX);
@@ -1320,7 +1332,7 @@ int main(int argc, char **argv) {
 			logN = log2(1 + linear * (base - 1)) / log2(base);
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
 			color = ((1.0 / (1.0 - logN)) / number_of_frames);
-			mask = 0.5 + std::pow(linear + 0.6, 16);
+			mask = 0.5 + std::pow(0.707106781187 + linear * 0.292893218813, 32);
 			std::cerr << mask << std::endl;
 			if (color > 1.0)
 				color = 1.0;
@@ -1333,7 +1345,7 @@ int main(int argc, char **argv) {
 			output.write(video);
 
 			if (show_gui) {
-				imshow("morphed", morphed);
+				imshow("morphed", video);
 				waitKey(1);
 			}
 		}
