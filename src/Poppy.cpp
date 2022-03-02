@@ -1133,7 +1133,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 		}
 	}
 
-	m2(Range::all(), Range::all()) = 1.0;
+//	m2(Range::all(), Range::all()) = 1.0;
 //	maskRatio+=0.5;
 	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
 	Mat gauss, norm, mask;
