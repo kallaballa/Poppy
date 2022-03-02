@@ -109,7 +109,6 @@ private:
 		for (int l = levels - 1; l >= 0; l--) {
 			Mat up;
 			pyrUp(currentImg, up, resultLapPyr[l].size());
-			imshow("currentImg", currentImg);
 			currentImg = up + resultLapPyr[l];
 		}
 		return currentImg;
@@ -342,8 +341,9 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 		}
 
 		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / max_len_diff))) / (edges.size() / (100.0 / (100.0 - max_len_diff)));
-		std::cerr << score << std::endl;
-		assert(score >= 0 && score <= 1.0);
+		if(score < 0)
+			score = 0;
+		assert(score <= 1.0);
 		diffs.push_back( { score, new1, new2 });
 	}
 
@@ -860,8 +860,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		imshow("Contours2", allContours2);
 }
 
-void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
-	Mat allContours1, allContours2;
+void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat& allContours1, Mat& allContours2) {
+
 	std::vector<Mat> contours1, contours2;
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
 
@@ -1063,7 +1063,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, float shapeRatio, float colorRatio, float bright) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat& allContours1, Mat& allContours2, float shapeRatio, float colorRatio, float maskRatio) {
 	//morph based on matches
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1114,9 +1114,78 @@ double morph_images(Mat &origImg1, Mat &origImg2, cv::Mat &dst, const cv::Mat &l
 	create_map(triMap, morphHom2, trMapX2, trMapY2);
 	cv::remap(origImg2, trImg2, trMapX2, trMapY2, cv::INTER_LINEAR);
 
-	// Blend 2 input images
-	float blend = colorRatio;
-	dst = trImg1 * (1.0 - blend) + trImg2 * blend;
+	Mat_<Vec3f> l;
+	Mat_<Vec3f> r;
+	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
+	trImg2.convertTo(r, CV_32F, 1.0 / 255.0);
+	Mat_<float> m(l.rows, l.cols, 0.0);
+	Mat_<float> m1(l.rows, l.cols, 0.0);
+	Mat_<float> m2(l.rows, l.cols, 0.0);
+	for(off_t x = 0; x < m1.cols; ++x) {
+		for(off_t y = 0; y < m1.rows; ++y) {
+			m1.at<float>(y,x) = allContours1.at<uint8_t>(y,x) / 255.0;
+		}
+	}
+
+	for(off_t x = 0; x < m2.cols; ++x) {
+		for(off_t y = 0; y < m2.rows; ++y) {
+			m2.at<float>(y,x) = allContours2.at<uint8_t>(y,x) / 255.0;
+		}
+	}
+
+	m2(Range::all(), Range::all()) = 1.0;
+//	maskRatio+=0.5;
+	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
+	Mat gauss, norm, mask;
+
+	GaussianBlur(m, gauss, Size(23, 23), 3);
+	threshold(gauss, mask, 0.5, 1.0, 0.0);
+
+//
+//
+//	float minV = 1.0;
+//	float maxV = 0.0;
+//	for(off_t x = 0; x < mask.cols; ++x) {
+//		for(off_t y = 0; y < mask.rows; ++y) {
+//			float& v = mask.at<float>(y,x);
+//			minV = std::min(minV, v);
+//			maxV = std::max(maxV, v);
+//		}
+//	}
+//
+//	float stretch_factor  = 1.0 / maxV;
+//	for(off_t x = 0; x < mask.cols; ++x) {
+//		for(off_t y = 0; y < mask.rows; ++y) {
+//			float& v = mask.at<float>(y,x);
+//			v = (v - minV) / (maxV - minV);
+//		}
+//	}
+//	mask.at<float>(0,0) = 0.0;
+
+//	normalize(gauss, mask, 1.0, 0.0, NORM_MINMAX);
+//	threshold(norm, mask, 0.1, 1.0, 0.0);
+//	imshow("norm", norm);
+	imshow("mask", mask);
+	imshow("m1", m1);
+	imshow("m2", m2);
+
+	LaplacianBlending lb(l, r, mask, 4);
+	Mat_<Vec3f> lapBlend = lb.blend().clone();
+	Mat_<Vec3f> lapBlendCopy = lapBlend.clone();
+	imshow("laplace blend", lapBlend);
+	waitKey(1);
+	//	for(off_t x = 0; x < lapBlend.cols; ++x) {
+//		for(off_t y = 0; y < lapBlend.rows; ++y) {
+//			float& v = lapBlend.at<float>(y,x);
+//			if(v > 1.0) v = 1.0;
+//			else if(v < 0.0) v = 0.0;
+//		}
+//	}
+	dst = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
+//	Mat norm;
+//	normalize(lapBlend, norm, 1.0, 0.0, NORM_MINMAX);
+	lapBlendCopy.convertTo(video, origImg1.depth(), 255.0);
+
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
@@ -1229,7 +1298,8 @@ int main(int argc, char **argv) {
 
 		std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
-		find_matches(orig1, orig2, srcPoints1, srcPoints2);
+		Mat allContours1, allContours2;
+		find_matches(orig1, orig2, srcPoints1, srcPoints2, allContours1, allContours2);
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
@@ -1238,7 +1308,8 @@ int main(int argc, char **argv) {
 		double logN = 0;
 		double shape = 0;
 		double color = 0;
-
+		double mask = 0;
+		Mat video;
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 			if (!lastMorphedPoints.empty())
@@ -1249,15 +1320,17 @@ int main(int argc, char **argv) {
 			logN = log2(1 + linear * (base - 1)) / log2(base);
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
 			color = ((1.0 / (1.0 - logN)) / number_of_frames);
+			mask = 0.5 + std::pow(linear + 0.6, 16);
+			std::cerr << mask << std::endl;
 			if (color > 1.0)
 				color = 1.0;
 			if (shape > 1.0)
 				shape = 1.0;
 
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
+			morph_images(image1, orig2, morphed, video, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, color, mask);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
-			output.write(morphed);
+			output.write(video);
 
 			if (show_gui) {
 				imshow("morphed", morphed);
