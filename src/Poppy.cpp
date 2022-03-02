@@ -38,6 +38,10 @@ typedef unsigned char sample_t;
 
 using namespace std;
 using namespace cv;
+void show_image(const string &name, const Mat &img) {
+	namedWindow(name, WINDOW_NORMAL);
+	imshow(name, img);
+}
 
 Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
 	float s = sin(angle);
@@ -462,8 +466,7 @@ void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 			circle(dst, Point(x, y), 1, Scalar(color, color, color), -1);
 		}
 	}
-	if (show_gui)
-		imshow("fhm", dst);
+	show_image("fhm", dst);
 }
 
 void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -488,7 +491,7 @@ void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
-	imshow("fv", dst);
+	if (show_gui) imshow("fv", dst);
 }
 
 void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -801,8 +804,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	sat2.convertTo(contrast2, -1, 1.2, 0);
 	GaussianBlur(contrast1, blur1, Size(13, 13), 2);
 	GaussianBlur(contrast2, blur2, Size(13, 13), 2);
-	imshow("enh1", blur1);
-	imshow("enh2", blur2);
+	if (show_gui) imshow("enh1", blur1);
+	if (show_gui) imshow("enh2", blur2);
 	cvtColor(blur1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(blur2, grey2, cv::COLOR_RGB2GRAY);
 
@@ -854,10 +857,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
 
-	if (show_gui)
-		imshow("Contours1", allContours1);
-	if (show_gui)
-		imshow("Contours2", allContours2);
+	if (show_gui) imshow("Contours1", allContours1);
+	if (show_gui) imshow("Contours2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
@@ -1052,8 +1053,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	if (show_gui)
-		imshow("matches reduced", matMatches);
+	if (show_gui) imshow("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1134,7 +1134,6 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 	}
 
 	m2(Range::all(), Range::all()) = 1.0;
-//	maskRatio+=0.5;
 	Mat mask;
 	if (maskRatio > 0.5) {
 		m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
@@ -1142,69 +1141,32 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 		Mat gauss, norm;
 		off_t kx = std::round(m.cols / 4.0);
 		off_t ky = std::round(m.rows / 4.0);
-		if(kx % 2 != 1)
+		if (kx % 2 != 1)
 			kx -= 1;
 
-		if(ky % 2 != 1)
+		if (ky % 2 != 1)
 			ky -= 1;
 
 		GaussianBlur(m, gauss, Size(kx, ky), 6);
-		imshow("gauss", gauss);
-//		float minV = 1.0;
-//		float maxV = 0.0;
-//		for(off_t x = 0; x < gauss.cols; ++x) {
-//			for(off_t y = 0; y < gauss.rows; ++y) {
-//				float& v = gauss.at<float>(y,x);
-//				minV = std::min(minV, v);
-//				maxV = std::max(maxV, v);
-//			}
-//		}
-//
-//		for(off_t x = 0; x < gauss.cols; ++x) {
-//			for(off_t y = 0; y < gauss.rows; ++y) {
-//				float& v = gauss.at<float>(y,x);
-//				v = (v - minV) / (maxV - minV);
-//			}
-//		}
 		threshold(gauss, mask, 0.500000001, 1.0, 0.0);
 	}
 	else {
 		mask = m2;
 	}
 
-//	mask.at<float>(0,0) = 0.0;
-
-//	normalize(gauss, mask, 1.0, 0.0, NORM_MINMAX);
-//	threshold(norm, mask, 0.1, 1.0, 0.0);
-//	imshow("norm", norm);
-	imshow("mask", mask);
-	imshow("m1", m1);
-	imshow("m2", m2);
+	if (show_gui) imshow("mask", mask);
 
 	LaplacianBlending lb(l, r, mask, 4);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
-	Mat_<Vec3f> lapBlendCopy = lapBlend.clone();
-	imshow("laplace blend", lapBlend);
-	waitKey(1);
-	//	for(off_t x = 0; x < lapBlend.cols; ++x) {
-//		for(off_t y = 0; y < lapBlend.rows; ++y) {
-//			float& v = lapBlend.at<float>(y,x);
-//			if(v > 1.0) v = 1.0;
-//			else if(v < 0.0) v = 0.0;
-//		}
-//	}
 	dst = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
-//	Mat norm;
-//	normalize(lapBlend, norm, 1.0, 0.0, NORM_MINMAX);
-	lapBlendCopy.convertTo(video, origImg1.depth(), 255.0);
+	lapBlend.convertTo(video, origImg1.depth(), 255.0);
 
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	if (show_gui)
-		imshow("analysis", analysis);
+	if (show_gui) imshow("analysis", analysis);
 	return 0;
 }
 
@@ -1344,10 +1306,8 @@ int main(int argc, char **argv) {
 			lastMorphedPoints = morphedPoints;
 			output.write(video);
 
-			if (show_gui) {
-				imshow("morphed", video);
-				waitKey(1);
-			}
+			show_image("morphed", video);
+			waitKey(1);
 		}
 		morphed.release();
 		srcPoints1.clear();
