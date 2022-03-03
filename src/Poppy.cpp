@@ -24,8 +24,8 @@ double max_len_deviation = 20;
 double max_len_diff = 10;
 size_t max_ang_deviation = 20;
 double max_ang_diff = 5;
-double max_pair_len_divider = 30;
-double max_chop_len_divider = 60;
+double max_pair_len_divider = 40;
+double max_chop_len_divider = 20;
 double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
 
@@ -38,28 +38,6 @@ typedef unsigned char sample_t;
 
 using namespace std;
 using namespace cv;
-void show_image(const string &name, const Mat &img) {
-	namedWindow(name, WINDOW_NORMAL);
-	imshow(name, img);
-}
-
-Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
-	float s = sin(angle);
-	float c = cos(angle);
-	Point2f newPoint = trabant;
-	// translate point back to origin:
-	newPoint.x -= center.x;
-	newPoint.y -= center.y;
-
-	// rotate point
-	float xnew = newPoint.x * c - newPoint.y * s;
-	float ynew = newPoint.x * s + newPoint.y * c;
-
-	// translate point back:
-	newPoint.x = xnew + center.x;
-	newPoint.y = ynew + center.y;
-	return newPoint;
-}
 
 class LaplacianBlending {
 private:
@@ -137,7 +115,7 @@ public:
 		buildPyramids();
 		blendLapPyrs();
 	}
-	;
+
 	Mat_<Vec3f> blend() {
 		return reconstructImgFromLapPyramid();
 	}
@@ -160,6 +138,29 @@ void test(Mat l8u, Mat r8u) {
 	imshow("laplace blend", blend);
 	imshow("linear blend", blend);
 	waitKey(0);
+}
+
+void show_image(const string &name, const Mat &img) {
+	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
+	imshow(name, img);
+}
+
+Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
+	float s = sin(angle);
+	float c = cos(angle);
+	Point2f newPoint = trabant;
+	// translate point back to origin:
+	newPoint.x -= center.x;
+	newPoint.y -= center.y;
+
+	// rotate point
+	float xnew = newPoint.x * c - newPoint.y * s;
+	float ynew = newPoint.x * s + newPoint.y * c;
+
+	// translate point back:
+	newPoint.x = xnew + center.x;
+	newPoint.y = ynew + center.y;
+	return newPoint;
 }
 
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
@@ -213,7 +214,6 @@ void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
 }
 
 void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
-	std::cerr << "channels: " << img.channels() << std::endl;
 	dst = img.clone();
 	for (int y = 0; y < img.cols; y++) {
 		for (int x = 0; x < img.rows; x++) {
@@ -254,7 +254,6 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 		}
 
 		avg = total / kpv1.size();
-//		std::cerr << "dev: " << avg /(100.0 / ((i + 1.0))) << std::endl;;
 		double dev = avg / ((100.0 / ((i + 1.0))) * 100.0);
 		double min = avg - (dev / 2.0);
 		double max = min + dev;
@@ -273,7 +272,6 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
 		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / max_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - max_ang_diff)));
 		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / max_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - max_ang_diff)));
-		//		std::cerr << i << " score2: " << score2 << ":" << off_t(kpv1.size()) << ":" << off_t(new1.size()) << std::endl;
 		assert(score1 >= 0 && score2 >= 0);
 		assert(score1 <= 1.0);
 		assert(score2 <= 1.0);
@@ -292,7 +290,6 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 			candidate = i;
 		}
 	}
-//	std::cerr << "-a " << ((kpv1.size() - std::get<1>(diffs[candidate]).size()) / double(kpv1.size())) * 100;
 	std::cerr << "angle test: " << std::get<1>(diffs[candidate]).size() << "/" << (((kpv1.size() - std::get<1>(diffs[candidate]).size()) / double(kpv1.size())) * 100) << std::endl;
 	kpv1 = std::get<1>(diffs[candidate]);
 	kpv2 = std::get<2>(diffs[candidate]);
@@ -433,7 +430,6 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
 		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
 
-		//Draw triangles completely inside the image.
 		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2]))
 				{
 			line(dst, pt[0], pt[1], delaunay_color, 1, cv::LINE_AA, 0);
@@ -491,7 +487,7 @@ void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
 		}
 	}
-	if (show_gui) imshow("fv", dst);
+	show_image("fv", dst);
 }
 
 void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
@@ -804,8 +800,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	sat2.convertTo(contrast2, -1, 1.2, 0);
 	GaussianBlur(contrast1, blur1, Size(13, 13), 2);
 	GaussianBlur(contrast2, blur2, Size(13, 13), 2);
-	if (show_gui) imshow("enh1", blur1);
-	if (show_gui) imshow("enh2", blur2);
+	show_image("enh1", blur1);
+	show_image("enh2", blur2);
 	cvtColor(blur1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(blur2, grey2, cv::COLOR_RGB2GRAY);
 
@@ -857,8 +853,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
 
-	if (show_gui) imshow("Contours1", allContours1);
-	if (show_gui) imshow("Contours2", allContours2);
+	show_image("Contours1", allContours1);
+	show_image("Contours2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
@@ -1053,7 +1049,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	if (show_gui) imshow("matches reduced", matMatches);
+	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1063,8 +1059,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
-	//morph based on matches
+double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &linearBlend, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1114,6 +1109,8 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 	create_map(triMap, morphHom2, trMapX2, trMapY2);
 	cv::remap(origImg2, trImg2, trMapX2, trMapY2, cv::INTER_LINEAR);
 
+
+
 	Mat_<Vec3f> l;
 	Mat_<Vec3f> r;
 	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
@@ -1121,52 +1118,59 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cv::
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
+
+	normalize(allContours1, allContours1, 254.0, 1.0, NORM_MINMAX);
+	normalize(allContours2, allContours2, 254.0, 1.0, NORM_MINMAX);
+
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
+			m2.at<float>(y, x) = std::log10(1 + (allContours1.at<uint8_t>(y, x) / 255.0 * ((double(rand()) / RAND_MAX) / 255.0) * 9));
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
+			m1.at<float>(y, x) = std::log10(1 + (allContours2.at<uint8_t>(y, x) / 255.0 * ((double(rand()) / RAND_MAX) / 255.0) * 9));
 		}
 	}
 
 	m2(Range::all(), Range::all()) = 1.0;
 	Mat mask;
-	if (maskRatio > 0.5) {
+//	if (maskRatio > 0.5) {
 		m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
 
 		Mat gauss, norm;
-		off_t kx = std::round(m.cols / 4.0);
-		off_t ky = std::round(m.rows / 4.0);
+		off_t kx = std::round(m.cols / 8.0);
+		off_t ky = std::round(m.rows / 8.0);
 		if (kx % 2 != 1)
 			kx -= 1;
 
 		if (ky % 2 != 1)
 			ky -= 1;
 
-		GaussianBlur(m, gauss, Size(kx, ky), 6);
-		threshold(gauss, mask, 0.500000001, 1.0, 0.0);
-	}
-	else {
-		mask = m2;
-	}
+		GaussianBlur(m, gauss, Size(kx, ky), 12);
+		threshold(gauss, mask, 0.5 + std::numeric_limits<double>::epsilon(), 1.0, 0.0);
+//	}
+//	else {
+//		mask = m2;
+//	}
 
-	if (show_gui) imshow("mask", mask);
+	show_image("mask", mask);
 
 	LaplacianBlending lb(l, r, mask, 4);
+	Mat blend;
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
-	dst = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
+	linearBlend = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
 	lapBlend.convertTo(video, origImg1.depth(), 255.0);
 
-	Mat analysis = dst.clone();
+	add(linearBlend * 0.5,lapBlend * 0.5, blend, noArray(), origImg2.type());
+
+	Mat analysis = lapBlend.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
-		prev = dst.clone();
-	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	if (show_gui) imshow("analysis", analysis);
+		prev = lapBlend.clone();
+	draw_morph_analysis(lapBlend, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
+	show_image("analysis", analysis);
 	return 0;
 }
 
@@ -1267,7 +1271,6 @@ int main(int argc, char **argv) {
 
 		orig1 = image1.clone();
 		orig2 = image2.clone();
-//		test(orig1, orig2);
 		Mat morphed;
 
 		std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
@@ -1279,7 +1282,8 @@ int main(int argc, char **argv) {
 		float step = 1.0 / number_of_frames;
 		double base = 0;
 		double linear = 0;
-		double logN = 0;
+		double logColor = 0;
+		double logMask = 0;
 		double shape = 0;
 		double color = 0;
 		double mask = 0;
@@ -1289,13 +1293,14 @@ int main(int argc, char **argv) {
 			if (!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
+
 			linear = j * step;
 			base = pow(10, std::ceil(number_of_frames / 240.0));
-			logN = log2(1 + linear * (base - 1)) / log2(base);
+			logColor = log2(1 + linear * (base - 1)) / log2(base);
+			logMask = log10(1 + linear * (base * std::pow(2,2) - 1)) / log10(base * std::pow(2,2));
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
-			color = ((1.0 / (1.0 - logN)) / number_of_frames);
-			mask = 0.5 + std::pow(0.707106781187 + linear * 0.292893218813, 32);
-			std::cerr << mask << std::endl;
+			color = ((1.0 / (1.0 - logColor)) / number_of_frames);
+			mask = 0.5 + std::pow(0.6 + logMask * 0.4, 256);
 			if (color > 1.0)
 				color = 1.0;
 			if (shape > 1.0)
