@@ -28,7 +28,7 @@ double target_len_diff = 10;
 size_t ang_iterations = 2000;
 double target_ang_diff = 5;
 double match_sensitivity = 1.0;
-double contour_sensitivity = 0.5;
+double contour_sensitivity = 2.0;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
 
@@ -692,6 +692,20 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 	}
 }
 
+void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected, vector<Vec4i> hierarchy, Mat& dst, int cols, int rows, int type) {
+	dst = Mat::zeros(rows, cols, type);
+
+	for (size_t i = 0; i < collected.size(); ++i) {
+		auto& contours = collected[i];
+		double shade = 0;
+
+		for (size_t j = 0; j < contours.size(); ++j) {
+			shade = 32.0 + 223.0 * (double(j) / contours.size());
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, -1, cv::LINE_8, hierarchy, 0);
+		}
+	}
+}
+
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
@@ -718,12 +732,41 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		collected1.push_back(contours1);
 	}
 
-	for (off_t i = 0; i < 16; ++i) {
-		cv::threshold(grey2, thresh2, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
-		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		collected2.push_back(contours2);
-	}
+	double similarity = 0;
+	Mat cmap1, cmap2;
+	draw_contour_map(collected1, hierarchy1, cmap1, thresh1.cols, thresh1.rows, thresh1.type());
+	Mat hist1, hist2;
+	int channels[] = { 0 };
+	int histSize[] = { 24 };
+	float range[] = { 0, 256 };
+	const float* ranges[] = { range };
 
+	calcHist( &cmap1, 1, channels, Mat(), hist1, 1, histSize, ranges, true, false );
+	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
+
+	double bias = 0;
+	double t = 0;
+	std::map<double, std::vector<std::vector<std::vector<cv::Point>>>> candidates;
+
+	for(size_t i = 0; i < 16; ++i) {
+		bias = (i + 1.0) / 16.0;
+		collected2.clear();
+
+		for (off_t j = 0; j < 16; ++j) {
+			t = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
+			cv::threshold(grey2, thresh2, t, 255, 0);
+			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+			collected2.push_back(contours2);
+		}
+
+		draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
+		calcHist( &cmap2, 1, channels, Mat(), hist2, 1, histSize, ranges, true, false );
+		normalize( hist2, hist2, 0, 1, NORM_MINMAX, -1, Mat() );
+
+		similarity = compareHist( hist1, hist2, 0);
+		candidates[similarity] = collected2;
+	}
+	collected2 = (*candidates.rbegin()).second;
 	dst1.clear();
 	dst2.clear();
 	dst1.resize(collected1.size());
