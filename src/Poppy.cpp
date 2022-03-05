@@ -705,8 +705,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	sat2.convertTo(contrast2, -1, 1.2, 0);
 	GaussianBlur(contrast1, blur1, Size(13, 13), 2);
 	GaussianBlur(contrast2, blur2, Size(13, 13), 2);
-	show_image("enh1", blur1);
-	show_image("enh2", blur2);
+//	show_image("enh1", blur1);
+//	show_image("enh2", blur2);
 	cvtColor(blur1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(blur2, grey2, cv::COLOR_RGB2GRAY);
 
@@ -1039,7 +1039,7 @@ int main(int argc, char **argv) {
 	using std::string;
 	srand(time(NULL));
 	bool showGui = show_gui;
-	double numberOfFrames = number_of_frames;
+	size_t numberOfFrames = number_of_frames;
 	double matchSensitivity = match_sensitivity;
 	double targetAngDiff = target_ang_diff;
 	double targetLenDiff = target_len_diff;
@@ -1051,8 +1051,8 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is automatic determination of that number")
-	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number")
+	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("sensitivity,s", po::value<double>(&matchSensitivity)->default_value(matchSensitivity), "How tolerant poppy is when matching keypoints.")
 	("angloss,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test. The default is probably fine.")
 	("lenloss,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test. The default is probably fine.")
@@ -1080,6 +1080,12 @@ int main(int argc, char **argv) {
 
 	if (vm.count("help") || imageFiles.empty()) {
 		std::cerr << "Usage: poppy [options] <imageFiles>..." << std::endl;
+		std::cerr << "Default options will work fine on good source material. Please," << std::endl;
+		std::cerr << "always make sure images are scaled and rotated to match each" << std::endl;
+		std::cerr << "other. Anyway, there are a couple of options you can specifiy." << std::endl;
+		std::cerr << "But usually you would only want to do this if you either have" << std::endl;
+		std::cerr << "bad source material, feel like experimenting or are trying to" << std::endl;
+		std::cerr << "do something funny." << std::endl;
 		std::cerr << visible;
 		return 0;
 	}
@@ -1180,8 +1186,7 @@ int main(int argc, char **argv) {
 			if (show_gui)
 				waitKey(1);
 
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
-			print_fps();
+			std::cerr << int((j / double(number_of_frames)) * 100.0) << "%\r";
 		}
 		morphed.release();
 		srcPoints1.clear();
