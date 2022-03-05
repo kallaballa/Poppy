@@ -16,7 +16,7 @@ src/poppy -o browns.mkv -f60 amir1.jpg amir2.jpg amir1.jpg
 mencoder -vf scale=360:202 -ovc x264 -nosound -fps 30 -ofps 6 browns.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/browns.gif
 
-src/poppy -s1.1 -g -o catdog.mkv -f60 cat.png dog.png cat.png
+src/poppy -s1.1 -o catdog.mkv -f60 cat.png dog.png cat.png
 mencoder -vf scale=450:300 -ovc x264 -nosound -fps 30 -ofps 6 catdog.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/catdog.gif
 
