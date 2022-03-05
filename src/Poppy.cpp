@@ -128,9 +128,9 @@ Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f> &l, const Mat_<Vec3f> &r, const Mat
 }
 
 void show_image(const string &name, const Mat &img) {
-	if(show_gui) {
-	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
-	imshow(name, img);
+	if (show_gui) {
+		namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
+		imshow(name, img);
 	}
 }
 
@@ -782,21 +782,21 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 //	if(show_gui) imshow("matches", matMatches);
 }
 
-std::tuple<double,double,double> calculate_sum_mean_and_sd(	std::map<double, std::pair<Point2f, Point2f>> distanceMap) {
-  size_t s = distanceMap.size();
-  double sum = 0.0, mean, standardDeviation = 0.0;
+std::tuple<double, double, double> calculate_sum_mean_and_sd(std::map<double, std::pair<Point2f, Point2f>> distanceMap) {
+	size_t s = distanceMap.size();
+	double sum = 0.0, mean, standardDeviation = 0.0;
 
-  for(auto& p : distanceMap) {
-    sum += p.first;
-  }
+	for (auto &p : distanceMap) {
+		sum += p.first;
+	}
 
-  mean = sum / s;
+	mean = sum / s;
 
-  for(auto& p : distanceMap) {
-    standardDeviation += pow(p.first - mean, 2);
-  }
+	for (auto &p : distanceMap) {
+		standardDeviation += pow(p.first - mean, 2);
+	}
 
-  return {sum, mean, sqrt(standardDeviation / s)};
+	return {sum, mean, sqrt(standardDeviation / s)};
 }
 
 void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
@@ -805,7 +805,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	for (auto pt2 : srcPoints2) {
 		setpt2.insert(pt2);
 	}
-	for (auto& pt1 : srcPoints1) {
+	for (auto &pt1 : srcPoints1) {
 		double dist = 0;
 		double currentMinDist = std::numeric_limits<double>::max();
 
@@ -823,7 +823,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 			continue;
 
 		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
-		distanceMap[dist] = {pt1, closest};
+		distanceMap[dist] = { pt1, closest };
 		setpt2.erase(closest);
 	}
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
@@ -838,7 +838,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
-		if(zScore < limit) {
+		if (zScore < limit) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
@@ -987,8 +987,8 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cons
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-	equalizeHist( allContours1, allContours1 );
-	equalizeHist( allContours1, allContours1 );
+	equalizeHist(allContours1, allContours1);
+	equalizeHist(allContours1, allContours1);
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
