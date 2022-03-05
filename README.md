@@ -8,6 +8,7 @@ An non-domain-specific morph algorithm that doesn't require manual keypoints
 ![Flower morphing to another flower](https://github.com/kallaballa/Poppy/blob/main/demo/flowers.gif?raw=true)
 ![Square morphing to a circle](https://github.com/kallaballa/Poppy/blob/main/demo/squarecircle.gif?raw=true)
 ![Morphing from one number to the next](https://github.com/kallaballa/Poppy/blob/main/demo/numbers.gif?raw=true)
+![Morphing from a cat to a dog](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
 
 (Yale face images taken from http://vision.ucsd.edu/content/yale-face-database)
 
