@@ -211,7 +211,12 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
 		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / target_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - target_ang_diff)));
 		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / target_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - target_ang_diff)));
-		assert(score1 >= 0 && score2 >= 0);
+		if(score1 < 0)
+			score1 = 0;
+
+		if(score2 < 0)
+			score2 = 0;
+
 		assert(score1 <= 1.0);
 		assert(score2 <= 1.0);
 		diffs.push_back( { (score1 * 0.5) * score2 * score3, new1, new2 });
@@ -701,7 +706,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected
 
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			cv::drawContours(dst, contours, j, { shade, shade, shade }, -1, cv::LINE_8, hierarchy, 0);
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, 2, cv::LINE_8, hierarchy, 0);
 		}
 	}
 }
@@ -709,32 +714,33 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
-	Mat sat1, sat2, contrast1, contrast2, blur1, blur2, grey1, grey2, thresh1, thresh2;
+	Mat median1, median2, lap1, lap2, grey1, grey2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
-	saturate(img1, sat1, 255.0);
-	saturate(img2, sat2, 255.0);
-	sat1.convertTo(contrast1, -1, 1.2, 0);
-	sat2.convertTo(contrast2, -1, 1.2, 0);
-	GaussianBlur(contrast1, blur1, Size(13, 13), 2);
-	GaussianBlur(contrast2, blur2, Size(13, 13), 2);
-//	show_image("enh1", blur1);
-//	show_image("enh2", blur2);
-	cvtColor(blur1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(blur2, grey2, cv::COLOR_RGB2GRAY);
+	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+	medianBlur(grey1, median1, 3);
+	medianBlur(grey2, median2, 3);
+	Laplacian(median1, lap1, median1.depth());
+	Laplacian(median2, lap2, median2.depth());
+	Mat sharp1 = grey1 - (0.7 * lap1);
+	Mat sharp2 = grey2 - (0.7 * lap2);
+	show_image("sh1", sharp1);
+	show_image("sh2", sharp2);
 
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
+	Mat thresh1, thresh2;
 	for (off_t i = 0; i < 16; ++i) {
-		cv::threshold(grey1, thresh1, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
+		cv::threshold(sharp1, thresh1, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
 
 	double similarity = 0;
 	Mat cmap1, cmap2;
-	draw_contour_map(collected1, hierarchy1, cmap1, thresh1.cols, thresh1.rows, thresh1.type());
+	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
 	Mat hist1, hist2;
 	int channels[] = { 0 };
 	int histSize[] = { 24 };
@@ -743,10 +749,10 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	calcHist( &cmap1, 1, channels, Mat(), hist1, 1, histSize, ranges, true, false );
 	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
-
+	show_image("cmap1", cmap1);
 	double bias = 0;
 	double t = 0;
-	std::map<double, std::vector<std::vector<std::vector<cv::Point>>>> candidates;
+	std::map<double, std::pair<Mat, std::vector<std::vector<std::vector<cv::Point>>>>> candidates;
 
 	for(size_t i = 0; i < 16; ++i) {
 		bias = (i + 1.0) / 16.0;
@@ -754,54 +760,53 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 		for (off_t j = 0; j < 16; ++j) {
 			t = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
-			cv::threshold(grey2, thresh2, t, 255, 0);
+			cv::threshold(sharp2, thresh2, t, 255, 0);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 			collected2.push_back(contours2);
 		}
 
 		draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
+
 		calcHist( &cmap2, 1, channels, Mat(), hist2, 1, histSize, ranges, true, false );
 		normalize( hist2, hist2, 0, 1, NORM_MINMAX, -1, Mat() );
 
 		similarity = compareHist( hist1, hist2, 0);
-		candidates[similarity] = collected2;
+		candidates[similarity] = { cmap2.clone(), collected2};
 	}
-	collected2 = (*candidates.rbegin()).second;
+	allContours1 = cmap1.clone();
+	allContours2 = (*candidates.rbegin()).second.first.clone();
+	collected2 = (*candidates.rbegin()).second.second;
+
 	dst1.clear();
 	dst2.clear();
 	dst1.resize(collected1.size());
-	dst2.resize(collected1.size());
-
-	allContours1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
-	allContours2 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+	dst2.resize(collected2.size());
 
 	for (size_t i = 0; i < collected1.size(); ++i) {
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
-		cvtColor(thresh1, cont1, cv::COLOR_GRAY2RGB);
-		cvtColor(thresh2, cont2, cv::COLOR_GRAY2RGB);
+		cont1 = Mat::zeros(img1.rows, img1.cols, img1.type());
+		cont2 = Mat::zeros(img2.rows, img2.cols, img2.type());
 		contours1 = collected1[i];
 		contours2 = collected2[i];
 		double shade = 0;
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy1, 0);
-			cv::drawContours(allContours1, contours1, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy1, 0);
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 2, cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1, cv::LINE_8, hierarchy2, 0);
-			cv::drawContours(allContours2, contours2, j, { shade, shade, shade }, 1, cv::LINE_8, hierarchy2, 0);
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 2, cv::LINE_8, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
 
-	show_image("Contours1", allContours1);
-	show_image("Contours2", allContours2);
+	show_image("Conto1", allContours1);
+	show_image("Conto2", allContours2);
 }
 
 void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
@@ -963,7 +968,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matches reduced", matMatches);
+//	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1059,7 +1064,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cons
 
 	GaussianBlur(m, mask, Size(kx, ky), 12);
 
-	show_image("mask", mask);
+//	show_image("mask", mask);
 
 	LaplacianBlending lb(l, r, mask, pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
