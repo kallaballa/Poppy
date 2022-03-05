@@ -23,9 +23,9 @@
 
 bool show_gui = false;
 double number_of_frames = 60;
-size_t len_iterations = 2000;
+size_t len_iterations = -1;
 double target_len_diff = 10;
-size_t ang_iterations = 2000;
+size_t ang_iterations = -1;
 double target_ang_diff = 5;
 double match_sensitivity = 1.0;
 double contour_sensitivity = 2.0;
@@ -183,9 +183,9 @@ void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
 	cvtColor(imgHsv, saturated, COLOR_HSV2RGB);
 }
 
-void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < ang_iterations; ++i) {
+	for (size_t i = 0; i < hypot(cols, rows); ++i) {
 		double avg = 0;
 		double total = 0;
 		for (size_t j = 0; j < kpv1.size(); ++j) {
@@ -239,7 +239,7 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 	kpv2 = std::get<2>(diffs[candidate]);
 }
 
-void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
+void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows) {
 	std::vector<KeyPoint> kpv1, kpv2;
 
 	for (auto pt : ptv1)
@@ -248,7 +248,7 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 	for (auto pt : ptv2)
 		kpv2.push_back( { pt, 1 });
 
-	angle_test(kpv1, kpv2, cols);
+	angle_test(kpv1, kpv2, cols, rows);
 	ptv1.clear();
 	ptv2.clear();
 
@@ -259,9 +259,9 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 		ptv2.push_back(kp.pt);
 }
 
-void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < len_iterations; ++i) {
+	for (size_t i = 0; i < hypot(cols, rows); ++i) {
 		double avg = 0;
 		double total = 0;
 
@@ -285,7 +285,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 			}
 		}
 
-		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / target_len_diff))) / (edges.size() / (100.0 / (100.0 - target_len_diff)));
+		double score = 1.0 - std::fabs((double(edges.size()) - double(new1.size())) - (edges.size() / (100.0 / target_len_diff))) / (edges.size() / (100.0 / (100.0 - target_len_diff)));
 		if (score < 0)
 			score = 0;
 		assert(score <= 1.0);
@@ -309,7 +309,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 	kpv2 = std::get<2>(diffs[candidate]);
 }
 
-void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
+void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
 	edges.reserve(10000);
 	Point2f p1, p2;
@@ -319,10 +319,10 @@ void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int c
 		}
 	}
 
-	length_test(edges, kpv1, kpv2, cols);
+	length_test(edges, kpv1, kpv2, cols, rows);
 }
 
-void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols) {
+void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows) {
 	std::vector<KeyPoint> kpv1, kpv2;
 
 	for (auto pt : ptv1)
@@ -331,7 +331,7 @@ void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int col
 	for (auto pt : ptv2)
 		kpv2.push_back( { pt, 1 });
 
-	length_test(kpv1, kpv2, cols);
+	length_test(kpv1, kpv2, cols, rows);
 	ptv1.clear();
 	ptv2.clear();
 
@@ -699,6 +699,7 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 
 void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected, vector<Vec4i> hierarchy, Mat& dst, int cols, int rows, int type) {
 	dst = Mat::zeros(rows, cols, type);
+	double diag = hypot(cols, rows);
 
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto& contours = collected[i];
@@ -706,7 +707,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected
 
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			cv::drawContours(dst, contours, j, { shade, shade, shade }, 2, cv::LINE_8, hierarchy, 0);
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, 1000.0 / diag, cv::LINE_8, hierarchy, 0);
 		}
 	}
 }
@@ -782,6 +783,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	dst1.resize(collected1.size());
 	dst2.resize(collected2.size());
 
+	double diag = hypot(img1.cols, img1.rows);
 	for (size_t i = 0; i < collected1.size(); ++i) {
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
@@ -793,12 +795,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 2, cv::LINE_8, hierarchy1, 0);
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1000.0 / diag, cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 2, cv::LINE_8, hierarchy2, 0);
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1000.0 / diag, cv::LINE_8, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
@@ -949,7 +951,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	}
 	std::vector<KeyPoint> kpv1;
 	std::vector<KeyPoint> kpv2;
-	length_test(edges, kpv1, kpv2, img1.cols);
+	length_test(edges, kpv1, kpv2, img1.cols, img1.rows);
 
 	srcPoints1.clear();
 	for (auto kp : kpv1) {
@@ -961,14 +963,14 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	}
 	std::cerr << "length test: " << srcPoints1.size() << " -> ";
 
-	angle_test(srcPoints1, srcPoints2, img1.cols);
+	angle_test(srcPoints1, srcPoints2, img1.cols, img1.rows);
 
 	Mat matMatches;
 	Mat grey1, grey2;
 	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	show_image("matches reduced", matMatches);
+	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
