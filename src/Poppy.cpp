@@ -706,19 +706,6 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 	}
 }
 
-Point2f calculate_line_point(double x1, double y1, double x2, double y2, double distance) {
-	double vx = x2 - x1; // x vector
-	double vy = y2 - y1; // y vector
-	double mag = hypot(vx, vy); // length
-
-	vx /= mag;
-	vy /= mag;
-
-	double px = x1 + vx * distance;
-	double py = y1 + vy * distance;
-	return {(float)px, (float)py};
-}
-
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
