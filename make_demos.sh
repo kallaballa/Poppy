@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 src/poppy -o yalefaces.mkv -f60 yalefacesout/subject01*.png yalefacesout/subject01.glasses.png
 mencoder -vf scale=320:320 -ovc x264 -nosound -fps 30 -ofps 6 yalefaces.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/yalefaces.gif
