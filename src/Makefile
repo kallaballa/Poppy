@@ -7,7 +7,7 @@ HEADERS :=
 OBJS    := ${SRCS:.cpp=.o} 
 DEPS    := ${SRCS:.cpp=.dep} 
 
-CXXFLAGS += -fpic -I../ -I/usr/include/ffmpeg/
+CXXFLAGS += -fpic -I../
 LDFLAGS += 
 .PHONY: all release debug clean distclean 
 

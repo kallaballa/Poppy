@@ -7,8 +7,11 @@
 #include <ctime>
 #include <filesystem>
 #include <algorithm>
+#include <map>
 
+#ifndef _WASM
 #include <boost/program_options.hpp>
+#endif
 
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/core.hpp>
@@ -21,23 +24,36 @@
 bool show_gui = false;
 double number_of_frames = 60;
 double max_len_deviation = 20;
-double max_len_diff = 10;
+double target_len_diff = 10;
 size_t max_ang_deviation = 20;
-double max_ang_diff = 5;
+double target_ang_diff = 5;
 double max_pair_len_divider = 40;
-double max_chop_len_divider = 20;
 double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
+size_t pyramid_levels = 4;
 
 using std::vector;
 using std::chrono::microseconds;
 
+#ifndef _WASM
 namespace po = boost::program_options;
+#endif
 
 typedef unsigned char sample_t;
 
 using namespace std;
 using namespace cv;
+
+void print_fps() {
+    static std::chrono::time_point<std::chrono::system_clock> oldTime = std::chrono::high_resolution_clock::now();
+    static int fps; fps++;
+
+    if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - oldTime) >= std::chrono::seconds{ 1 }) {
+        oldTime = std::chrono::high_resolution_clock::now();
+        std::cout << "FPS: " << fps <<  std::endl;
+        fps = 0;
+    }
+}
 
 class LaplacianBlending {
 private:
@@ -62,7 +78,7 @@ private:
 		currentImg = blendMask;
 		for (int l = 1; l < levels + 1; l++) {
 			Mat _down;
-			if (leftLapPyr.size() > l) {
+			if (off_t(leftLapPyr.size()) > l) {
 				pyrDown(currentImg, _down, leftLapPyr[l].size());
 			} else {
 				pyrDown(currentImg, _down, leftSmallestLevel.size()); //smallest level
@@ -141,8 +157,10 @@ void test(Mat l8u, Mat r8u) {
 }
 
 void show_image(const string &name, const Mat &img) {
+	if(show_gui) {
 	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
 	imshow(name, img);
+	}
 }
 
 Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
@@ -270,8 +288,8 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 			}
 		}
 		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
-		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / max_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - max_ang_diff)));
-		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / max_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - max_ang_diff)));
+		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / target_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - target_ang_diff)));
+		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / target_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - target_ang_diff)));
 		assert(score1 >= 0 && score2 >= 0);
 		assert(score1 <= 1.0);
 		assert(score2 <= 1.0);
@@ -341,7 +359,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 			}
 		}
 
-		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / max_len_diff))) / (edges.size() / (100.0 / (100.0 - max_len_diff)));
+		double score = 1.0 - std::fabs((off_t(edges.size()) - off_t(new1.size())) - (edges.size() / (100.0 / target_len_diff))) / (edges.size() / (100.0 / (100.0 - target_len_diff)));
 		if (score < 0)
 			score = 0;
 		assert(score <= 1.0);
@@ -878,7 +896,91 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 //	if(show_gui) imshow("matches", matMatches);
 }
 
-void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
+std::tuple<double,double,double> calculate_sum_mean_and_sd(	std::map<double, std::pair<Point2f, Point2f>> distanceMap) {
+  size_t s = distanceMap.size();
+  double sum = 0.0, mean, standardDeviation = 0.0;
+
+  for(auto& p : distanceMap) {
+    sum += p.first;
+  }
+
+  mean = sum / s;
+
+  for(auto& p : distanceMap) {
+    standardDeviation += pow(p.first - mean, 2);
+  }
+
+  return {sum, mean, sqrt(standardDeviation / s)};
+}
+
+void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
+	std::map<double, std::pair<Point2f, Point2f>> distanceMap;
+	std::set<Point2f, LessPointOp> setpt2;
+	for (auto pt2 : srcPoints2) {
+		setpt2.insert(pt2);
+	}
+	for (auto& pt1 : srcPoints1) {
+		double dist = 0;
+		double currentMinDist = std::numeric_limits<double>::max();
+
+		Point2f closest(-1, -1);
+		for (auto pt2 : setpt2) {
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+
+			if (dist < currentMinDist) {
+				currentMinDist = dist;
+				closest = pt2;
+			}
+		}
+
+		if (closest.x == -1 && closest.y == -1)
+			continue;
+
+		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
+		distanceMap[dist] = {pt1, closest};
+		setpt2.erase(closest);
+	}
+	double totalDist = 0;
+	auto distribution = calculate_sum_mean_and_sd(distanceMap);
+
+	srcPoints1.clear();
+	srcPoints2.clear();
+	assert(!distanceMap.empty());
+
+	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
+	double zScore = 0;
+	double limit = highZScore * 0.90;
+	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
+		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
+		if(zScore < limit) {
+			srcPoints1.push_back((*it).second.first);
+			srcPoints2.push_back((*it).second.second);
+		}
+	}
+//
+//	auto it = distanceMap.begin();
+//
+//	if (loss > 0 && currentLen > 0)
+//	{
+//	    std::advance(it, s - thresh);
+//		distanceMap.erase(it, std::prev(distanceMap.end()));
+//	}
+//
+//	srcPoints1.clear();
+//	srcPoints2.clear();
+//
+//	for(auto& p : distanceMap) {
+//		srcPoints1.push_back(p.second.first);
+//		srcPoints2.push_back(p.second.second);
+//	}
+//
+	assert(srcPoints1.size() == srcPoints2.size());
+
+	check_points(srcPoints1, cols, rows);
+	check_points(srcPoints2, cols, rows);
+}
+
+void pair_points_by_proximity_old(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
 	std::set<Point2f, LessPointOp> setpt2;
 	for (auto pt2 : srcPoints2) {
 		setpt2.insert(pt2);
@@ -910,61 +1012,6 @@ void pair_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<
 			tmp1.push_back(pt1);
 			tmp2.push_back(closest);
 			setpt2.erase(closest);
-		}
-	}
-
-	assert(tmp1.size() == tmp2.size());
-
-	srcPoints1 = tmp1;
-	srcPoints2 = tmp2;
-
-	check_points(srcPoints1, cols, rows);
-	check_points(srcPoints2, cols, rows);
-}
-
-void chop_long_travel_paths(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
-	std::set<Point2f, LessPointOp> setpt2;
-	for (auto pt2 : srcPoints2) {
-		setpt2.insert(pt2);
-	}
-
-	std::vector<cv::Point2f> tmp1;
-	std::vector<cv::Point2f> tmp2;
-	double diag = hypot(cols, rows);
-	double maxLen = diag / max_chop_len_divider;
-	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-		auto pt1 = srcPoints1[i];
-		double dist = 0;
-		double currentMinDist = std::numeric_limits<double>::max();
-
-		Point2f closest(-1, -1);
-		for (auto pt2 : setpt2) {
-			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
-			if (dist < currentMinDist) {
-				currentMinDist = dist;
-				closest = pt2;
-			}
-		}
-
-		if (closest.x == -1 && closest.y == -1)
-			continue;
-
-		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
-		if (dist < maxLen) {
-			tmp1.push_back(pt1);
-			tmp2.push_back(closest);
-			setpt2.erase(closest);
-		} else {
-			Point2f newPt = calculate_line_point(pt1.x, pt1.y, closest.x, closest.y, maxLen - 1);
-			setpt2.insert(newPt);
-			Point2f oldPt;
-			while (hypot(closest.x - newPt.x, closest.y - newPt.y) >= maxLen) {
-				oldPt = newPt;
-				newPt = calculate_line_point(newPt.x, newPt.y, closest.x, closest.y, maxLen - 1);
-				tmp1.push_back(pt1);
-				tmp2.push_back(newPt);
-			}
-			--i;
 		}
 	}
 
@@ -1015,10 +1062,8 @@ void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
 void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
 	//edit matches
 	std::cerr << "prepare: " << srcPoints1.size() << " -> ";
-	pair_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	std::cerr << "pair: " << srcPoints1.size() << " -> ";
-	chop_long_travel_paths(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	std::cerr << "chop: " << srcPoints1.size() << " -> ";
+	match_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	std::cerr << "match: " << srcPoints1.size() << " -> ";
 
 	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
 	edges.reserve(1000);
@@ -1059,7 +1104,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &linearBlend, cv::Mat &video, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1109,8 +1154,6 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &linearBle
 	create_map(triMap, morphHom2, trMapX2, trMapY2);
 	cv::remap(origImg2, trImg2, trMapX2, trMapY2, cv::INTER_LINEAR);
 
-
-
 	Mat_<Vec3f> l;
 	Mat_<Vec3f> r;
 	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
@@ -1118,58 +1161,49 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &linearBle
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-
-	normalize(allContours1, allContours1, 254.0, 1.0, NORM_MINMAX);
-	normalize(allContours2, allContours2, 254.0, 1.0, NORM_MINMAX);
+	equalizeHist( allContours1, allContours1 );
+	equalizeHist( allContours1, allContours1 );
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m2.at<float>(y, x) = std::log10(1 + (allContours1.at<uint8_t>(y, x) / 255.0 * ((double(rand()) / RAND_MAX) / 255.0) * 9));
+			m2.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m1.at<float>(y, x) = std::log10(1 + (allContours2.at<uint8_t>(y, x) / 255.0 * ((double(rand()) / RAND_MAX) / 255.0) * 9));
+			m1.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	m2(Range::all(), Range::all()) = 1.0;
 	Mat mask;
-//	if (maskRatio > 0.5) {
-		m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
+	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
 
-		Mat gauss, norm;
-		off_t kx = std::round(m.cols / 8.0);
-		off_t ky = std::round(m.rows / 8.0);
-		if (kx % 2 != 1)
-			kx -= 1;
+	off_t kx = std::round(m.cols / 32.0);
+	off_t ky = std::round(m.rows / 32.0);
+	if (kx % 2 != 1)
+		kx -= 1;
 
-		if (ky % 2 != 1)
-			ky -= 1;
+	if (ky % 2 != 1)
+		ky -= 1;
 
-		GaussianBlur(m, gauss, Size(kx, ky), 12);
-		threshold(gauss, mask, 0.5 + std::numeric_limits<double>::epsilon(), 1.0, 0.0);
-//	}
-//	else {
-//		mask = m2;
-//	}
+	GaussianBlur(m, mask, Size(kx, ky), 12);
 
 	show_image("mask", mask);
 
-	LaplacianBlending lb(l, r, mask, 4);
-	Mat blend;
+	LaplacianBlending lb(l, r, mask, pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
-	linearBlend = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
-	lapBlend.convertTo(video, origImg1.depth(), 255.0);
+//	Mat linearBlend = trImg1 * (1.0 - colorRatio) + trImg2 * colorRatio;
+	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
 
-	add(linearBlend * 0.5,lapBlend * 0.5, blend, noArray(), origImg2.type());
+//	add(linearBlend * 0.5,lapBlend * 0.5, blend, noArray(), origImg2.type());
 
-	Mat analysis = lapBlend.clone();
+	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
-		prev = lapBlend.clone();
-	draw_morph_analysis(lapBlend, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
+		prev = dst.clone();
+	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	show_image("analysis", analysis);
 	return 0;
 }
@@ -1180,18 +1214,22 @@ int main(int argc, char **argv) {
 	bool showGui = show_gui;
 	double numberOfFrames = number_of_frames;
 	double maxPairLenDivider = max_pair_len_divider;
-	double maxChopLenDivider = max_chop_len_divider;
+	double targetAngDiff = target_ang_diff;
+	double targetLenDiff = target_len_diff;
+	double contourSensitivity = contour_sensitivity;
 	off_t maxKeypoints = max_keypoints;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
-
+#ifndef _WASM
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is to determine that number automatically")
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is automatic determination of that number")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
 	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
-	("choplen,c", po::value<double>(&maxChopLenDivider)->default_value(maxChopLenDivider), "The divider (diagonal/divider) that controls interval in which traversal paths (point pairs) are chopped")
+	("angdiff,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test. The default is probably fine.")
+	("lendiff,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test. The default is probably fine.")
+	("sensitivity,s", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours. Values below 1.0 reduce the sensitivity")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -1222,7 +1260,7 @@ int main(int argc, char **argv) {
 	if (vm.count("gui")) {
 		showGui = true;
 	}
-
+#endif
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -1231,8 +1269,10 @@ int main(int argc, char **argv) {
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
 	max_pair_len_divider = maxPairLenDivider;
-	max_chop_len_divider = maxChopLenDivider;
 	max_keypoints = maxKeypoints;
+	target_ang_diff = targetAngDiff;
+	target_len_diff = targetLenDiff;
+	contour_sensitivity = contourSensitivity;
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
@@ -1244,6 +1284,7 @@ int main(int argc, char **argv) {
 		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 		exit(2);
 	}
+
 
 	Mat image2;
 	Mat orig1;
@@ -1283,13 +1324,11 @@ int main(int argc, char **argv) {
 		double base = 0;
 		double linear = 0;
 		double logColor = 0;
-		double logMask = 0;
 		double shape = 0;
 		double color = 0;
 		double mask = 0;
 		Mat video;
 		for (size_t j = 0; j < number_of_frames; ++j) {
-			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
 			if (!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
@@ -1297,22 +1336,26 @@ int main(int argc, char **argv) {
 			linear = j * step;
 			base = pow(10, std::ceil(number_of_frames / 240.0));
 			logColor = log2(1 + linear * (base - 1)) / log2(base);
-			logMask = log10(1 + linear * (base * std::pow(2,2) - 1)) / log10(base * std::pow(2,2));
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
 			color = ((1.0 / (1.0 - logColor)) / number_of_frames);
-			mask = 0.5 + std::pow(0.6 + logMask * 0.4, 256);
+			mask = std::pow(logColor,4);
+			shape = linear;
 			if (color > 1.0)
 				color = 1.0;
 			if (shape > 1.0)
 				shape = 1.0;
 
-			morph_images(image1, orig2, morphed, video, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, color, mask);
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, color, mask);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
-			output.write(video);
+			output.write(morphed);
 
-			show_image("morphed", video);
-			waitKey(1);
+			show_image("morphed", morphed);
+			if (show_gui)
+				waitKey(1);
+
+			std::cerr << int((j / number_of_frames) * 100.0) << "%\r";
+			print_fps();
 		}
 		morphed.release();
 		srcPoints1.clear();
