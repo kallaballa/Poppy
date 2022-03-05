@@ -23,11 +23,11 @@
 
 bool show_gui = false;
 double number_of_frames = 60;
-double max_len_deviation = 20;
+double max_len_iterations = 20;
 double target_len_diff = 10;
 size_t max_ang_deviation = 20;
 double target_ang_diff = 5;
-double max_pair_len_divider = 40;
+double match_sensitivity = 1.0;
 double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
@@ -264,7 +264,7 @@ void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
 
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < max_ang_deviation * 100; ++i) {
+	for (size_t i = 0; i < kpv1.size(); ++i) {
 		double avg = 0;
 		double total = 0;
 		for (size_t j = 0; j < kpv1.size(); ++j) {
@@ -335,7 +335,7 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 
 void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < max_len_deviation * 100; ++i) {
+	for (size_t i = 0; i < kpv1.size(); ++i) {
 		double avg = 0;
 		double total = 0;
 
@@ -563,27 +563,6 @@ void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Si
 	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
 	draw_delaunay(dst, size, subdivMorph, { 0, 0, 255 });
 
-//	vector<Vec6f> triangleList;
-//	subdivMorph.getTriangleList(triangleList);
-//	vector<Point> pt(3);
-//	Rect rect(0, 0, size.width, size.height);
-//
-//	for (size_t i = 0; i < triangleList.size(); i++) {
-//		Vec6f t = triangleList[i];
-//		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
-//		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
-//		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
-//
-//		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
-//			const Point2f flow1 = flow.at<Point2f>(pt[0].y, pt[0].x) * 20;
-//			const Point2f flow2 = flow.at<Point2f>(pt[1].y, pt[1].x) * 20;
-//			const Point2f flow3 = flow.at<Point2f>(pt[2].y, pt[2].x) * 20;
-//			line(dst, pt[0], Point(cvRound(pt[0].x + flow1.x), cvRound(pt[0].y + flow1.y)), Scalar(255, 255, 0));
-//			line(dst, pt[1], Point(cvRound(pt[1].x + flow2.x), cvRound(pt[1].y + flow2.y)), Scalar(255, 255, 0));
-//			line(dst, pt[2], Point(cvRound(pt[2].x + flow3.x), cvRound(pt[2].y + flow3.y)), Scalar(255, 255, 0));
-//		}
-//	}
-//
 //	for (auto &h : highlights) {
 //		circle(dst, h.first, 1, Scalar(255, 255, 255), -1);
 //	}
@@ -957,68 +936,8 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 			srcPoints2.push_back((*it).second.second);
 		}
 	}
-//
-//	auto it = distanceMap.begin();
-//
-//	if (loss > 0 && currentLen > 0)
-//	{
-//	    std::advance(it, s - thresh);
-//		distanceMap.erase(it, std::prev(distanceMap.end()));
-//	}
-//
-//	srcPoints1.clear();
-//	srcPoints2.clear();
-//
-//	for(auto& p : distanceMap) {
-//		srcPoints1.push_back(p.second.first);
-//		srcPoints2.push_back(p.second.second);
-//	}
-//
+
 	assert(srcPoints1.size() == srcPoints2.size());
-
-	check_points(srcPoints1, cols, rows);
-	check_points(srcPoints2, cols, rows);
-}
-
-void pair_points_by_proximity_old(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
-	std::set<Point2f, LessPointOp> setpt2;
-	for (auto pt2 : srcPoints2) {
-		setpt2.insert(pt2);
-	}
-
-	std::vector<cv::Point2f> tmp1;
-	std::vector<cv::Point2f> tmp2;
-	double maxLen = hypot(cols, rows) / max_pair_len_divider;
-	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-		auto pt1 = srcPoints1[i];
-		double dist = 0;
-		double currentMinDist = std::numeric_limits<double>::max();
-
-		Point2f closest(-1, -1);
-		for (auto pt2 : setpt2) {
-			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
-
-			if (dist < currentMinDist) {
-				currentMinDist = dist;
-				closest = pt2;
-			}
-		}
-
-		if (closest.x == -1 && closest.y == -1)
-			continue;
-
-		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
-		if (dist < maxLen) {
-			tmp1.push_back(pt1);
-			tmp2.push_back(closest);
-			setpt2.erase(closest);
-		}
-	}
-
-	assert(tmp1.size() == tmp2.size());
-
-	srcPoints1 = tmp1;
-	srcPoints2 = tmp2;
 
 	check_points(srcPoints1, cols, rows);
 	check_points(srcPoints2, cols, rows);
@@ -1213,7 +1132,7 @@ int main(int argc, char **argv) {
 	srand(time(NULL));
 	bool showGui = show_gui;
 	double numberOfFrames = number_of_frames;
-	double maxPairLenDivider = max_pair_len_divider;
+	double maxPairLenDivider = match_sensitivity;
 	double targetAngDiff = target_ang_diff;
 	double targetLenDiff = target_len_diff;
 	double contourSensitivity = contour_sensitivity;
@@ -1268,7 +1187,7 @@ int main(int argc, char **argv) {
 
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
-	max_pair_len_divider = maxPairLenDivider;
+	match_sensitivity = maxPairLenDivider;
 	max_keypoints = maxKeypoints;
 	target_ang_diff = targetAngDiff;
 	target_len_diff = targetLenDiff;
@@ -1284,7 +1203,6 @@ int main(int argc, char **argv) {
 		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 		exit(2);
 	}
-
 
 	Mat image2;
 	Mat orig1;
