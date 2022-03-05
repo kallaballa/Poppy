@@ -22,8 +22,8 @@
 #include <opencv2/core/ocl.hpp>
 
 bool show_gui = false;
-double number_of_frames = 60;
-double len_iterations = 2000;
+size_t number_of_frames = 60;
+size_t len_iterations = 2000;
 double target_len_diff = 10;
 size_t ang_iterations = 2000;
 double target_ang_diff = 5;
@@ -31,9 +31,6 @@ double match_sensitivity = 1.0;
 double contour_sensitivity = 0.5;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
-
-using std::vector;
-using std::chrono::microseconds;
 
 #ifndef _WASM
 namespace po = boost::program_options;
@@ -43,17 +40,6 @@ typedef unsigned char sample_t;
 
 using namespace std;
 using namespace cv;
-
-void print_fps() {
-    static std::chrono::time_point<std::chrono::system_clock> oldTime = std::chrono::high_resolution_clock::now();
-    static int fps; fps++;
-
-    if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - oldTime) >= std::chrono::seconds{ 1 }) {
-        oldTime = std::chrono::high_resolution_clock::now();
-        std::cout << "FPS: " << fps <<  std::endl;
-        fps = 0;
-    }
-}
 
 class LaplacianBlending {
 private:
