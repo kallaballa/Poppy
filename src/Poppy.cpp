@@ -23,9 +23,9 @@
 
 bool show_gui = false;
 double number_of_frames = 60;
-double max_len_iterations = 20;
+double len_iterations = 2000;
 double target_len_diff = 10;
-size_t max_ang_deviation = 20;
+size_t ang_iterations = 2000;
 double target_ang_diff = 5;
 double match_sensitivity = 1.0;
 double contour_sensitivity = 0.5;
@@ -141,44 +141,11 @@ Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f> &l, const Mat_<Vec3f> &r, const Mat
 	return lb.blend();
 }
 
-void test(Mat l8u, Mat r8u) {
-	Mat_<Vec3f> l;
-	Mat_<Vec3f> r;
-	l8u.convertTo(l, CV_32F, 1.0 / 255.0);
-	r8u.convertTo(r, CV_32F, 1.0 / 255.0);
-	Mat_<float> m(l.rows, l.cols, 0.0);
-	m(Range::all(), Range::all()) = 0.5;
-	Mat_<Vec3f> blend = LaplacianBlend(l, r, m);
-
-	Mat linear = l8u * 0.5 + r8u * 0.5;
-	imshow("laplace blend", blend);
-	imshow("linear blend", blend);
-	waitKey(0);
-}
-
 void show_image(const string &name, const Mat &img) {
 	if(show_gui) {
 	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
 	imshow(name, img);
 	}
-}
-
-Point2f rotate_point(const Point2f &center, const Point2f trabant, float angle) {
-	float s = sin(angle);
-	float c = cos(angle);
-	Point2f newPoint = trabant;
-	// translate point back to origin:
-	newPoint.x -= center.x;
-	newPoint.y -= center.y;
-
-	// rotate point
-	float xnew = newPoint.x * c - newPoint.y * s;
-	float ynew = newPoint.x * s + newPoint.y * c;
-
-	// translate point back:
-	newPoint.x = xnew + center.x;
-	newPoint.y = ynew + center.y;
-	return newPoint;
 }
 
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
@@ -207,7 +174,6 @@ double distance(const Point2f &p1, const Point2f &p2) {
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
 	GaussianBlur(src, detected_edges, Size(9, 9), 1);
-	/// Canny detector
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
@@ -231,40 +197,9 @@ void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
 	cvtColor(imgHsv, saturated, COLOR_HSV2RGB);
 }
 
-void brightness(const cv::Mat &img, cv::Mat &dst, double changeBy) {
-	dst = img.clone();
-	for (int y = 0; y < img.cols; y++) {
-		for (int x = 0; x < img.rows; x++) {
-			const Vec3b &imgPix = img.at<Vec3b>(Point(y, x));
-			int b = imgPix[0];
-			int g = imgPix[1];
-			int r = imgPix[2];
-			b += changeBy;
-			g += changeBy;
-			r += changeBy;
-			if (b < 0)
-				b = 0;
-			else if (b > 255)
-				b = 255;
-			if (g < 0)
-				g = 0;
-			else if (g > 255)
-				g = 255;
-			if (r < 0)
-				r = 0;
-			else if (r > 255)
-				r = 255;
-			Vec3b &dstPix = dst.at<Vec3b>(Point(y, x));
-			dstPix[0] = b;
-			dstPix[1] = g;
-			dstPix[2] = r;
-		}
-	}
-}
-
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < kpv1.size(); ++i) {
+	for (size_t i = 0; i < ang_iterations; ++i) {
 		double avg = 0;
 		double total = 0;
 		for (size_t j = 0; j < kpv1.size(); ++j) {
@@ -335,7 +270,7 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 
 void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols) {
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < kpv1.size(); ++i) {
+	for (size_t i = 0; i < len_iterations; ++i) {
 		double avg = 0;
 		double total = 0;
 
@@ -919,7 +854,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 		distanceMap[dist] = {pt1, closest};
 		setpt2.erase(closest);
 	}
-	double totalDist = 0;
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 
 	srcPoints1.clear();
@@ -928,7 +862,8 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 
 	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
 	double zScore = 0;
-	double limit = highZScore * 0.90;
+	double factor = 0.90 * (1.0 / match_sensitivity);
+	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
 		if(zScore < limit) {
@@ -1132,7 +1067,7 @@ int main(int argc, char **argv) {
 	srand(time(NULL));
 	bool showGui = show_gui;
 	double numberOfFrames = number_of_frames;
-	double maxPairLenDivider = match_sensitivity;
+	double matchSensitivity = match_sensitivity;
 	double targetAngDiff = target_ang_diff;
 	double targetLenDiff = target_len_diff;
 	double contourSensitivity = contour_sensitivity;
@@ -1145,10 +1080,10 @@ int main(int argc, char **argv) {
 	("gui,g", "Show analysis windows")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual overrider for the number of keypoints to retain during detection. The default is automatic determination of that number")
 	("frames,f", po::value<double>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
-	("pairlen,p", po::value<double>(&maxPairLenDivider)->default_value(maxPairLenDivider), "The divider (diagonal/divider) that controls the maximum distance for point pairs")
-	("angdiff,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test. The default is probably fine.")
-	("lendiff,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test. The default is probably fine.")
-	("sensitivity,s", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours. Values below 1.0 reduce the sensitivity")
+	("sensitivity,s", po::value<double>(&matchSensitivity)->default_value(matchSensitivity), "How tolerant poppy is when matching keypoints.")
+	("angloss,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test. The default is probably fine.")
+	("lenloss,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test. The default is probably fine.")
+	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours. Values below 1.0 reduce the sensitivity")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
 	("help,h", "Print help message");
 
@@ -1187,7 +1122,7 @@ int main(int argc, char **argv) {
 
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
-	match_sensitivity = maxPairLenDivider;
+	match_sensitivity = matchSensitivity;
 	max_keypoints = maxKeypoints;
 	target_ang_diff = targetAngDiff;
 	target_len_diff = targetLenDiff;
