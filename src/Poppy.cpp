@@ -1152,26 +1152,18 @@ int main(int argc, char **argv) {
 		prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
 		float step = 1.0 / number_of_frames;
-		double base = 0;
 		double linear = 0;
-		double logColor = 0;
 		double shape = 0;
-		double color = 0;
 		double mask = 0;
-		Mat video;
+
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			if (!lastMorphedPoints.empty())
 				srcPoints1 = lastMorphedPoints;
 			morphedPoints.clear();
 
 			linear = j * step;
-			base = pow(10, std::ceil(number_of_frames / 240.0));
-			logColor = log2(1 + linear * (base - 1)) / log2(base);
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
-			color = ((1.0 / (1.0 - logColor)) / number_of_frames);
 			mask = shape;
-			if (color > 1.0)
-				color = 1.0;
 			if (shape > 1.0)
 				shape = 1.0;
 
