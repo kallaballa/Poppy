@@ -2,19 +2,11 @@
 An non-domain-specific morph algorithm that doesn't require manual keypoints
 
 ![Car morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/cars.gif?raw=true)
-
 ![Morphing face features](https://github.com/kallaballa/Poppy/blob/main/demo/browns.gif?raw=true)
-
 ![Morphing faces demo](https://github.com/kallaballa/Poppy/blob/main/demo/faces.gif?raw=true)
-
-![Fractal morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/fract.gif?raw=true)
-
-![Cat to dog morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
-
 ![Yale faces morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces.gif?raw=true)
 
 (Yale face images taken from http://vision.ucsd.edu/content/yale-face-database)
-
 
 This is very much a work in progress. And works best on similar objects from a similar perspective.
 Please note that it isn't (yet) rotation or scale invariant, so you have to scale and rotate the source images to match each other.
@@ -34,24 +26,31 @@ Please note that it isn't (yet) rotation or scale invariant, so you have to scal
 ## Usage
 ```
 Usage: poppy [options] <imageFiles>...
+Default options will work fine on good source material. Please,
+always make sure images are scaled and rotated to match each
+other. Anyway, there are a couple of options you can specifiy.
+But usually you would only want to do this if you either have
+bad source material, feel like experimenting or are trying to
+do something funny.
 
 Options:
-  -f [ --frames ] arg (=60)             The number of frames to generate
-  -l [ --lendev ] arg (=20)             The maximum length deviation in percent
-                                        for the length test
-  -a [ --angdev ] arg (=0.29999999999999999)
-                                        The maximum angular deviation in 
-                                        percent for the angle test
-  -p [ --pairlen ] arg (=20)            The divider that controls the maximum 
-                                        distance (diagonal/divider) for point 
-                                        pairs
-  -c [ --choplen ] arg (=2)             The interval in which traversal paths 
-                                        (point pairs) are chopped
-  -s [ --sensitivity ] arg (=0.5)       How sensitive to contours the matcher 
-                                        showed be (values less than 1.0 make it
-                                        more sensitive)
-  -o [ --outfile ] arg (=output.mkv)    The name of the video file to write to
-  -h [ --help ]                         Print help message
+  -g [ --gui ]                        Show analysis windows
+  -m [ --maxkey ] arg (=-1)           Manual override for the number of 
+                                      keypoints to retain during detection. The
+                                      default is automatic determination of 
+                                      that number
+  -f [ --frames ] arg (=60)           The number of frames to generate
+  -s [ --sensitivity ] arg (=1)       How tolerant poppy is when matching 
+                                      keypoints.
+  -a [ --angloss ] arg (=5)           The target loss, in percent, for the 
+                                      angle test. The default is probably fine.
+  -l [ --lenloss ] arg (=10)          The target loss, in percent, for the 
+                                      length test. The default is probably 
+                                      fine.
+  -c [ --contour ] arg (=0.5)         How sensitive poppy is to contours. 
+                                      Values below 1.0 reduce the sensitivity
+  -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to
+  -h [ --help ]                       Print help message
 ```
 
 ## Run
