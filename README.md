@@ -1,12 +1,13 @@
 # Poppy
 An non-domain-specific morph algorithm that doesn't require manual keypoints
 
-![Car morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/cars.gif?raw=true)
+![Car morphing](https://github.com/kallaballa/Poppy/blob/main/demo/cars.gif?raw=true)
 ![Morphing face features](https://github.com/kallaballa/Poppy/blob/main/demo/browns.gif?raw=true)
-![Morphing faces demo](https://github.com/kallaballa/Poppy/blob/main/demo/faces.gif?raw=true)
-![Yale faces morphing demo](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces.gif?raw=true)
+![Morphing faces](https://github.com/kallaballa/Poppy/blob/main/demo/faces.gif?raw=true)
+![Yale faces morphing](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces.gif?raw=true)
 ![Flower morphing to another flower](https://github.com/kallaballa/Poppy/blob/main/demo/flowers.gif?raw=true)
 ![Square morphing to a circle](https://github.com/kallaballa/Poppy/blob/main/demo/squarecircle.gif?raw=true)
+![Morphing from one number to the next](https://github.com/kallaballa/Poppy/blob/main/demo/numbers.gif?raw=true)
 
 (Yale face images taken from http://vision.ucsd.edu/content/yale-face-database)
 
