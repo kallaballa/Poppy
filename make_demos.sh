@@ -20,7 +20,7 @@ src/poppy -s1.1 -o catdog.mkv -f60 cat.png dog.png cat.png
 mencoder -vf scale=450:300 -ovc x264 -nosound -fps 30 -ofps 6 catdog.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/catdog.gif
 
-src/poppy -o flowers.mkv -f60 flower1.jpg flower2.jpg flower1.jpg
+src/poppy -o flowers.mkv -s1.5 -f60 flower1.jpg flower2.jpg flower1.jpg
 mencoder -vf scale=320:320 -ovc x264 -nosound -fps 30 -ofps 6 flowers.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/flowers.gif
 
