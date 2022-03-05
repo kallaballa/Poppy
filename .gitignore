@@ -6,4 +6,5 @@
 *.o
 *.dep
 *.gif
+videos
 src/poppy
