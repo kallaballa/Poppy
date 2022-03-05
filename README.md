@@ -28,7 +28,7 @@ Please note that it isn't (yet) rotation or scale invariant, so you have to scal
 Usage: poppy [options] <imageFiles>...
 Default options will work fine on good source material. Please,
 always make sure images are scaled and rotated to match each
-other. Anyway, there are a couple of options you can specifiy.
+other. Anyway, there are a couple of options you can specify.
 But usually you would only want to do this if you either have
 bad source material, feel like experimenting or are trying to
 do something funny.
