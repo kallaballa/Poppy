@@ -1,7 +1,7 @@
 #!/bin/bash
 
 src/poppy -o yalefaces.mkv -f60 yalefacesout/subject01*.png yalefacesout/subject01.glasses.png
-mencoder -vf scale=160:160 -ovc x264 -nosound -fps 30 -ofps 6 yalefaces.mkv -o low.mp4
+mencoder -vf scale=320:320 -ovc x264 -nosound -fps 30 -ofps 6 yalefaces.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/yalefaces.gif
 
 src/poppy -o faces.mkv -f60 some1.png some2.png some3.png some1.png
@@ -20,3 +20,10 @@ src/poppy -s1.1 -o catdog.mkv -f60 cat.png dog.png cat.png
 mencoder -vf scale=450:300 -ovc x264 -nosound -fps 30 -ofps 6 catdog.mkv -o low.mp4
 ffmpeg -y -i low.mp4 demo/catdog.gif
 
+src/poppy -o flowers.mkv -f60 flower1.jpg flower2.jpg flower1.jpg
+mencoder -vf scale=320:320 -ovc x264 -nosound -fps 30 -ofps 6 flowers.mkv -o low.mp4
+ffmpeg -y -i low.mp4 demo/flowers.gif
+
+src/poppy -o squarecircle.mkv -s10 -f60 circle.png square.png circle.png
+mencoder -vf scale=320:320 -ovc x264 -nosound -fps 30 -ofps 6 squarecircle.mkv -o low.mp4
+ffmpeg -y -i low.mp4 demo/squarecircle.gif
