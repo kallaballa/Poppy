@@ -22,7 +22,7 @@
 #include <opencv2/core/ocl.hpp>
 
 bool show_gui = false;
-size_t number_of_frames = 60;
+double number_of_frames = 60;
 size_t len_iterations = 2000;
 double target_len_diff = 10;
 size_t ang_iterations = 2000;
@@ -698,7 +698,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat sat1, sat2, contrast1, contrast2, blur1, blur2, grey1, grey2, thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
-
 	saturate(img1, sat1, 255.0);
 	saturate(img2, sat2, 255.0);
 	sat1.convertTo(contrast1, -1, 1.2, 0);
@@ -931,7 +930,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	add_corners(srcPoints1, srcPoints2, origImg1.size);
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double colorRatio, double maskRatio) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -1170,14 +1169,13 @@ int main(int argc, char **argv) {
 			logColor = log2(1 + linear * (base - 1)) / log2(base);
 			shape = ((1.0 / (1.0 - linear)) / number_of_frames);
 			color = ((1.0 / (1.0 - logColor)) / number_of_frames);
-			mask = std::pow(logColor,4);
-			shape = linear;
+			mask = shape;
 			if (color > 1.0)
 				color = 1.0;
 			if (shape > 1.0)
 				shape = 1.0;
 
-			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, color, mask);
+			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, mask);
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
