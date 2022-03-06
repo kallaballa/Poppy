@@ -898,10 +898,13 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	srcPoints1.clear();
 	srcPoints2.clear();
 	assert(!distanceMap.empty());
-
-	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
+	assert(std::get<1>(distribution) != 0 && std::get<2>(distribution) != 0);
+	double distance = (*distanceMap.begin()).first;
+	double mean = std::get<1>(distribution);
+	double sd = std::get<2>(distribution);
+	double highZScore = (distance - mean) / sd;
 	double zScore = 0;
-	double factor = 0.90 * (1.0 / match_tolerance);
+	double factor = 0.01 * (1.0 / match_tolerance) * (std::pow(sd,2) / mean);
 	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
