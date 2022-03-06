@@ -808,15 +808,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cont2 = Mat::zeros(img2.rows, img2.cols, img2.type());
 		contours1 = collected1[i];
 		contours2 = collected2[i];
-		double shade = 0;
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
-			shade = 32.0 + 223.0 * (double(j) / contours1.size());
 			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
-			shade = 32.0 + 223.0 * (double(j) / contours1.size());
 			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy2, 0);
 		}
 
