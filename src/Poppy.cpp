@@ -28,7 +28,7 @@ double target_len_diff = 0;
 size_t ang_iterations = -1;
 double target_ang_diff = 0;
 double match_tolerance = 1.0;
-double contour_sensitivity = 2.0;
+double contour_sensitivity = 1.0;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
 
@@ -745,8 +745,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
 	Mat thresh1, thresh2;
+	double t1 = 0;
+	double t2 = 0;
 	for (off_t i = 0; i < 16; ++i) {
-		cv::threshold(sharp1, thresh1, std::min(255, (int) round((i + 1) * 16 * contour_sensitivity)), 255, 0);
+		t1 = std::min(255, (int) round(i * 16.0 * contour_sensitivity));
+		t2 = std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity));
+		cv::threshold(sharp1, thresh1, t1, t2, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
@@ -764,7 +768,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
 	show_image("cmap1", cmap1);
 	double bias = 0;
-	double t = 0;
+
 	std::map<double, std::pair<Mat, std::vector<std::vector<std::vector<cv::Point>>>>> candidates;
 
 	for(size_t i = 0; i < 16; ++i) {
@@ -772,8 +776,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		collected2.clear();
 
 		for (off_t j = 0; j < 16; ++j) {
-			t = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
-			cv::threshold(sharp2, thresh2, t, 255, 0);
+			t1 = std::min(255, (int) round(j * 16 * bias * contour_sensitivity));
+			t2 = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
+			cv::threshold(sharp2, thresh2, t1, t2, 0);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 			collected2.push_back(contours2);
 		}
