@@ -24,9 +24,9 @@
 bool show_gui = false;
 double number_of_frames = 60;
 size_t len_iterations = -1;
-double target_len_diff = 10;
+double target_len_diff = 0;
 size_t ang_iterations = -1;
-double target_ang_diff = 5;
+double target_ang_diff = 0;
 double match_sensitivity = 1.0;
 double contour_sensitivity = 2.0;
 off_t max_keypoints = -1;
@@ -719,7 +719,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected
 
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			cv::drawContours(dst, contours, j, { shade, shade, shade }, 1000.0 / diag, cv::LINE_8, hierarchy, 0);
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy, 0);
 		}
 	}
 }
@@ -807,12 +807,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1000.0 / diag, cv::LINE_8, hierarchy1, 0);
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours1.size());
-			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1000.0 / diag, cv::LINE_8, hierarchy2, 0);
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
@@ -896,7 +896,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 
 	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
 	double zScore = 0;
-	double factor = 0.9 * (1.0 / match_sensitivity);
+	double factor = 0.90 * (1.0 / match_sensitivity);
 	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
