@@ -18,7 +18,7 @@ ffmpeg -y -i "$LOW" ../demo/cars.gif
 mencoder -vf scale=360:202 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 30 -ofps 6 ../videos/browns.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/browns.gif
 
-../src/poppy -o ../videos/catdog.mkv -c1.5 -t 2 cat.png dog.png cat.png
+../src/poppy -o ../videos/catdog.mkv -t 2 cat.png dog.png cat.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 30 -ofps 6 ../videos/catdog.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/catdog.gif
 
