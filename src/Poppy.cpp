@@ -27,7 +27,7 @@ size_t len_iterations = -1;
 double target_len_diff = 0;
 size_t ang_iterations = -1;
 double target_ang_diff = 0;
-double match_sensitivity = 1.0;
+double match_tolerance = 1.0;
 double contour_sensitivity = 2.0;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
@@ -896,7 +896,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 
 	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
 	double zScore = 0;
-	double factor = 0.90 * (1.0 / match_sensitivity);
+	double factor = 0.90 * (1.0 / match_tolerance);
 	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
@@ -1101,7 +1101,7 @@ int main(int argc, char **argv) {
 	srand(time(NULL));
 	bool showGui = show_gui;
 	size_t numberOfFrames = number_of_frames;
-	double matchSensitivity = match_sensitivity;
+	double matchTolerance = match_tolerance;
 	double targetAngDiff = target_ang_diff;
 	double targetLenDiff = target_len_diff;
 	double contourSensitivity = contour_sensitivity;
@@ -1112,14 +1112,14 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number")
-	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate")
-	("sensitivity,s", po::value<double>(&matchSensitivity)->default_value(matchSensitivity), "How tolerant poppy is when matching keypoints.")
-	("angloss,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test. The default is probably fine.")
-	("lenloss,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test. The default is probably fine.")
-	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours. Values below 1.0 reduce the sensitivity")
-	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to")
-	("help,h", "Print help message");
+	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
+	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
+	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
+	("angloss,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test.")
+	("lenloss,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test.")
+	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours.")
+	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to.")
+	("help,h", "Print the help message.");
 
 	po::options_description hidden("Hidden options");
 	hidden.add_options()("files", po::value<std::vector<string>>(&imageFiles), "image files");
@@ -1162,7 +1162,7 @@ int main(int argc, char **argv) {
 
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
-	match_sensitivity = matchSensitivity;
+	match_tolerance = matchTolerance;
 	max_keypoints = maxKeypoints;
 	target_ang_diff = targetAngDiff;
 	target_len_diff = targetLenDiff;

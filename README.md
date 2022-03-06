@@ -48,7 +48,7 @@ Options:
                                       default is automatic determination of 
                                       that number.
   -f [ --frames ] arg (=60)           The number of frames to generate.
-  -s [ --sensitivity ] arg (=1)       How tolerant poppy is when matching 
+  -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
   -a [ --angloss ] arg (=0)           The target loss, in percent, for the 
                                       angle test.
