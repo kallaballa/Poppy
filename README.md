@@ -36,7 +36,7 @@ The following demos are very low quality renderings of what Poppy can do. If you
 Usage: poppy [options] <imageFiles>...
 Default options will work fine on good source material. Please,
 always make sure images are scaled and rotated to match each
-other. Anyway, there are a couple of options you can specify.
+other. Anyway, there are a couple of options you can specifiy.
 But usually you would only want to do this if you either have
 bad source material, feel like experimenting or are trying to
 do something funny.
@@ -50,15 +50,15 @@ Options:
   -f [ --frames ] arg (=60)           The number of frames to generate
   -s [ --sensitivity ] arg (=1)       How tolerant poppy is when matching 
                                       keypoints.
-  -a [ --angloss ] arg (=5)           The target loss, in percent, for the 
+  -a [ --angloss ] arg (=0)           The target loss, in percent, for the 
                                       angle test. The default is probably fine.
-  -l [ --lenloss ] arg (=10)          The target loss, in percent, for the 
+  -l [ --lenloss ] arg (=0)           The target loss, in percent, for the 
                                       length test. The default is probably 
                                       fine.
-  -c [ --contour ] arg (=0.5)         How sensitive poppy is to contours. 
+  -c [ --contour ] arg (=2)           How sensitive poppy is to contours. 
                                       Values below 1.0 reduce the sensitivity
   -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to
-  -h [ --help ]                       Print help message
+  -h [ --help ] 
 ```
 
 ## Run
