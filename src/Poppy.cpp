@@ -184,6 +184,9 @@ void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
 }
 
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
+	if(target_ang_diff == 0)
+		return;
+
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
 	for (size_t i = 0; i < hypot(cols, rows); ++i) {
 		double avg = 0;
@@ -260,6 +263,16 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 }
 
 void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
+	if(target_len_diff == 0) {
+		kpv1.clear();
+		kpv2.clear();
+		for (auto e : edges) {
+			kpv1.push_back(std::get<0>(e));
+			kpv2.push_back(std::get<1>(e));
+		}
+		return;
+	}
+
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
 	for (size_t i = 0; i < hypot(cols, rows); ++i) {
 		double avg = 0;
@@ -284,7 +297,6 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 				new2.push_back(std::get<1>(e));
 			}
 		}
-
 		double score = 1.0 - std::fabs((double(edges.size()) - double(new1.size())) - (edges.size() / (100.0 / target_len_diff))) / (edges.size() / (100.0 / (100.0 - target_len_diff)));
 		if (score < 0)
 			score = 0;
@@ -884,7 +896,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 
 	double highZScore = ((*distanceMap.begin()).first - std::get<1>(distribution)) / std::get<2>(distribution);
 	double zScore = 0;
-	double factor = 0.85 * (1.0 / match_sensitivity);
+	double factor = 0.9 * (1.0 / match_sensitivity);
 	double limit = highZScore * factor;
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
