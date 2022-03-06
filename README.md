@@ -46,19 +46,17 @@ Options:
   -m [ --maxkey ] arg (=-1)           Manual override for the number of 
                                       keypoints to retain during detection. The
                                       default is automatic determination of 
-                                      that number
-  -f [ --frames ] arg (=60)           The number of frames to generate
+                                      that number.
+  -f [ --frames ] arg (=60)           The number of frames to generate.
   -s [ --sensitivity ] arg (=1)       How tolerant poppy is when matching 
                                       keypoints.
   -a [ --angloss ] arg (=0)           The target loss, in percent, for the 
-                                      angle test. The default is probably fine.
+                                      angle test.
   -l [ --lenloss ] arg (=0)           The target loss, in percent, for the 
-                                      length test. The default is probably 
-                                      fine.
-  -c [ --contour ] arg (=2)           How sensitive poppy is to contours. 
-                                      Values below 1.0 reduce the sensitivity
-  -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to
-  -h [ --help ] 
+                                      length test.
+  -c [ --contour ] arg (=2)           How sensitive poppy is to contours.
+  -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to.
+  -h [ --help ]                       Print the help message.
 ```
 
 ## Run
