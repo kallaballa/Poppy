@@ -27,8 +27,8 @@ size_t len_iterations = -1;
 double target_len_diff = 0;
 size_t ang_iterations = -1;
 double target_ang_diff = 0;
-double match_tolerance = 1.0;
-double contour_sensitivity = 1.0;
+double match_tolerance = 1;
+double contour_sensitivity = 1;
 off_t max_keypoints = -1;
 size_t pyramid_levels = 4;
 
@@ -719,7 +719,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected
 
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			cv::drawContours(dst, contours, j, { shade, shade, shade }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy, 0);
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, 1.0, cv::LINE_8, hierarchy, 0);
 		}
 	}
 }
@@ -738,8 +738,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Laplacian(median2, lap2, median2.depth());
 	Mat sharp1 = grey1 - (0.7 * lap1);
 	Mat sharp2 = grey2 - (0.7 * lap2);
-	show_image("sh1", sharp1);
-	show_image("sh2", sharp2);
+	Mat eq1;
+	Mat eq2;
+
+	equalizeHist( sharp1, eq1 );
+	equalizeHist( sharp2, eq2 );
+
+	show_image("eq1", eq1);
+	show_image("eq2", eq2);
 
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
@@ -747,10 +753,24 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat thresh1, thresh2;
 	double t1 = 0;
 	double t2 = 0;
-	for (off_t i = 0; i < 16; ++i) {
-		t1 = std::min(255, (int) round(i * 16.0 * contour_sensitivity));
-		t2 = std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity));
-		cv::threshold(sharp1, thresh1, t1, t2, 0);
+	off_t maxT = 16;
+	Mat zeros = Mat::zeros(img1.rows, img1.cols, img1.type());
+
+	for (off_t i = 0; i < maxT; ++i) {
+		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
+		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity)));
+		cv::threshold(eq1, thresh1, t1, t2, 0);
+
+//		if(countNonZero(thresh1) < (thresh1.cols * thresh1.rows * 0.33)) {
+//			++i;
+//			++maxT;
+//			std::cerr << "skip" << std::endl;
+//			if(maxT >= 255)
+//				break;
+//
+//			continue;
+//		}
+
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
@@ -758,14 +778,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	double similarity = 0;
 	Mat cmap1, cmap2;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
-	Mat hist1, hist2;
-	int channels[] = { 0 };
-	int histSize[] = { 24 };
-	float range[] = { 0, 256 };
-	const float* ranges[] = { range };
-
-	calcHist( &cmap1, 1, channels, Mat(), hist1, 1, histSize, ranges, true, false );
-	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
+//	Mat hist1, hist2;
+//	int channels[] = { 0 };
+//	int histSize[] = { 24 };
+//	float range[] = { 0, 256 };
+//	const float* ranges[] = { range };
+//
+//	calcHist( &cmap1, 1, channels, Mat(), hist1, 1, histSize, ranges, true, false );
+//	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
 	show_image("cmap1", cmap1);
 	double bias = 0;
 
@@ -778,22 +798,26 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		for (off_t j = 0; j < 16; ++j) {
 			t1 = std::min(255, (int) round(j * 16 * bias * contour_sensitivity));
 			t2 = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
-			cv::threshold(sharp2, thresh2, t1, t2, 0);
+			cv::threshold(eq2, thresh2, t1, t2, 0);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 			collected2.push_back(contours2);
 		}
 
 		draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
 
-		calcHist( &cmap2, 1, channels, Mat(), hist2, 1, histSize, ranges, true, false );
-		normalize( hist2, hist2, 0, 1, NORM_MINMAX, -1, Mat() );
-
-		similarity = compareHist( hist1, hist2, 0);
+//		calcHist( &cmap2, 1, channels, Mat(), hist2, 1, histSize, ranges, true, false );
+//		normalize( hist2, hist2, 0, 1, NORM_MINMAX, -1, Mat() );
+		off_t count1 = countNonZero(cmap1);
+		off_t count2 = countNonZero(cmap2);
+		similarity = std::fabs(count1 - count2) / std::max(count1, count2);
+		std::cerr << "sim: " << similarity << std::endl;
 		candidates[similarity] = { cmap2.clone(), collected2};
 	}
+	assert(!candidates.empty());
 	allContours1 = cmap1.clone();
-	allContours2 = (*candidates.rbegin()).second.first.clone();
-	collected2 = (*candidates.rbegin()).second.second;
+	auto it = candidates.begin();
+	allContours2 = (*it).second.first.clone();
+	collected2 = (*it).second.second;
 
 	dst1.clear();
 	dst2.clear();
@@ -810,11 +834,11 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		contours2 = collected2[i];
 
 		for (size_t j = 0; j < contours1.size(); ++j) {
-			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy1, 0);
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy1, 0);
 		}
 
 		for (size_t j = 0; j < contours2.size(); ++j) {
-			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, std::max(1000.0 / diag, 1.0), cv::LINE_8, hierarchy2, 0);
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
@@ -846,7 +870,7 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 //	if(show_gui) imshow("matches", matMatches);
 }
 
-std::tuple<double, double, double> calculate_sum_mean_and_sd(std::map<double, std::pair<Point2f, Point2f>> distanceMap) {
+std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, std::pair<Point2f, Point2f>> distanceMap) {
 	size_t s = distanceMap.size();
 	double sum = 0.0, mean, standardDeviation = 0.0;
 
@@ -864,48 +888,68 @@ std::tuple<double, double, double> calculate_sum_mean_and_sd(std::map<double, st
 }
 
 void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
-	std::map<double, std::pair<Point2f, Point2f>> distanceMap;
-	std::set<Point2f, LessPointOp> setpt2;
-	for (auto pt2 : srcPoints2) {
-		setpt2.insert(pt2);
-	}
-	for (auto &pt1 : srcPoints1) {
+	std::multimap<double, std::pair<Point2f, Point2f>> distanceMap;
+
+//	std::set<Point2f, LessPointOp> setpt1;
+//	for (auto& pt1 : srcPoints1) {
+//		setpt1.insert(pt1);
+//	}
+//
+//	std::set<Point2f, LessPointOp> setpt2;
+//	for (auto& pt2 : srcPoints2) {
+//		setpt2.insert(pt2);
+//	}
+	Point2f nopoint(-1, -1);
+	for (auto& pt1 : srcPoints1) {
 		double dist = 0;
 		double currentMinDist = std::numeric_limits<double>::max();
 
-		Point2f closest(-1, -1);
-		for (auto pt2 : setpt2) {
+		Point2f* closest = &nopoint;
+		for (auto& pt2 : srcPoints2) {
+			if (pt2.x == -1 && pt2.y == -1)
+				continue;
+
 			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
 
 			if (dist < currentMinDist) {
 				currentMinDist = dist;
-				closest = pt2;
+				closest = &pt2;
 			}
 		}
 
-		if (closest.x == -1 && closest.y == -1)
+		if (closest->x == -1 && closest->y == -1)
 			continue;
 
-		dist = hypot(closest.x - pt1.x, closest.y - pt1.y);
-		distanceMap[dist] = { pt1, closest };
-		setpt2.erase(closest);
+		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
+		distanceMap.insert({dist, { pt1, *closest }});
+		closest->x = -1;
+		closest->y = -1;
+//		setpt2.erase(closest);
 	}
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
-
+	double initialSize = srcPoints1.size();
 	srcPoints1.clear();
 	srcPoints2.clear();
 	assert(!distanceMap.empty());
 	assert(std::get<1>(distribution) != 0 && std::get<2>(distribution) != 0);
-	double distance = (*distanceMap.begin()).first;
+	double distance = (*distanceMap.rbegin()).first;
 	double mean = std::get<1>(distribution);
 	double sd = std::get<2>(distribution);
-	double highZScore = (distance - mean) / sd;
+	double highZScore = std::fabs(distance - mean) / sd;
 	double zScore = 0;
-	double factor = 0.01 * (1.0 / match_tolerance) * (std::pow(sd,2) / mean);
-	double limit = highZScore * factor;
+	double value = 0;
+	double limit = 0.5 * match_tolerance *
+			(mean / (1.0 + sd)) *
+			(highZScore / (std::max(sd, mean) - std::fabs(sd - mean)))
+			* (std::fabs(sd - mean) / 5.0);
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
-		zScore = ((*it).first - std::get<1>(distribution)) / std::get<2>(distribution);
-		if (zScore < limit) {
+		value = (*it).first;
+		zScore = (mean/sd) - std::fabs((value - mean) / sd);
+//		std::cerr
+//				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
+//				<< std::endl;
+
+		if (value < mean && zScore < limit) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
@@ -978,7 +1022,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	for (auto kp : kpv2) {
 		srcPoints2.push_back(kp.pt);
 	}
-	std::cerr << "length test: " << srcPoints1.size() << " -> ";
+	std::cerr << "length test: " << srcPoints1.size() << std::endl;
 
 	angle_test(srcPoints1, srcPoints2, img1.cols, img1.rows);
 
