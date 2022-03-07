@@ -753,24 +753,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat thresh1, thresh2;
 	double t1 = 0;
 	double t2 = 0;
-	off_t maxT = 16;
 	Mat zeros = Mat::zeros(img1.rows, img1.cols, img1.type());
 
-	for (off_t i = 0; i < maxT; ++i) {
+	for (off_t i = 0; i < 16; ++i) {
 		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
 		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity)));
 		cv::threshold(eq1, thresh1, t1, t2, 0);
-
-//		if(countNonZero(thresh1) < (thresh1.cols * thresh1.rows * 0.33)) {
-//			++i;
-//			++maxT;
-//			std::cerr << "skip" << std::endl;
-//			if(maxT >= 255)
-//				break;
-//
-//			continue;
-//		}
-
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
 	}
@@ -778,14 +766,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	double similarity = 0;
 	Mat cmap1, cmap2;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
-//	Mat hist1, hist2;
-//	int channels[] = { 0 };
-//	int histSize[] = { 24 };
-//	float range[] = { 0, 256 };
-//	const float* ranges[] = { range };
-//
-//	calcHist( &cmap1, 1, channels, Mat(), hist1, 1, histSize, ranges, true, false );
-//	normalize( hist1, hist1, 0, 1, NORM_MINMAX, -1, Mat() );
 	show_image("cmap1", cmap1);
 	double bias = 0;
 
@@ -805,12 +785,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 		draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
 
-//		calcHist( &cmap2, 1, channels, Mat(), hist2, 1, histSize, ranges, true, false );
-//		normalize( hist2, hist2, 0, 1, NORM_MINMAX, -1, Mat() );
 		off_t count1 = countNonZero(cmap1);
 		off_t count2 = countNonZero(cmap2);
 		similarity = std::fabs(count1 - count2) / std::max(count1, count2);
-		std::cerr << "sim: " << similarity << std::endl;
 		candidates[similarity] = { cmap2.clone(), collected2};
 	}
 	assert(!candidates.empty());
