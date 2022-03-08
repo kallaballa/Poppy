@@ -728,7 +728,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat median1, median2, lap1, lap2, grey1, grey2;
-	Mat fgMask;
 
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
@@ -748,29 +747,28 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	equalizeHist( sharp1, eq1 );
 	equalizeHist( sharp2, eq2 );
 
-	show_image("eq1", eq1);
+	Mat fgMask1;
+	Mat fgMask2;
+
+	auto pBackSub1 = createBackgroundSubtractorMOG2();
+	medianBlur(eq1, median1, 3);
+	pBackSub1->apply(eq1, fgMask1);
+	pBackSub1->apply(median1, fgMask1);
+
+	auto pBackSub2 = createBackgroundSubtractorMOG2();
+	medianBlur(eq2, median2, 3);
+	pBackSub2->apply(eq2, fgMask2);
+	pBackSub2->apply(median2, fgMask2);
+
+	eq1 = median1 * 0.25 + fgMask1 * 0.75;
+	eq2 = median2 * 0.25 + fgMask2 * 0.75;
+    show_image("eq1", eq1);
 	show_image("eq2", eq2);
 
+	double t1 = 0, t2 = 0;
+	Mat thresh1, thresh2;
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
-
-	auto pBackSub = createBackgroundSubtractorMOG2();
-	Mat thresh1, thresh2;
-	double t1 = 0;
-	double t2 = 0;
-	Mat zeros = Mat::zeros(img1.rows, img1.cols, img1.type());
-	for (off_t i = 0; i < 16; ++i) {
-		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
-		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity)));
-		cv::threshold(eq1, thresh1, t1, t2, 0);
-		pBackSub->apply(thresh1, fgMask);
-	}
-
-	if(countNonZero(fgMask) > 0) {
-		Mat tmp;
-		tmp = eq1.mul(fgMask);
-		eq1 = eq1 * 0.25 + tmp * 0.75;
-	}
 
 	for (off_t i = 0; i < 16; ++i) {
 		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
@@ -780,46 +778,34 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		collected1.push_back(contours1);
 	}
 
-	double similarity = 0;
 	Mat cmap1, cmap2;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
 	show_image("cmap1", cmap1);
-	double bias = 0;
 
-	std::map<double, std::pair<Mat, std::vector<std::vector<std::vector<cv::Point>>>>> candidates;
 
-	for(size_t i = 0; i < 16; ++i) {
-		bias = (i + 1.0) / 16.0;
-		collected2.clear();
-
-		for (off_t j = 0; j < 16; ++j) {
-			t1 = std::min(255, (int) round(j * 16 * bias));
-			t2 = std::min(255, (int) round((j + 1) * 16 * bias));
-			cv::threshold(eq2, thresh2, t1, t2, 0);
-			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-			collected2.push_back(contours2);
-		}
-
-		draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
-
-		off_t count1 = countNonZero(cmap1);
-		off_t count2 = countNonZero(cmap2);
-		similarity = std::fabs(count1 - count2) / std::max(count1, count2);
-		candidates[similarity] = { cmap2.clone(), collected2};
+	double similarity = 0;
+	size_t off = 0;
+	for (off_t j = 0; j < 16; ++j) {
+		t1 = std::min(255, (int) round((off + j) * 16 * contour_sensitivity));
+		t2 = std::min(255, (int) round((off + j + 1) * 16 * contour_sensitivity));
+		cv::threshold(eq2, thresh2, t1, t2, 0);
+		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		collected2.push_back(contours2);
 	}
-	assert(!candidates.empty());
+
+	draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
+
 	allContours1 = cmap1.clone();
-	auto it = candidates.begin();
-	allContours2 = (*it).second.first.clone();
-	collected2 = (*it).second.second;
+	allContours2 = cmap2.clone();
 
 	dst1.clear();
 	dst2.clear();
-	dst1.resize(collected1.size());
-	dst2.resize(collected2.size());
+	size_t minC = std::min(collected1.size(), collected2.size());
+	dst1.resize(minC);
+	dst2.resize(minC);
 
 	double diag = hypot(img1.cols, img1.rows);
-	for (size_t i = 0; i < collected1.size(); ++i) {
+	for (size_t i = 0; i < minC; ++i) {
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
 		cont1 = Mat::zeros(img1.rows, img1.cols, img1.type());
