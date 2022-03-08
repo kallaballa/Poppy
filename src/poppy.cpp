@@ -1,3 +1,6 @@
+#include "draw.hpp"
+#include "util.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -127,60 +130,10 @@ Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f> &l, const Mat_<Vec3f> &r, const Mat
 	return lb.blend();
 }
 
-void show_image(const string &name, const Mat &img) {
-	if (show_gui) {
-		namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
-		imshow(name, img);
-	}
-}
-
-void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
-	for (const auto &pt : pts) {
-		assert(!isinf(pt.x) && !isinf(pt.y));
-		assert(!isnan(pt.x) && !isnan(pt.y));
-		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
-	}
-}
-
-struct LessPointOp {
-	bool operator()(const Point2f &lhs, const Point2f &rhs) const {
-		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
-	}
-};
-
-bool operator==(const KeyPoint &kp1, const KeyPoint &kp2) {
-	return kp1.pt.x == kp2.pt.x && kp1.pt.y == kp2.pt.y;
-}
-
-double distance(const Point2f &p1, const Point2f &p2) {
-	return hypot(p2.x - p1.x, p2.y - p1.y);
-}
-
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
 	GaussianBlur(src, detected_edges, Size(9, 9), 1);
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
-}
-
-void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
-	Mat imgHsv;
-	cvtColor(img, imgHsv, COLOR_RGB2HSV);
-
-	for (int y = 0; y < imgHsv.cols; y++) {
-		for (int x = 0; x < imgHsv.rows; x++) {
-			Vec3b &pix = imgHsv.at<Vec3b>(Point(y, x));
-			int s = pix[1];
-			s += changeBy;
-			if (s < 0)
-				s = 0;
-			else if (s > 255)
-				s = 255;
-			pix[1] = s;
-		}
-	}
-
-	cvtColor(imgHsv, saturated, COLOR_HSV2RGB);
 }
 
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
@@ -374,173 +327,6 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f>
 	}
 }
 
-void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
-	vector<Vec6f> triangleList;
-	subdiv.getTriangleList(triangleList);
-	vector<Point> pt(3);
-	Rect rect(0, 0, size.width, size.height);
-
-	for (size_t i = 0; i < triangleList.size(); i++) {
-		Vec6f t = triangleList[i];
-		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
-		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
-		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
-
-		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2]))
-				{
-			line(dst, pt[0], pt[1], delaunay_color, 1, cv::LINE_AA, 0);
-			line(dst, pt[1], pt[2], delaunay_color, 1, cv::LINE_AA, 0);
-			line(dst, pt[2], pt[0], delaunay_color, 1, cv::LINE_AA, 0);
-		}
-	}
-}
-
-void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
-	UMat flowUmat;
-	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
-
-	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-	flowUmat.copyTo(flow);
-	dst = morphed.clone();
-	uint32_t color;
-	Mat norm;
-	normalize(flow, norm, 1.0, 0.0, NORM_MINMAX);
-
-	for (off_t x = 0; x < morphed.cols; ++x) {
-		for (off_t y = 0; y < morphed.rows; ++y) {
-			circle(dst, Point(x, y), 1, Scalar(0), -1);
-			const Point2f flv1 = norm.at<Point2f>(y, x);
-			double mag = hypot(flv1.x, flv1.y);
-			color = std::round(double(255) * (double) mag);
-			circle(dst, Point(x, y), 1, Scalar(color, color, color), -1);
-		}
-	}
-	show_image("fhm", dst);
-}
-
-void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
-	UMat flowUmat;
-	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
-
-	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-	flowUmat.copyTo(flow);
-	dst = morphed.clone();
-	uint32_t color;
-
-	double diag = hypot(morphed.cols, morphed.rows);
-	for (off_t x = 0; x < morphed.cols; ++x) {
-		for (off_t y = 0; y < morphed.rows; ++y) {
-			const Point2f flv1 = flow.at<Point2f>(y, x) * 10;
-			double len = hypot(flv1.x - x, flv1.y - y);
-			color = std::round(double(255) * (double(len) / diag));
-			line(dst, Point(x, y), Point(cvRound(x + flv1.x), cvRound(y + flv1.y)), Scalar(color, color, color));
-			circle(dst, Point(x, y), 1, Scalar(0, 0, 0), -1);
-		}
-	}
-	show_image("fv", dst);
-}
-
-void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
-	Mat flowv;
-	Mat flowm;
-	draw_flow_vectors(morphed, last, flowv);
-	draw_flow_heightmap(morphed, last, flowm);
-	Mat overlay;
-	normalize(flowv.mul(flowm), overlay, 255.0, 0.0, NORM_MINMAX);
-	dst = morphed * 0.7 + overlay * 0.3;
-}
-
-void collect_flow_centers(const Mat &morphed, const Mat &last, std::vector<std::pair<Point2f, double>> &highlightCenters) {
-	Mat flowm;
-	Mat grey;
-	draw_flow_heightmap(morphed, last, flowm);
-	cvtColor(flowm, grey, cv::COLOR_RGB2GRAY);
-
-	Mat overlay;
-	Mat thresh;
-	normalize(grey, overlay, 255.0, 0.0, NORM_MINMAX);
-//	GaussianBlur(overlay, overlay, Size(13, 13), 2);
-	cv::threshold(overlay, thresh, 200, 255, 0);
-	std::vector<std::vector<cv::Point>> contours;
-	vector<Vec4i> hierarchy;
-	cv::findContours(thresh, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-	Rect rect(0, 0, morphed.cols, morphed.rows);
-
-	for (auto &ct : contours) {
-		auto br = boundingRect(ct);
-		double cx = br.x + br.width / 2.0;
-		double cy = br.y + br.height / 2.0;
-		Point2f pt(cx, cy);
-		if (rect.contains(pt)) {
-			highlightCenters.push_back( { pt, hypot(br.width, br.height) });
-		}
-	}
-}
-
-static std::vector<std::pair<Point2f, double>> highlights;
-
-void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
-//	collect_flow_centers(morphed, last, highlights);
-//	draw_flow_highlight(morphed, last, dst);
-//	UMat flowUmat;
-//	Mat flow;
-//	Mat grey1, grey2;
-//	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
-//	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
-//
-//	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-//	flowUmat.copyTo(flow);
-
-	draw_delaunay(dst, size, subdiv1, { 255, 0, 0 });
-	draw_delaunay(dst, size, subdiv2, { 0, 255, 0 });
-	draw_delaunay(dst, size, subdivMorph, { 0, 0, 255 });
-
-//	for (auto &h : highlights) {
-//		circle(dst, h.first, 1, Scalar(255, 255, 255), -1);
-//	}
-}
-
-void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2) {
-	Mat images = cv::Mat::zeros( { grey1.cols * 2, grey1.rows }, CV_8UC1);
-	Mat lines = cv::Mat::ones( { grey1.cols * 2, grey1.rows }, CV_8UC1);
-
-	grey1.copyTo(images(cv::Rect(0, 0, grey1.cols, grey1.rows)));
-	grey2.copyTo(images(cv::Rect(grey1.cols, 0, grey1.cols, grey1.rows)));
-
-	for (size_t i = 0; i < std::min(ptv1.size(), ptv2.size()); ++i) {
-		Point2f pt2 = ptv2[i];
-		pt2.x += grey1.cols;
-		line(lines, ptv1[i], pt2, { 127 }, 1, cv::LINE_AA, 0);
-	}
-
-	Mat result = images * 0.5 + lines * 0.5;
-	cvtColor(result, dst, COLOR_GRAY2RGB);
-}
-
-void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2) {
-	Mat images = cv::Mat::zeros( { grey1.cols * 2, grey1.rows }, CV_8UC1);
-	Mat lines = cv::Mat::ones( { grey1.cols * 2, grey1.rows }, CV_8UC1);
-
-	grey1.copyTo(images(cv::Rect(0, 0, grey1.cols, grey1.rows)));
-	grey2.copyTo(images(cv::Rect(grey1.cols, 0, grey1.cols, grey1.rows)));
-
-	for (size_t i = 0; i < kpv1.size(); ++i) {
-		Point2f pt2 = kpv2[i].pt;
-		pt2.x += grey1.cols;
-		line(lines, kpv1[i].pt, pt2, { 127 }, 1, cv::LINE_AA, 0);
-	}
-
-	images += 1;
-	Mat result = images.mul(lines);
-	cvtColor(result, dst, COLOR_GRAY2RGB);
-}
-
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
 	if (max_keypoints == -1)
 		max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
@@ -711,7 +497,6 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 
 void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> collected, vector<Vec4i> hierarchy, Mat& dst, int cols, int rows, int type) {
 	dst = Mat::zeros(rows, cols, type);
-	double diag = hypot(cols, rows);
 
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto& contours = collected[i];
@@ -783,7 +568,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	show_image("cmap1", cmap1);
 
 
-	double similarity = 0;
 	size_t off = 0;
 	for (off_t j = 0; j < 16; ++j) {
 		t1 = std::min(255, (int) round((off + j) * 16 * contour_sensitivity));
@@ -804,7 +588,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	dst1.resize(minC);
 	dst2.resize(minC);
 
-	double diag = hypot(img1.cols, img1.rows);
 	for (size_t i = 0; i < minC; ++i) {
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
@@ -897,7 +680,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 		closest->y = -1;
 	}
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
-	double initialSize = srcPoints1.size();
 	srcPoints1.clear();
 	srcPoints2.clear();
 	assert(!distanceMap.empty());
@@ -925,7 +707,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	}
 
 	assert(srcPoints1.size() == srcPoints2.size());
-
 	check_points(srcPoints1, cols, rows);
 	check_points(srcPoints2, cols, rows);
 }
@@ -941,28 +722,6 @@ void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> 
 	srcPoints2.push_back(cv::Point2f(w, 0));
 	srcPoints2.push_back(cv::Point2f(0, h));
 	srcPoints2.push_back(cv::Point2f(w, h));
-}
-
-void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
-	UMat flowUmat;
-	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
-	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-	flowUmat.copyTo(flow);
-	dst = img1.clone();
-	// By y += 5, x += 5 you can specify the grid
-	for (int y = 0; y < dst.rows; y += 20) {
-		for (int x = 0; x < dst.cols; x += 20) {
-			// get the flow from y, x position * 10 for better visibility
-			const Point2f flowatxy = flow.at<Point2f>(y, x) * 10;
-			// draw line at flow direction
-			line(dst, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 0, 0));
-			// draw initial point
-			circle(dst, Point(x, y), 1, Scalar(0, 0, 255), -1);
-		}
-	}
 }
 
 void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
@@ -1011,24 +770,32 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 }
 
 double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
+
 	cv::Size SourceImgSize(origImg1.cols, origImg1.rows);
 	cv::Subdiv2D subDiv1(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDiv2(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	cv::Subdiv2D subDivMorph(cv::Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 
+	std::vector<cv::Point2f> uniq1, uniq2, uniqMorph;
 	check_points(srcPoints1, origImg1.cols, origImg1.rows);
-	for (auto pt : srcPoints1)
+	make_uniq(srcPoints1, uniq1);
+	check_uniq(uniq1);
+	for (auto pt : uniq1)
 		subDiv1.insert(pt);
 
-	check_points(srcPoints2, origImg1.cols, origImg1.rows);
-	for (auto pt : srcPoints2)
+	check_points(srcPoints2, origImg2.cols, origImg2.rows);
+	make_uniq(srcPoints2, uniq2);
+	check_uniq(uniq2);
+	for (auto pt : uniq2)
 		subDiv2.insert(pt);
 
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 
 	check_points(morphedPoints, origImg1.cols, origImg1.rows);
-	for (auto pt : morphedPoints)
+	make_uniq(morphedPoints, uniqMorph);
+	check_uniq(uniqMorph);
+	for (auto pt : uniqMorph)
 		subDivMorph.insert(pt);
 
 	// Get the ID list of corners of Delaunay traiangles.

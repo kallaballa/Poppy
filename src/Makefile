@@ -1,6 +1,6 @@
 TARGET := poppy
 
-SRCS    := Poppy.cpp
+SRCS    := poppy.cpp draw.cpp util.cpp
 
 #precompiled headers
 HEADERS := 
