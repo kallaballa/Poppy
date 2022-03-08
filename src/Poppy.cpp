@@ -728,12 +728,16 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	std::vector<std::vector<cv::Point>> contours1;
 	std::vector<std::vector<cv::Point>> contours2;
 	Mat median1, median2, lap1, lap2, grey1, grey2;
+	Mat fgMask;
+
 	vector<Vec4i> hierarchy1;
 	vector<Vec4i> hierarchy2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
+
 	medianBlur(grey1, median1, 3);
 	medianBlur(grey2, median2, 3);
+
 	Laplacian(median1, lap1, median1.depth());
 	Laplacian(median2, lap2, median2.depth());
 	Mat sharp1 = grey1 - (0.7 * lap1);
@@ -750,10 +754,23 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
 
+	auto pBackSub = createBackgroundSubtractorMOG2();
 	Mat thresh1, thresh2;
 	double t1 = 0;
 	double t2 = 0;
 	Mat zeros = Mat::zeros(img1.rows, img1.cols, img1.type());
+	for (off_t i = 0; i < 16; ++i) {
+		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
+		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity)));
+		cv::threshold(eq1, thresh1, t1, t2, 0);
+		pBackSub->apply(thresh1, fgMask);
+	}
+
+	if(countNonZero(fgMask) > 0) {
+		Mat tmp;
+		tmp = eq1.mul(fgMask);
+		eq1 = eq1 * 0.25 + tmp * 0.75;
+	}
 
 	for (off_t i = 0; i < 16; ++i) {
 		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
@@ -776,8 +793,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		collected2.clear();
 
 		for (off_t j = 0; j < 16; ++j) {
-			t1 = std::min(255, (int) round(j * 16 * bias * contour_sensitivity));
-			t2 = std::min(255, (int) round((j + 1) * 16 * bias * contour_sensitivity));
+			t1 = std::min(255, (int) round(j * 16 * bias));
+			t2 = std::min(255, (int) round((j + 1) * 16 * bias));
 			cv::threshold(eq2, thresh2, t1, t2, 0);
 			cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 			collected2.push_back(contours2);
@@ -867,15 +884,6 @@ std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<doubl
 void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows) {
 	std::multimap<double, std::pair<Point2f, Point2f>> distanceMap;
 
-//	std::set<Point2f, LessPointOp> setpt1;
-//	for (auto& pt1 : srcPoints1) {
-//		setpt1.insert(pt1);
-//	}
-//
-//	std::set<Point2f, LessPointOp> setpt2;
-//	for (auto& pt2 : srcPoints2) {
-//		setpt2.insert(pt2);
-//	}
 	Point2f nopoint(-1, -1);
 	for (auto& pt1 : srcPoints1) {
 		double dist = 0;
@@ -901,7 +909,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 		distanceMap.insert({dist, { pt1, *closest }});
 		closest->x = -1;
 		closest->y = -1;
-//		setpt2.erase(closest);
 	}
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	double initialSize = srcPoints1.size();
@@ -912,12 +919,11 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	double distance = (*distanceMap.rbegin()).first;
 	double mean = std::get<1>(distribution);
 	double sd = std::get<2>(distribution);
-	double highZScore = std::fabs(distance - mean) / sd;
+	double highZScore = (std::fabs(distance - mean) / sd) / (std::max(sd, mean) - std::fabs(sd - mean));
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.5 * match_tolerance *
-			(mean / (1.0 + sd)) *
-			(highZScore / (std::max(sd, mean) - std::fabs(sd - mean)))
+	double limit = 0.5 * match_tolerance
+			* highZScore
 			* (std::fabs(sd - mean) / 5.0);
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
@@ -1256,6 +1262,7 @@ int main(int argc, char **argv) {
 				shape = 1.0;
 
 			morph_images(image1, orig2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, mask);
+
 			image1 = morphed.clone();
 			lastMorphedPoints = morphedPoints;
 			output.write(morphed);
