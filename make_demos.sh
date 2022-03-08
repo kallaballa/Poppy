@@ -30,7 +30,7 @@ ffmpeg -y -i "$LOW" ../demo/squarecircle.gif
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 30 -ofps 6 ../videos/numbers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/numbers.gif
 
-../src/poppy -o ../videos/flowers.mkv flower1.jpg flower2.jpg flower1.jpg
+../src/poppy -t8 -o ../videos/flowers.mkv flower1.png flower2.png flower1.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 30 -ofps 6 ../videos/flowers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/flowers.gif
 
