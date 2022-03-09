@@ -595,7 +595,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	double highZScore = std::fabs((distance - mean) / sd);
 	double zScore = 0;
 	double value = 0;
-	std::cerr << "get tolerance: " << match_tolerance << std::endl;
 	double limit = match_tolerance * highZScore;
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {

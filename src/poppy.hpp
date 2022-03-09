@@ -13,7 +13,6 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double tar
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
 	match_tolerance = matchTolerance;
-	std::cerr << "set tolerance: " << match_tolerance << std::endl;
 	max_keypoints = maxKeypoints;
 	target_ang_diff = targetAngDiff;
 	target_len_diff = targetLenDiff;
