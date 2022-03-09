@@ -6,9 +6,10 @@
 using namespace std;
 using namespace cv;
 
+namespace poppy {
 void show_image(const string &name, const Mat &img) {
-		namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
-		imshow(name, img);
+	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
+	imshow(name, img);
 }
 
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
@@ -30,7 +31,7 @@ void check_uniq(const std::vector<Point2f> &pts) {
 void make_uniq(const std::vector<Point2f> &pts, std::vector<Point2f> &out) {
 	std::set<Point2f, LessPointOp> uniq;
 	for (const auto &pt : pts) {
-		if(uniq.insert(pt).second) {
+		if (uniq.insert(pt).second) {
 			out.push_back(pt);
 		}
 	}
@@ -46,4 +47,5 @@ bool operator==(const KeyPoint &kp1, const KeyPoint &kp2) {
 
 double distance(const Point2f &p1, const Point2f &p2) {
 	return hypot(p2.x - p1.x, p2.y - p1.y);
+}
 }

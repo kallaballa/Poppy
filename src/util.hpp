@@ -1,7 +1,11 @@
+#ifndef SRC_UTIL_HPP_
+#define SRC_UTIL_HPP_
+
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
 #include <string>
 
+namespace poppy {
 struct LessPointOp {
 	bool operator()(const cv::Point2f &lhs, const cv::Point2f &rhs) const {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
@@ -15,3 +19,5 @@ void make_uniq(const std::vector<cv::Point2f> &pts, std::vector<cv::Point2f> &ou
 bool operator==(const cv::Point2f &pt1, const cv::Point2f &pt2);
 bool operator==(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2);
 double distance(const cv::Point2f &p1, const cv::Point2f &p2);
+}
+#endif

@@ -1,9 +1,13 @@
+#ifndef SRC_BLEND_HPP_
+#define SRC_BLEND_HPP_
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 using namespace cv;
 using namespace std;
 
+namespace poppy {
 class LaplacianBlending {
 private:
 	Mat_<Vec3f> left;
@@ -85,7 +89,5 @@ public:
 		return reconstructImgFromLapPyramid();
 	}
 };
-Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f> &l, const Mat_<Vec3f> &r, const Mat_<float> &m) {
-	LaplacianBlending lb(l, r, m, 4);
-	return lb.blend();
 }
+#endif

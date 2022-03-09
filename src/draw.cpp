@@ -7,6 +7,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
 
+namespace poppy {
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
@@ -160,4 +161,5 @@ void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
 			circle(dst, Point(x, y), 1, Scalar(0, 0, 255), -1);
 		}
 	}
+}
 }
