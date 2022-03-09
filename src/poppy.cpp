@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 	po::notify(vm);
 
 	if (vm.count("help") || imageFiles.empty()) {
-		std::cerr << "Usage: poppy [options] <imageFiles>..." << std::endl;
+		std::cerr << "Usage: poppy [option]... [imageFile]..." << std::endl;
 		std::cerr << "Default options will work fine on good source material. Please," << std::endl;
 		std::cerr << "always make sure images are scaled and rotated to match each" << std::endl;
 		std::cerr << "other. Anyway, there are a couple of options you can specifiy." << std::endl;
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, targetAngDiff, targetLenDiff, contourSensitivity, maxKeypoints, autoTransform);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoTransform);
 
 	Mat image1;
 	try {
