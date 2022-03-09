@@ -47,6 +47,10 @@ and watch how it effects the algorithm.
 
 Options:
   -g [ --gui ]                        Show analysis windows
+  -a [ --autotrans ]                  Try to automatically rotate and translate
+                                      the source material to match.
+  -s [ --scaling ]                    Instead of extending the source material,
+                                      to match in size, use scaling.
   -m [ --maxkey ] arg (=-1)           Manual override for the number of 
                                       keypoints to retain during detection. The
                                       default is automatic determination of 

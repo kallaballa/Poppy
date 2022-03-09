@@ -68,17 +68,20 @@ int main(int argc, char **argv) {
 	po::notify(vm);
 
 	if (vm.count("help") || imageFiles.empty()) {
-		std::cerr << "Usage: poppy [option]... [imageFile]..." << std::endl;
-		std::cerr << "Default options will work fine on good source material. Please," << std::endl;
-		std::cerr << "always make sure images are scaled and rotated to match each" << std::endl;
-		std::cerr << "other. Anyway, there are a couple of options you can specifiy." << std::endl;
-		std::cerr << "But usually you would only want to do this if you either have" << std::endl;
-		std::cerr << "bad source material, feel like experimenting or are trying to" << std::endl;
-		std::cerr << "do something funny." << std::endl;
-		std::cerr << visible;
+		cerr << "Default options will work fine on good source material." << endl;
+		cerr << "If you don't like the result you might try aligning the" << endl;
+		cerr << "source images by hand. Anyway, there are also a couple" << endl;
+		cerr << "of options you can specifiy. But usually you would only" << endl;
+		cerr << "want to do this if you either have bad source material," << endl;
+		cerr << "feel like experimenting or are trying to do something" << endl;
+		cerr << "funny. The first thing to try is to adjust the match" << endl;
+		cerr << "tolerance (--tolerance). If you still wanna tinker you" << endl;
+		cerr << "should enable the gui (--gui) and play with the" << endl;
+		cerr << "contour sensitivity (--contour) and/or the tolerance" << endl;
+		cerr << "and watch how it effects the algorithm." << endl;
+		cerr << visible;
 		return 0;
 	}
-
 	if (vm.count("gui")) {
 		showGui = true;
 	}
