@@ -37,16 +37,16 @@ typedef unsigned char sample_t;
 using namespace std;
 using namespace cv;
 namespace poppy {
-static bool show_gui = false;
-static double number_of_frames = 60;
-static size_t len_iterations = -1;
-static double target_len_diff = 0;
-static size_t ang_iterations = -1;
-static double target_ang_diff = 0;
-static double match_tolerance = 1;
-static double contour_sensitivity = 1;
-static off_t max_keypoints = -1;
-static size_t pyramid_levels = 4;
+extern bool show_gui;
+extern double number_of_frames;
+extern size_t len_iterations;
+extern double target_len_diff;
+extern size_t ang_iterations;
+extern double target_ang_diff;
+extern double match_tolerance;
+extern double contour_sensitivity;
+extern off_t max_keypoints;
+extern size_t pyramid_levels;
 
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh);
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);

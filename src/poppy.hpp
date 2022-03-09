@@ -13,6 +13,7 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double tar
 	show_gui = showGui;
 	number_of_frames = numberOfFrames;
 	match_tolerance = matchTolerance;
+	std::cerr << "set tolerance: " << match_tolerance << std::endl;
 	max_keypoints = maxKeypoints;
 	target_ang_diff = targetAngDiff;
 	target_len_diff = targetLenDiff;
@@ -31,7 +32,6 @@ void morph(const Mat &src1, const Mat &src2, Twriter &output) {
 
 	Mat allContours1, allContours2;
 	find_matches(orig1, orig2, srcPoints1, srcPoints2, allContours1, allContours2);
-	waitKey(0);
 	if(srcPoints1.empty() || srcPoints2.empty()) {
 		for (size_t j = 0; j < number_of_frames; ++j) {
 			output.write(image1);
@@ -71,8 +71,6 @@ void morph(const Mat &src1, const Mat &src2, Twriter &output) {
 	morphed.release();
 	srcPoints1.clear();
 	srcPoints2.clear();
-
-	image1 = image2.clone();
 }
 }
 #endif

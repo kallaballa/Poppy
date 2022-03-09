@@ -24,6 +24,17 @@
 using namespace std;
 using namespace cv;
 namespace poppy {
+bool show_gui = false;
+double number_of_frames = 60;
+size_t len_iterations = -1;
+double target_len_diff = 0;
+size_t ang_iterations = -1;
+double target_ang_diff = 0;
+double match_tolerance = 1;
+double contour_sensitivity = 1;
+off_t max_keypoints = -1;
+size_t pyramid_levels = 4;
+
 
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
@@ -581,15 +592,15 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	double distance = (*distanceMap.rbegin()).first;
 	double mean = std::get<1>(distribution);
 	double sd = std::get<2>(distribution);
-	double highZScore = (std::fabs(distance - mean) / sd) / (std::max(sd, mean) - std::fabs(sd - mean));
+	double highZScore = std::fabs((distance - mean) / sd);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.5 * match_tolerance
-			* highZScore
-			* (std::fabs(sd - mean) / 5.0);
+	std::cerr << "get tolerance: " << match_tolerance << std::endl;
+	double limit = match_tolerance * highZScore;
+
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
-		zScore = (mean / sd) - std::fabs((value - mean) / sd);
+		zScore = std::fabs((value - mean) / sd);
 //		std::cerr
 //				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
 //				<< std::endl;

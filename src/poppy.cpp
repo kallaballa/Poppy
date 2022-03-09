@@ -125,5 +125,6 @@ int main(int argc, char **argv) {
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 		poppy::morph(image1, image2, output);
+		image1 = image2.clone();
 	}
 }
