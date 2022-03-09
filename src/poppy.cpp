@@ -31,8 +31,6 @@ int main(int argc, char **argv) {
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
-	double targetAngDiff = poppy::Settings::instance().target_ang_diff;
-	double targetLenDiff = poppy::Settings::instance().target_len_diff;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoTransform = poppy::Settings::instance().enable_auto_transform;
