@@ -28,13 +28,13 @@ using namespace cv;
 int main(int argc, char **argv) {
 	using std::string;
 	srand(time(NULL));
-	bool showGui = poppy::show_gui;
-	size_t numberOfFrames = poppy::number_of_frames;
-	double matchTolerance = poppy::match_tolerance;
-	double targetAngDiff = poppy::target_ang_diff;
-	double targetLenDiff = poppy::target_len_diff;
-	double contourSensitivity = poppy::contour_sensitivity;
-	off_t maxKeypoints = poppy::max_keypoints;
+	bool showGui = poppy::Settings::instance().show_gui;
+	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+	double matchTolerance = poppy::Settings::instance().match_tolerance;
+	double targetAngDiff = poppy::Settings::instance().target_ang_diff;
+	double targetLenDiff = poppy::Settings::instance().target_len_diff;
+	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
+	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 #ifndef _WASM
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, maxKeypoints, targetAngDiff, targetLenDiff, contourSensitivity);
+	poppy::init(showGui, numberOfFrames, matchTolerance, targetAngDiff, targetLenDiff, contourSensitivity, maxKeypoints);
 	Mat image1;
 	try {
 		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);

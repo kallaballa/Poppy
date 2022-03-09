@@ -1,53 +1,15 @@
 #ifndef SRC_ALGO_HPP_
 #define SRC_ALGO_HPP_
-#include "blend.hpp"
-#include "draw.hpp"
-#include "util.hpp"
 
-#include <iostream>
-#include <string>
 #include <vector>
-#include <cassert>
-#include <cmath>
-#include <cstdlib>
-#include <ctime>
-#include <filesystem>
-#include <algorithm>
 #include <map>
-
-#ifndef _WASM
-#include <boost/program_options.hpp>
-#endif
-
-#include <opencv2/videoio.hpp>
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/features2d.hpp>
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/ocl.hpp>
-
-
-#ifndef _WASM
-namespace po = boost::program_options;
-#endif
-
-typedef unsigned char sample_t;
 
 using namespace std;
 using namespace cv;
-namespace poppy {
-extern bool show_gui;
-extern double number_of_frames;
-extern size_t len_iterations;
-extern double target_len_diff;
-extern size_t ang_iterations;
-extern double target_ang_diff;
-extern double match_tolerance;
-extern double contour_sensitivity;
-extern off_t max_keypoints;
-extern size_t pyramid_levels;
 
+namespace poppy {
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh);
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
 void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows);

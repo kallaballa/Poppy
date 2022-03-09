@@ -2,6 +2,7 @@
 #include "draw.hpp"
 #include "util.hpp"
 #include "blend.hpp"
+#include "settings.hpp"
 
 #include <iostream>
 #include <string>
@@ -24,17 +25,6 @@
 using namespace std;
 using namespace cv;
 namespace poppy {
-bool show_gui = false;
-double number_of_frames = 60;
-size_t len_iterations = -1;
-double target_len_diff = 0;
-size_t ang_iterations = -1;
-double target_ang_diff = 0;
-double match_tolerance = 1;
-double contour_sensitivity = 1;
-off_t max_keypoints = -1;
-size_t pyramid_levels = 4;
-
 
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
@@ -43,7 +33,7 @@ void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 }
 
 void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
-	if (target_ang_diff == 0)
+	if (Settings::instance().target_ang_diff == 0)
 		return;
 
 	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
@@ -71,8 +61,8 @@ void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int co
 			}
 		}
 		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
-		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / target_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - target_ang_diff)));
-		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / target_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - target_ang_diff)));
+		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / Settings::instance().target_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - Settings::instance().target_ang_diff)));
+		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / Settings::instance().target_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - Settings::instance().target_ang_diff)));
 		if (score1 < 0)
 			score1 = 0;
 
@@ -122,7 +112,7 @@ void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols
 }
 
 void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
-	if (target_len_diff == 0) {
+	if (Settings::instance().target_len_diff == 0) {
 		kpv1.clear();
 		kpv2.clear();
 		for (auto e : edges) {
@@ -156,7 +146,7 @@ void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std:
 				new2.push_back(std::get<1>(e));
 			}
 		}
-		double score = 1.0 - std::fabs((double(edges.size()) - double(new1.size())) - (edges.size() / (100.0 / target_len_diff))) / (edges.size() / (100.0 / (100.0 - target_len_diff)));
+		double score = 1.0 - std::fabs((double(edges.size()) - double(new1.size())) - (edges.size() / (100.0 / Settings::instance().target_len_diff))) / (edges.size() / (100.0 / (100.0 - Settings::instance().target_len_diff)));
 		if (score < 0)
 			score = 0;
 		assert(score <= 1.0);
@@ -234,9 +224,9 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f>
 }
 
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
-	if (max_keypoints == -1)
-		max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
-	cv::Ptr<cv::ORB> detector = cv::ORB::create(max_keypoints);
+	if (Settings::instance().max_keypoints == -1)
+		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) / 4.0;
+	cv::Ptr<cv::ORB> detector = cv::ORB::create(Settings::instance().max_keypoints);
 	cv::Ptr<cv::ORB> extractor = cv::ORB::create();
 
 	std::vector<KeyPoint> keypoints1, keypoints2;
@@ -460,10 +450,9 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat thresh1, thresh2;
 	std::vector<std::vector<std::vector<cv::Point>>> collected1;
 	std::vector<std::vector<std::vector<cv::Point>>> collected2;
-
 	for (off_t i = 0; i < 16; ++i) {
-		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * contour_sensitivity)));
-		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * contour_sensitivity)));
+		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * Settings::instance().contour_sensitivity)));
+		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * Settings::instance().contour_sensitivity)));
 		cv::threshold(eq1, thresh1, t1, t2, 0);
 		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contours1);
@@ -475,8 +464,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	size_t off = 0;
 	for (off_t j = 0; j < 16; ++j) {
-		t1 = std::min(255, (int) round((off + j) * 16 * contour_sensitivity));
-		t2 = std::min(255, (int) round((off + j + 1) * 16 * contour_sensitivity));
+		t1 = std::min(255, (int) round((off + j) * 16 * Settings::instance().contour_sensitivity));
+		t2 = std::min(255, (int) round((off + j + 1) * 16 * Settings::instance().contour_sensitivity));
 		cv::threshold(eq2, thresh2, t1, t2, 0);
 		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected2.push_back(contours2);
@@ -592,17 +581,18 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	double distance = (*distanceMap.rbegin()).first;
 	double mean = std::get<1>(distribution);
 	double sd = std::get<2>(distribution);
-	double highZScore = std::fabs((distance - mean) / sd);
+	double highZScore = (std::fabs(distance - mean) / sd) / (std::max(sd, mean) - std::fabs(sd - mean));
+	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = match_tolerance * highZScore;
+	double limit = 0.25 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
-		zScore = std::fabs((value - mean) / sd);
-//		std::cerr
-//				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
-//				<< std::endl;
+		zScore = (mean / sd) - std::fabs((value - mean) / sd);
+		std::cerr
+				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
+				<< std::endl;
 
 		if (value < mean && zScore < limit) {
 			srcPoints1.push_back((*it).second.first);
@@ -765,7 +755,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, cons
 		ky -= 1;
 
 	GaussianBlur(m, mask, Size(kx, ky), 12);
-	LaplacianBlending lb(l, r, mask, pyramid_levels);
+	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
 	Mat analysis = dst.clone();

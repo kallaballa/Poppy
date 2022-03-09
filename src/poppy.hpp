@@ -1,28 +1,31 @@
 #ifndef SRC_POPPY_HPP_
 #define SRC_POPPY_HPP_
 
+#include "util.hpp"
 #include "algo.hpp"
+#include "settings.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
 #include <cassert>
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 namespace poppy {
 void init(bool showGui, size_t numberOfFrames, double matchTolerance, double targetAngDiff, double targetLenDiff, double contourSensitivity, off_t maxKeypoints) {
-	show_gui = showGui;
-	number_of_frames = numberOfFrames;
-	match_tolerance = matchTolerance;
-	max_keypoints = maxKeypoints;
-	target_ang_diff = targetAngDiff;
-	target_len_diff = targetLenDiff;
-	contour_sensitivity = contourSensitivity;
+	Settings::instance().show_gui = showGui;
+	Settings::instance().number_of_frames = numberOfFrames;
+	Settings::instance().match_tolerance = matchTolerance;
+	Settings::instance().max_keypoints = maxKeypoints;
+	Settings::instance().target_ang_diff = targetAngDiff;
+	Settings::instance().target_len_diff = targetLenDiff;
+	cerr << "set: " << Settings::instance().contour_sensitivity << endl;
+	Settings::instance().contour_sensitivity = contourSensitivity;
 }
 
 template<typename Twriter>
-void morph(const Mat &src1, const Mat &src2, Twriter &output) {
-	Mat image1 = src1.clone();
-	Mat image2 = src2.clone();
+void morph(Mat &image1, const Mat &image2, Twriter &output) {
 	Mat orig1 = image1.clone();
 	Mat orig2 = image2.clone();
 	Mat morphed;
@@ -32,25 +35,25 @@ void morph(const Mat &src1, const Mat &src2, Twriter &output) {
 	Mat allContours1, allContours2;
 	find_matches(orig1, orig2, srcPoints1, srcPoints2, allContours1, allContours2);
 	if(srcPoints1.empty() || srcPoints2.empty()) {
-		for (size_t j = 0; j < number_of_frames; ++j) {
+		for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
 			output.write(image1);
 		}
 		return;
 	}
 	prepare_matches(orig1, orig2, image1, image2, srcPoints1, srcPoints2);
 
-	float step = 1.0 / number_of_frames;
+	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
 	double shape = 0;
 	double mask = 0;
 
-	for (size_t j = 0; j < number_of_frames; ++j) {
+	for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
 		if (!lastMorphedPoints.empty())
 			srcPoints1 = lastMorphedPoints;
 		morphedPoints.clear();
 
 		linear = j * step;
-		shape = ((1.0 / (1.0 - linear)) / number_of_frames);
+		shape = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
 		mask = pow(shape, 1.1);
 		if (shape > 1.0)
 			shape = 1.0;
@@ -62,10 +65,10 @@ void morph(const Mat &src1, const Mat &src2, Twriter &output) {
 		output.write(morphed);
 
 		show_image("morphed", morphed);
-		if (show_gui)
+		if (Settings::instance().show_gui)
 			waitKey(1);
 
-		std::cerr << int((j / double(number_of_frames)) * 100.0) << "%\r";
+		std::cerr << int((j / double(Settings::instance().number_of_frames)) * 100.0) << "%\r";
 	}
 	morphed.release();
 	srcPoints1.clear();
