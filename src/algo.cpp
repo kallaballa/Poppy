@@ -585,14 +585,14 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.25 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
+	double limit = 0.1 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
 		zScore = (mean / sd) - std::fabs((value - mean) / sd);
-		std::cerr
-				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
-				<< std::endl;
+//		std::cerr
+//				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
+//				<< std::endl;
 
 		if (value < mean && zScore < limit) {
 			srcPoints1.push_back((*it).second.first);

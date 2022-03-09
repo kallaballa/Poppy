@@ -1,4 +1,6 @@
 #include "util.hpp"
+#include "settings.hpp"
+
 
 #include <opencv2/highgui/highgui.hpp>
 #include <set>
@@ -8,8 +10,10 @@ using namespace cv;
 
 namespace poppy {
 void show_image(const string &name, const Mat &img) {
-	namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
-	imshow(name, img);
+	if(Settings::instance().show_gui) {
+		namedWindow(name, WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
+		imshow(name, img);
+	}
 }
 
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
