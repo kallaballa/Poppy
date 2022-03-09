@@ -18,9 +18,10 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/videoio/videoio.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/video/video.hpp>
 
 using namespace std;
 using namespace cv;
@@ -405,9 +406,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> &collecte
 	}
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2) {
-	std::vector<std::vector<cv::Point>> contours1;
-	std::vector<std::vector<cv::Point>> contours2;
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
 	Mat median1, median2, lap1, lap2, grey1, grey2;
 
 	vector<Vec4i> hierarchy1;
@@ -431,12 +430,12 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat fgMask1;
 	Mat fgMask2;
 
-	auto pBackSub1 = createBackgroundSubtractorMOG2();
+	auto pBackSub1 = createBackgroundSubtractorMOG2(500, 16, true);
 	medianBlur(eq1, median1, 3);
 	pBackSub1->apply(eq1, fgMask1);
 	pBackSub1->apply(median1, fgMask1);
 
-	auto pBackSub2 = createBackgroundSubtractorMOG2();
+	auto pBackSub2 = createBackgroundSubtractorMOG2(500, 16, true);
 	medianBlur(eq2, median2, 3);
 	pBackSub2->apply(eq2, fgMask2);
 	pBackSub2->apply(median2, fgMask2);
@@ -448,14 +447,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	double t1 = 0, t2 = 0;
 	Mat thresh1, thresh2;
-	std::vector<std::vector<std::vector<cv::Point>>> collected1;
-	std::vector<std::vector<std::vector<cv::Point>>> collected2;
+	std::vector<std::vector<Point>> contourPoints1;
 	for (off_t i = 0; i < 16; ++i) {
 		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * Settings::instance().contour_sensitivity)));
 		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * Settings::instance().contour_sensitivity)));
 		cv::threshold(eq1, thresh1, t1, t2, 0);
-		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		collected1.push_back(contours1);
+		cv::findContours(thresh1, contourPoints1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		collected1.push_back(contourPoints1);
+		contourPoints1.clear();
 	}
 
 	Mat cmap1, cmap2;
@@ -463,12 +462,14 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	show_image("cmap1", cmap1);
 
 	size_t off = 0;
+	std::vector<std::vector<Point>> contourPoints2;
 	for (off_t j = 0; j < 16; ++j) {
 		t1 = std::min(255, (int) round((off + j) * 16 * Settings::instance().contour_sensitivity));
 		t2 = std::min(255, (int) round((off + j + 1) * 16 * Settings::instance().contour_sensitivity));
 		cv::threshold(eq2, thresh2, t1, t2, 0);
-		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		collected2.push_back(contours2);
+		cv::findContours(thresh2, contourPoints2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		collected2.push_back(contourPoints2);
+		contourPoints2.clear();
 	}
 
 	draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
@@ -487,15 +488,15 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		Mat &cont2 = dst2[i];
 		cont1 = Mat::zeros(img1.rows, img1.cols, img1.type());
 		cont2 = Mat::zeros(img2.rows, img2.cols, img2.type());
-		contours1 = collected1[i];
-		contours2 = collected2[i];
+		contourPoints1 = collected1[i];
+		contourPoints2 = collected2[i];
 
-		for (size_t j = 0; j < contours1.size(); ++j) {
-			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy1, 0);
+		for (size_t j = 0; j < contourPoints1.size(); ++j) {
+			cv::drawContours(cont1, contourPoints1, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy1, 0);
 		}
 
-		for (size_t j = 0; j < contours2.size(); ++j) {
-			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy2, 0);
+		for (size_t j = 0; j < contourPoints2.size(); ++j) {
+			cv::drawContours(cont2, contourPoints2, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
@@ -506,11 +507,83 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	show_image("Conto2", allContours2);
 }
 
-void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
+void correct_rotation(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
+	vector<Point> flat1;
+	vector<Point> flat2;
+	for(auto& c : collected1) {
+		for(auto& v : c) {
+			RotatedRect rr1 = minAreaRect(v);
+			if(std::fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.5) {
+				continue;
+			}
 
+			for(auto& pt : v) {
+				flat1.push_back(pt);
+			}
+		}
+	}
+
+	for(auto& c : collected2) {
+		for(auto& v : c) {
+			RotatedRect rv2 = minAreaRect(v);
+			if(std::fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.5) {
+				continue;
+			}
+
+			for(auto& pt : v) {
+				flat2.push_back(pt);
+			}
+		}
+	}
+
+
+
+	RotatedRect rr1 = minAreaRect(flat1);
+	RotatedRect rr2 = minAreaRect(flat2);
+	std::cerr << rr1.center << ":" << rr1.angle << std::endl;
+	std::cerr << rr2.center << ":" << rr2.angle << std::endl;
+    double targetAng = rr2.angle - rr1.angle;
+
+    if(targetAng > 0) {
+		if(targetAng >= 270) {
+			targetAng-=270;
+		} else if(targetAng >= 180) {
+			targetAng-=180;
+		} else if(targetAng >= 90) {
+			targetAng-=90;
+		}
+    } else if(targetAng < 0) {
+		if(targetAng <= -270) {
+			targetAng+=270;
+		} else if(targetAng <= -180) {
+			targetAng+=180;
+		} else if(targetAng <= -90) {
+			targetAng+=90;
+		}
+    }
+	cv::Mat rm2 = getRotationMatrix2D(rr2.center, targetAng, 1.0);
+    Mat rotated2;
+    warpAffine(src2, rotated2, rm2, src2.size());
+    float warpValues[] = { 1.0, 0.0, rr1.center.x - rr2.center.x, 0.0, 1.0, rr1.center.y - rr2.center.y };
+    Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
+    warpAffine(rotated2, dst2, translation_matrix, src2.size());
+
+    dst1 = src1.clone();
+}
+
+void find_matches(Mat &orig1, Mat &orig2, Mat& corrected1, Mat& corrected2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
 	std::vector<Mat> contours1, contours2;
-	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2);
+	vector<vector<vector<Point>>> collected1;
+	vector<vector<vector<Point>>> collected2;
 
+	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2, collected1, collected2);
+	correct_rotation(orig1, orig2, corrected1, corrected2, collected1, collected2);
+	contours1.clear();
+	contours2.clear();
+	collected1.clear();
+	collected2.clear();
+
+	find_contours(corrected1, corrected2, contours1, contours2, allContours1, allContours2, collected1, collected2);
 	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
 		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
@@ -518,13 +591,6 @@ void find_matches(Mat &orig1, Mat &orig2, std::vector<cv::Point2f> &srcPoints1, 
 	}
 
 	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
-
-	Mat matMatches;
-	Mat grey1, grey2;
-	cvtColor(orig1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(orig2, grey2, cv::COLOR_RGB2GRAY);
-//	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	if(show_gui) imshow("matches", matMatches);
 }
 
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, std::pair<Point2f, Point2f>> distanceMap) {

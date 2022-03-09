@@ -2,9 +2,9 @@
 #include "util.hpp"
 
 #include <opencv2/videoio.hpp>
+#include <opencv2/video.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
 
 namespace poppy {
@@ -28,7 +28,7 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 		}
 	}
 }
-
+#ifndef _WASM
 void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
 	UMat flowUmat;
 	Mat flow;
@@ -89,7 +89,7 @@ void draw_flow_highlight(const Mat &morphed, const Mat &last, Mat &dst) {
 	normalize(flowv.mul(flowm), overlay, 255.0, 0.0, NORM_MINMAX);
 	dst = morphed * 0.7 + overlay * 0.3;
 }
-
+#endif
 void draw_morph_analysis(const Mat &morphed, const Mat &last, Mat &dst, const Size &size, Subdiv2D &subdiv1, Subdiv2D &subdiv2, Subdiv2D &subdivMorph, Scalar delaunay_color) {
 //	draw_flow_highlight(morphed, last, dst);
 //	UMat flowUmat;
@@ -141,25 +141,4 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 	cvtColor(result, dst, COLOR_GRAY2RGB);
 }
 
-void draw_optical_flow(const Mat &img1, const Mat &img2, Mat &dst) {
-	UMat flowUmat;
-	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
-	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
-	flowUmat.copyTo(flow);
-	dst = img1.clone();
-	// By y += 5, x += 5 you can specify the grid
-	for (int y = 0; y < dst.rows; y += 20) {
-		for (int x = 0; x < dst.cols; x += 20) {
-			// get the flow from y, x position * 10 for better visibility
-			const Point2f flowatxy = flow.at<Point2f>(y, x) * 10;
-			// draw line at flow direction
-			line(dst, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 0, 0));
-			// draw initial point
-			circle(dst, Point(x, y), 1, Scalar(0, 0, 255), -1);
-		}
-	}
-}
 }

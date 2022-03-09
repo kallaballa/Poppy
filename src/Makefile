@@ -1,5 +1,8 @@
+#ifdef WASM
+TARGET := poppy.html
+#else
 TARGET := poppy
-
+#endif
 SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp
 
 #precompiled headers

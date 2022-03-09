@@ -16,7 +16,7 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 #ifndef _WASM
 namespace po = boost::program_options;
@@ -26,8 +26,8 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char **argv) {
-	using std::string;
 	srand(time(NULL));
+#ifndef _WASM
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
@@ -35,9 +35,8 @@ int main(int argc, char **argv) {
 	double targetLenDiff = poppy::Settings::instance().target_len_diff;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
-	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
-#ifndef _WASM
+	std::vector<string> imageFiles;
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows")
@@ -83,16 +82,16 @@ int main(int argc, char **argv) {
 	if (vm.count("gui")) {
 		showGui = true;
 	}
-#endif
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
 	poppy::init(showGui, numberOfFrames, matchTolerance, targetAngDiff, targetLenDiff, contourSensitivity, maxKeypoints);
+
 	Mat image1;
 	try {
-		image1 = imread(imageFiles[0], cv::IMREAD_COLOR);
+		image1 = imread(imageFiles[0]);
 		if (image1.empty()) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 			exit(2);
@@ -109,7 +108,7 @@ int main(int argc, char **argv) {
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat image2;
 		try {
-			image2 = imread(imageFiles[i], cv::IMREAD_COLOR);
+			image2 = imread(imageFiles[i]);
 			if (image2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 				exit(2);
@@ -127,4 +126,5 @@ int main(int argc, char **argv) {
 		poppy::morph(image1, image2, output);
 		image1 = image2.clone();
 	}
+#endif
 }

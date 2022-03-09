@@ -36,10 +36,11 @@ CXXFLAGS += -march=native `pkg-config --cflags opencv4 libpng`
 LIBS += -lboost_program_options `pkg-config --libs opencv4 libpng`
 else
 CXX     := em++
-CXXFLAGS += -D_WASM -s USE_PTHREADS=1 -I../third/opencv/
-LDFLAGS += -D_WASM -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency
-EMCXXFLAGS += -flto -s DISABLE_EXCEPTION_CATCHING=1
-EMLDFLAGS += --js-library ../third/opencv.js -s INITIAL_MEMORY=419430400 -s ASYNCIFY -s TOTAL_STACK=52428800 -s WASM_BIGINT -s MALLOC=emmalloc
+CXXFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=0 -I../third/opencv-4.5.5/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.5.5/modules/imgproc/include/ -I../third/opencv-4.5.5/modules/features2d/include/ -I../third/opencv-4.5.5/modules/flann/include/ -I../third/opencv-4.5.5/modules/videoio/include/ -I../third/opencv-4.5.5/modules/highgui/include/  -I../third/opencv-4.5.5/modules/calib3d/include/ -I../third/opencv-4.5.5/modules/video/include/ -I../third/opencv-4.5.5/modules/imgcodecs/include/ -I../third/opencv-4.5.5/include/
+LDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=0 -L../third/build_wasm/lib/ -L../third/build_wasm/3rdparty/lib/
+EMCXXFLAGS += -flto -s DISABLE_EXCEPTION_CATCHING=0
+EMLDFLAGS += -s INITIAL_MEMORY=419430400 -s ASYNCIFY -s TOTAL_STACK=52428800 -s WASM_BIGINT -s MALLOC=emmalloc
+LIBS += -lzlib -lopencv_calib3d -lopencv_core -lopencv_dnn -lopencv_features2d -lopencv_flann -lopencv_imgproc -lopencv_objdetect -lopencv_photo -lopencv_video
 
 ifdef AUTOVECTOR
 EMCXXFLAGS += -msimd128
@@ -62,9 +63,6 @@ all: release
 
 ifneq ($(UNAME_S), Darwin)
 release: LDFLAGS += -s
-endif
-ifdef WASM
-release: LDFLAGS += -s STACK_OVERFLOW_CHECK=2 -s ASSERTIONS=0 -s SAFE_HEAP=0
 endif
 release: CXXFLAGS += -g0 -O3 -c
 release: dirs
@@ -126,6 +124,7 @@ clean: dirs
 export LDFLAGS
 export CXXFLAGS
 export LIBS
+export WASM
 
 dirs:
 	${MAKE} -C src/ ${MAKEFLAGS} CXX=${CXX} ${MAKECMDGOALS}
