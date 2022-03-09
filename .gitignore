@@ -8,3 +8,9 @@
 *.gif
 videos
 src/poppy
+src/poppy.html
+src/poppy.js
+src/poppy.wasm
+third/build_wasm/
+third/opencv-4.5.5.zip
+

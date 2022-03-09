@@ -33,177 +33,6 @@ void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
-void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
-	if (Settings::instance().target_ang_diff == 0)
-		return;
-
-	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < hypot(cols, rows); ++i) {
-		double avg = 0;
-		double total = 0;
-		for (size_t j = 0; j < kpv1.size(); ++j) {
-			total += M_PI + std::atan2(kpv2[j].pt.y - kpv1[j].pt.y, (cols + kpv2[j].pt.x) - kpv1[j].pt.x);
-		}
-
-		avg = total / kpv1.size();
-		double dev = avg / ((100.0 / ((i + 1.0))) * 100.0);
-		double min = avg - (dev / 2.0);
-		double max = min + dev;
-
-		std::vector<KeyPoint> new1;
-		std::vector<KeyPoint> new2;
-
-		for (size_t i = 0; i < kpv1.size(); ++i) {
-			double angle = M_PI + std::atan2(kpv2[i].pt.y - kpv1[i].pt.y, (cols + kpv2[i].pt.x) - kpv1[i].pt.x);
-
-			if (angle > min && angle < max) {
-				new1.push_back(kpv1[i]);
-				new2.push_back(kpv2[i]);
-			}
-		}
-		double score1 = 1.0 - std::abs(off_t(kpv1.size()) - off_t(kpv2.size())) / std::max(kpv1.size(), kpv2.size());
-		double score2 = 1.0 - std::fabs((off_t(kpv1.size()) - off_t(new1.size())) - (kpv1.size() / (100.0 / Settings::instance().target_ang_diff))) / (kpv1.size() / (100.0 / (100.0 - Settings::instance().target_ang_diff)));
-		double score3 = 1.0 - std::fabs((off_t(kpv2.size()) - off_t(new2.size())) - (kpv2.size() / (100.0 / Settings::instance().target_ang_diff))) / (kpv2.size() / (100.0 / (100.0 - Settings::instance().target_ang_diff)));
-		if (score1 < 0)
-			score1 = 0;
-
-		if (score2 < 0)
-			score2 = 0;
-
-		assert(score1 <= 1.0);
-		assert(score2 <= 1.0);
-		diffs.push_back( { (score1 * 0.5) * score2 * score3, new1, new2 });
-	}
-
-	double score = 0;
-	double maxScore = -1;
-	size_t candidate = 0;
-
-	for (size_t i = 0; i < diffs.size(); ++i) {
-		auto &dt = diffs[i];
-		score = std::get<0>(dt);
-		if (score > maxScore) {
-			maxScore = score;
-			candidate = i;
-		}
-	}
-	std::cerr << "angle test: " << std::get<1>(diffs[candidate]).size() << "/" << (((kpv1.size() - std::get<1>(diffs[candidate]).size()) / double(kpv1.size())) * 100) << std::endl;
-	kpv1 = std::get<1>(diffs[candidate]);
-	kpv2 = std::get<2>(diffs[candidate]);
-}
-
-void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows) {
-	std::vector<KeyPoint> kpv1, kpv2;
-
-	for (auto pt : ptv1)
-		kpv1.push_back( { pt, 1 });
-
-	for (auto pt : ptv2)
-		kpv2.push_back( { pt, 1 });
-
-	angle_test(kpv1, kpv2, cols, rows);
-	ptv1.clear();
-	ptv2.clear();
-
-	for (auto kp : kpv1)
-		ptv1.push_back(kp.pt);
-
-	for (auto kp : kpv2)
-		ptv2.push_back(kp.pt);
-}
-
-void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
-	if (Settings::instance().target_len_diff == 0) {
-		kpv1.clear();
-		kpv2.clear();
-		for (auto e : edges) {
-			kpv1.push_back(std::get<0>(e));
-			kpv2.push_back(std::get<1>(e));
-		}
-		return;
-	}
-
-	std::vector<std::tuple<double, std::vector<KeyPoint>, std::vector<KeyPoint>>> diffs;
-	for (size_t i = 0; i < hypot(cols, rows); ++i) {
-		double avg = 0;
-		double total = 0;
-
-		for (auto e : edges) {
-			total += std::get<2>(e);
-		}
-
-		avg = total / edges.size();
-		double dev = avg / ((100.0 / ((i + 1.0))) * 100.0);
-		double min = avg - (dev / 2.0);
-		double max = min + dev;
-
-		std::vector<KeyPoint> new1;
-		std::vector<KeyPoint> new2;
-
-		for (auto e : edges) {
-			double len = std::get<2>(e);
-			if (len > min && len < max) {
-				new1.push_back(std::get<0>(e));
-				new2.push_back(std::get<1>(e));
-			}
-		}
-		double score = 1.0 - std::fabs((double(edges.size()) - double(new1.size())) - (edges.size() / (100.0 / Settings::instance().target_len_diff))) / (edges.size() / (100.0 / (100.0 - Settings::instance().target_len_diff)));
-		if (score < 0)
-			score = 0;
-		assert(score <= 1.0);
-		diffs.push_back( { score, new1, new2 });
-	}
-
-	double score = 0;
-	double maxScore = -1;
-	size_t candidate = 0;
-
-	for (size_t i = 0; i < diffs.size(); ++i) {
-		auto &dt = diffs[i];
-		score = std::get<0>(dt);
-		if (score > maxScore) {
-			maxScore = score;
-			candidate = i;
-		}
-	}
-	std::cerr << "length test: " << std::get<1>(diffs[candidate]).size() << "/" << (((edges.size() - std::get<1>(diffs[candidate]).size()) / double(edges.size())) * 100) << std::endl;
-	kpv1 = std::get<1>(diffs[candidate]);
-	kpv2 = std::get<2>(diffs[candidate]);
-}
-
-void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows) {
-	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
-	edges.reserve(10000);
-	Point2f p1, p2;
-	for (auto &kp1 : kpv1) {
-		for (auto &kp2 : kpv2) {
-			edges.push_back( { kp1, kp2, distance(kp1.pt, Point2f(kp2.pt.x + cols, kp2.pt.y)) });
-		}
-	}
-
-	length_test(edges, kpv1, kpv2, cols, rows);
-}
-
-void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows) {
-	std::vector<KeyPoint> kpv1, kpv2;
-
-	for (auto pt : ptv1)
-		kpv1.push_back( { pt, 1 });
-
-	for (auto pt : ptv2)
-		kpv2.push_back( { pt, 1 });
-
-	length_test(kpv1, kpv2, cols, rows);
-	ptv1.clear();
-	ptv2.clear();
-
-	for (auto kp : kpv1)
-		ptv1.push_back(kp.pt);
-
-	for (auto kp : kpv2)
-		ptv2.push_back(kp.pt);
-}
-
 void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f> &dstPoints) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
@@ -507,44 +336,59 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	show_image("Conto2", allContours2);
 }
 
-void correct_rotation(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
+void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
 	vector<Point> flat1;
 	vector<Point> flat2;
 	for(auto& c : collected1) {
 		for(auto& v : c) {
-			RotatedRect rr1 = minAreaRect(v);
-			if(std::fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.5) {
-				continue;
+			if(c.size() > 1) {
+				RotatedRect rr1 = minAreaRect(v);
+				if(fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.01) {
+					continue;
+				}
 			}
-
 			for(auto& pt : v) {
 				flat1.push_back(pt);
 			}
 		}
 	}
 
+	if(flat1.empty())
+		flat1 = collected1[0][0];
+
 	for(auto& c : collected2) {
 		for(auto& v : c) {
-			RotatedRect rv2 = minAreaRect(v);
-			if(std::fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.5) {
-				continue;
+			if(c.size() > 1) {
+				RotatedRect rv2 = minAreaRect(v);
+				if(fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.01) {
+					continue;
+				}
 			}
-
 			for(auto& pt : v) {
 				flat2.push_back(pt);
 			}
 		}
 	}
 
-
+	if(flat2.empty())
+		flat2 = collected2[0][0];
 
 	RotatedRect rr1 = minAreaRect(flat1);
 	RotatedRect rr2 = minAreaRect(flat2);
-	std::cerr << rr1.center << ":" << rr1.angle << std::endl;
-	std::cerr << rr2.center << ":" << rr2.angle << std::endl;
     double targetAng = rr2.angle - rr1.angle;
+    double wdiff = std::fabs(rr1.size.width - rr2.size.width);
+    double hdiff = std::fabs(rr1.size.height - rr2.size.height);
+    double wdiffrot = std::fabs(rr1.size.width - rr2.size.height);
+    double hdiffrot = std::fabs(rr1.size.height - rr2.size.width);
+    cerr << (wdiffrot + hdiffrot / 2.0) << " < " <<  (wdiff + hdiff / 2.0) << endl;
+    if((wdiffrot + hdiffrot / 2.0) < (wdiff + hdiff / 2.0)) {
+    	if(targetAng > 0)
+    		targetAng=-90;
+    	else if(targetAng < 0)
+    		targetAng=+90;
+    }
 
-    if(targetAng > 0) {
+	if(targetAng > 0) {
 		if(targetAng >= 270) {
 			targetAng-=270;
 		} else if(targetAng >= 180) {
@@ -552,7 +396,7 @@ void correct_rotation(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, ve
 		} else if(targetAng >= 90) {
 			targetAng-=90;
 		}
-    } else if(targetAng < 0) {
+	} else if(targetAng < 0) {
 		if(targetAng <= -270) {
 			targetAng+=270;
 		} else if(targetAng <= -180) {
@@ -560,7 +404,7 @@ void correct_rotation(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, ve
 		} else if(targetAng <= -90) {
 			targetAng+=90;
 		}
-    }
+	}
 	cv::Mat rm2 = getRotationMatrix2D(rr2.center, targetAng, 1.0);
     Mat rotated2;
     warpAffine(src2, rotated2, rm2, src2.size());
@@ -577,13 +421,18 @@ void find_matches(Mat &orig1, Mat &orig2, Mat& corrected1, Mat& corrected2, std:
 	vector<vector<vector<Point>>> collected2;
 
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2, collected1, collected2);
-	correct_rotation(orig1, orig2, corrected1, corrected2, collected1, collected2);
-	contours1.clear();
-	contours2.clear();
-	collected1.clear();
-	collected2.clear();
+	if(Settings::instance().enable_auto_transform) {
+		correct_rotation_and_position(orig1, orig2, corrected1, corrected2, collected1, collected2);
+		contours1.clear();
+		contours2.clear();
+		collected1.clear();
+		collected2.clear();
+		find_contours(corrected1, corrected2, contours1, contours2, allContours1, allContours2, collected1, collected2);
+	} else {
+		corrected1 = orig1.clone();
+		corrected2 = orig2.clone();
+	}
 
-	find_contours(corrected1, corrected2, contours1, contours2, allContours1, allContours2, collected1, collected2);
 	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
 		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
@@ -684,40 +533,16 @@ void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> 
 	srcPoints2.push_back(cv::Point2f(w, h));
 }
 
-void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2) {
+void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	//edit matches
 	std::cerr << "prepare: " << srcPoints1.size() << " -> ";
 	match_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
 	std::cerr << "match: " << srcPoints1.size() << " -> ";
 
-	std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges;
-	edges.reserve(1000);
-	Point2f p1, p2;
-	for (size_t i = 0; i < srcPoints1.size(); ++i) {
-		auto &pt1 = srcPoints1[i];
-		auto &pt2 = srcPoints2[i];
-		edges.push_back( { { pt1, 1 }, { pt2, 1 }, distance(pt1, Point2f(pt2.x + img1.cols, pt2.y)) });
-	}
-	std::vector<KeyPoint> kpv1;
-	std::vector<KeyPoint> kpv2;
-	length_test(edges, kpv1, kpv2, img1.cols, img1.rows);
-
-	srcPoints1.clear();
-	for (auto kp : kpv1) {
-		srcPoints1.push_back(kp.pt);
-	}
-	srcPoints2.clear();
-	for (auto kp : kpv2) {
-		srcPoints2.push_back(kp.pt);
-	}
-	std::cerr << "length test: " << srcPoints1.size() << std::endl;
-
-	angle_test(srcPoints1, srcPoints2, img1.cols, img1.rows);
-
 	Mat matMatches;
 	Mat grey1, grey2;
-	cvtColor(origImg1, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(origImg2, grey2, cv::COLOR_RGB2GRAY);
+	cvtColor(src1, grey1, cv::COLOR_RGB2GRAY);
+	cvtColor(src2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	show_image("matches reduced", matMatches);
 
@@ -726,7 +551,7 @@ void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv
 	else
 		srcPoints2.resize(srcPoints1.size());
 
-	add_corners(srcPoints1, srcPoints2, origImg1.size);
+	add_corners(srcPoints1, srcPoints2, src1.size);
 }
 
 double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {

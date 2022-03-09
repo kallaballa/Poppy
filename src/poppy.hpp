@@ -13,15 +13,13 @@
 #include <opencv2/highgui/highgui.hpp>
 
 namespace poppy {
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double targetAngDiff, double targetLenDiff, double contourSensitivity, off_t maxKeypoints) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoTransformation) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().match_tolerance = matchTolerance;
 	Settings::instance().max_keypoints = maxKeypoints;
-	Settings::instance().target_ang_diff = targetAngDiff;
-	Settings::instance().target_len_diff = targetLenDiff;
-	cerr << "set: " << Settings::instance().contour_sensitivity << endl;
 	Settings::instance().contour_sensitivity = contourSensitivity;
+	Settings::instance().enable_auto_transform = autoTransformation;
 }
 
 template<typename Twriter>

@@ -11,11 +11,11 @@ using namespace cv;
 
 namespace poppy {
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh);
-void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
-void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows);
-void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
-void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
-void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows);
+//void angle_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
+//void angle_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows);
+//void length_test(std::vector<std::tuple<KeyPoint, KeyPoint, double>> edges, std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
+//void length_test(std::vector<KeyPoint> &kpv1, std::vector<KeyPoint> &kpv2, int cols, int rows);
+//void length_test(std::vector<Point2f> &ptv1, std::vector<Point2f> &ptv2, int cols, int rows);
 void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, std::vector<Point2f> &dstPoints);
 std::pair<std::vector<Point2f>, std::vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2);
 cv::Mat points_to_homogenous_mat(const std::vector<cv::Point2f> &pts);

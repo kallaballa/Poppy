@@ -35,16 +35,16 @@ int main(int argc, char **argv) {
 	double targetLenDiff = poppy::Settings::instance().target_len_diff;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
+	bool autoTransform = poppy::Settings::instance().enable_auto_transform;
 	string outputFile = "output.mkv";
 	std::vector<string> imageFiles;
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
-	("gui,g", "Show analysis windows")
+	("gui,g", "Show analysis windows.")
+	("autotrans,a", "Try to automatically rotate and translate the source material to match.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
-	("angloss,a", po::value<double>(&targetAngDiff)->default_value(targetAngDiff), "The target loss, in percent, for the angle test.")
-	("lenloss,l", po::value<double>(&targetLenDiff)->default_value(targetLenDiff), "The target loss, in percent, for the length test.")
 	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours.")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to.")
 	("help,h", "Print the help message.");
@@ -82,12 +82,17 @@ int main(int argc, char **argv) {
 	if (vm.count("gui")) {
 		showGui = true;
 	}
+
+	if (vm.count("autotrans")) {
+		autoTransform = true;
+	}
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, targetAngDiff, targetLenDiff, contourSensitivity, maxKeypoints);
+	poppy::init(showGui, numberOfFrames, matchTolerance, targetAngDiff, targetLenDiff, contourSensitivity, maxKeypoints, autoTransform);
 
 	Mat image1;
 	try {
