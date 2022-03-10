@@ -13,6 +13,7 @@
 #include <boost/program_options.hpp>
 #endif
 
+#include <opencv2/photo/photo.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -41,6 +42,7 @@ int main(int argc, char **argv) {
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows.")
 	("autotrans,a", "Try to automatically rotate and translate the source material to match.")
+	("denoise,d", "Denoise images before morphing.")
 	("scaling,s", "Instead of extending the source material, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
@@ -100,10 +102,12 @@ int main(int argc, char **argv) {
 	}
 
 	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoTransform, srcScaling);
-
-	Mat image1;
+	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);
+		fastNlMeansDenoising(image1, denoise1, 10,7,21);
+		denoise1.copyTo(image1);
+
 		if (image1.empty()) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 			exit(2);
@@ -139,10 +143,13 @@ int main(int argc, char **argv) {
 		image1.copyTo(mUnion(centerRect));
 		image1 = mUnion.clone();
 	}
+
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
-		Mat image2;
+		Mat image2, denoise2;
 		try {
 			image2 = imread(imageFiles[i]);
+			fastNlMeansDenoising(image2, denoise2, 10,7,21);
+			denoise2.copyTo(image2);
 
 			if (image2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;

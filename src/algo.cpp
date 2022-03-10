@@ -24,6 +24,26 @@ using namespace std;
 using namespace cv;
 namespace poppy {
 
+void saturate(const cv::Mat &img, cv::Mat &saturated, double changeBy) {
+	Mat imgHsv;
+	cvtColor(img, imgHsv, COLOR_RGB2HSV);
+
+	for (int y = 0; y < imgHsv.cols; y++) {
+		for (int x = 0; x < imgHsv.rows; x++) {
+			Vec3b &pix = imgHsv.at<Vec3b>(Point(y, x));
+			int s = pix[1];
+			s += changeBy;
+			if (s < 0)
+				s = 0;
+			else if (s > 255)
+				s = 255;
+			pix[1] = s;
+		}
+	}
+
+	cvtColor(imgHsv, saturated, COLOR_HSV2RGB);
+}
+
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
 	GaussianBlur(src, detected_edges, Size(9, 9), 1);
@@ -232,8 +252,13 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> &collecte
 	}
 }
 
-void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
+void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
+//	Mat sat1, sat2;
 	Mat grey1, grey2;
+
+//	saturate(img1, sat1, 10);
+//	saturate(img2, sat2, 10);
+
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
@@ -246,55 +271,60 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat sharp1 = grey1 - (0.7 * lap1);
 	Mat sharp2 = grey2 - (0.7 * lap2);
 
+//	show_image("sharp1", sharp1);
 	/*
-	 * create a foreground mask by doing a two-stage blur and feeding it to a background subtractor.
+	 * create a foreground mask by doing a multi-stage blur and feeding it to a background subtractor.
 	 * the pixel-spread created by blurring registers as "motion" in the background subtractor, which in
 	 * turn generates a foreground mask
- 	 */
-	Mat fgMask1;
-	Mat fgMask2;
-	Mat tmp1;
-	Mat tmp2;
-	auto pBackSub1 = createBackgroundSubtractorMOG2(500, 16, true);
-	medianBlur(sharp1, tmp1, 5);
-	medianBlur(sharp1, tmp2, 11);
-	pBackSub1->apply(sharp1, fgMask1);
-	pBackSub1->apply(tmp1, fgMask1);
-	pBackSub1->apply(tmp2, fgMask1);
-	median1 = tmp1.clone();
-
-	auto pBackSub2 = createBackgroundSubtractorMOG2(500, 16, true);
-	medianBlur(sharp2, tmp1, 5);
-	medianBlur(sharp2, tmp2, 11);
-	pBackSub2->apply(sharp2, fgMask2);
-	pBackSub2->apply(tmp1, fgMask2);
-	pBackSub2->apply(tmp2, fgMask2);
-	median2 = tmp1.clone();
+	 */
+	Mat fgMask1, fgMask2;
+	Mat med, last = sharp1.clone();
+	auto pBackSub1 = createBackgroundSubtractorMOG2(500, 2, false);
+	for(size_t i = 0; i < 6; ++i) {
+		medianBlur(last, med, 17);
+		pBackSub1->apply(med, fgMask1);
+		last = med.clone();
+	}
+//	show_image("fgm1", fgMask1);
+	last = sharp2.clone();
+	auto pBackSub2 = createBackgroundSubtractorMOG2(500, 2, false);
+	for(size_t i = 0; i < 6; ++i) {
+		medianBlur(last, med, 17);
+		pBackSub2->apply(med, fgMask2);
+		last = med.clone();
+	}
 
 	//convert the images and masks to floating point for the subsequent multiplication
-	Mat median1Float, median2Float, fgMask1Float, fgMask2Float;
-	median1.convertTo(median1Float, CV_32F, 1.0 / 255.0);
-	median2.convertTo(median2Float, CV_32F, 1.0 / 255.0);
+	Mat sharp1Float, sharp2Float, fgMask1Float, fgMask2Float;
+	sharp1.convertTo(sharp1Float, CV_32F, 1.0 / 255.0);
+	sharp2.convertTo(sharp2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
 
+	//	float oldValue = 0;
+//	float newValue = 0.01;
+//
+//	fgMask1Blur.setTo(newValue, fgMask1Blur == oldValue);
+
+	show_image("mk1", fgMask1Float);
+
 	//multiply the fg mask with the enhanced image to extract foreground features
 	Mat masked1, masked2;
-	multiply(median1Float, fgMask1Float, masked1);
-	multiply(median2Float, fgMask2Float, masked2);
+	multiply(sharp1Float, fgMask1Float, masked1);
+	multiply(sharp2Float, fgMask2Float, masked2);
 
 	//convert back to 8-bit grey scale
 	Mat fg1, fg2;
 	masked1.convertTo(fg1, CV_8U, 255.0);
 	masked2.convertTo(fg2, CV_8U, 255.0);
+	show_image("fg1", fg1);
 
-	//stretch the contrast by equalizing the histograms
+	//stretch the contrast evenly by equalizing the histograms
 	Mat eq1, eq2;
 	equalizeHist(fg1, eq1);
 	equalizeHist(fg2, eq2);
 
 	show_image("eq1", eq1);
-	show_image("eq2", eq2);
 
 	double t1 = 0, t2 = 0;
 	Mat thresh1, thresh2;
@@ -356,96 +386,96 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
 
-	show_image("Conto1", allContours1);
-	show_image("Conto2", allContours2);
+//	show_image("Conto1", allContours1);
+//	show_image("Conto2", allContours2);
 }
 
-void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
+void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
 	vector<Point> flat1;
 	vector<Point> flat2;
-	for(auto& c : collected1) {
-		for(auto& v : c) {
-			if(c.size() > 1) {
+	for (auto &c : collected1) {
+		for (auto &v : c) {
+			if (c.size() > 1) {
 				RotatedRect rr1 = minAreaRect(v);
-				if(fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.01) {
+				if (fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.01) {
 					continue;
 				}
 			}
-			for(auto& pt : v) {
+			for (auto &pt : v) {
 				flat1.push_back(pt);
 			}
 		}
 	}
 
-	if(flat1.empty())
+	if (flat1.empty())
 		flat1 = collected1[0][0];
 
-	for(auto& c : collected2) {
-		for(auto& v : c) {
-			if(c.size() > 1) {
+	for (auto &c : collected2) {
+		for (auto &v : c) {
+			if (c.size() > 1) {
 				RotatedRect rv2 = minAreaRect(v);
-				if(fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.01) {
+				if (fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.01) {
 					continue;
 				}
 			}
-			for(auto& pt : v) {
+			for (auto &pt : v) {
 				flat2.push_back(pt);
 			}
 		}
 	}
 
-	if(flat2.empty())
+	if (flat2.empty())
 		flat2 = collected2[0][0];
 
 	RotatedRect rr1 = minAreaRect(flat1);
 	RotatedRect rr2 = minAreaRect(flat2);
-    double targetAng = rr2.angle - rr1.angle;
-    double wdiff = std::fabs(rr1.size.width - rr2.size.width);
-    double hdiff = std::fabs(rr1.size.height - rr2.size.height);
-    double wdiffrot = std::fabs(rr1.size.width - rr2.size.height);
-    double hdiffrot = std::fabs(rr1.size.height - rr2.size.width);
-    cerr << (wdiffrot + hdiffrot / 2.0) << " < " <<  (wdiff + hdiff / 2.0) << endl;
-    if((wdiffrot + hdiffrot / 2.0) < (wdiff + hdiff / 2.0)) {
-    	if(targetAng > 0)
-    		targetAng=-90;
-    	else if(targetAng < 0)
-    		targetAng=+90;
-    }
+	double targetAng = rr2.angle - rr1.angle;
+	double wdiff = std::fabs(rr1.size.width - rr2.size.width);
+	double hdiff = std::fabs(rr1.size.height - rr2.size.height);
+	double wdiffrot = std::fabs(rr1.size.width - rr2.size.height);
+	double hdiffrot = std::fabs(rr1.size.height - rr2.size.width);
+	cerr << (wdiffrot + hdiffrot / 2.0) << " < " << (wdiff + hdiff / 2.0) << endl;
+	if ((wdiffrot + hdiffrot / 2.0) < (wdiff + hdiff / 2.0)) {
+		if (targetAng > 0)
+			targetAng = -90;
+		else if (targetAng < 0)
+			targetAng = +90;
+	}
 
-	if(targetAng > 0) {
-		if(targetAng >= 270) {
-			targetAng-=270;
-		} else if(targetAng >= 180) {
-			targetAng-=180;
-		} else if(targetAng >= 90) {
-			targetAng-=90;
+	if (targetAng > 0) {
+		if (targetAng >= 270) {
+			targetAng -= 270;
+		} else if (targetAng >= 180) {
+			targetAng -= 180;
+		} else if (targetAng >= 90) {
+			targetAng -= 90;
 		}
-	} else if(targetAng < 0) {
-		if(targetAng <= -270) {
-			targetAng+=270;
-		} else if(targetAng <= -180) {
-			targetAng+=180;
-		} else if(targetAng <= -90) {
-			targetAng+=90;
+	} else if (targetAng < 0) {
+		if (targetAng <= -270) {
+			targetAng += 270;
+		} else if (targetAng <= -180) {
+			targetAng += 180;
+		} else if (targetAng <= -90) {
+			targetAng += 90;
 		}
 	}
 	cv::Mat rm2 = getRotationMatrix2D(rr2.center, targetAng, 1.0);
-    Mat rotated2;
-    warpAffine(src2, rotated2, rm2, src2.size());
-    float warpValues[] = { 1.0, 0.0, rr1.center.x - rr2.center.x, 0.0, 1.0, rr1.center.y - rr2.center.y };
-    Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
-    warpAffine(rotated2, dst2, translation_matrix, src2.size());
+	Mat rotated2;
+	warpAffine(src2, rotated2, rm2, src2.size());
+	float warpValues[] = { 1.0, 0.0, rr1.center.x - rr2.center.x, 0.0, 1.0, rr1.center.y - rr2.center.y };
+	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
+	warpAffine(rotated2, dst2, translation_matrix, src2.size());
 
-    dst1 = src1.clone();
+	dst1 = src1.clone();
 }
 
-void find_matches(Mat &orig1, Mat &orig2, Mat& corrected1, Mat& corrected2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
+void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2) {
 	std::vector<Mat> contours1, contours2;
 	vector<vector<vector<Point>>> collected1;
 	vector<vector<vector<Point>>> collected2;
 
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2, collected1, collected2);
-	if(Settings::instance().enable_auto_transform) {
+	if (Settings::instance().enable_auto_transform) {
 		correct_rotation_and_position(orig1, orig2, corrected1, corrected2, collected1, collected2);
 		contours1.clear();
 		contours2.clear();
@@ -568,7 +598,7 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	cvtColor(src1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matches reduced", matMatches);
+//	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
