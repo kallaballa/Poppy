@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace cv;
+
 namespace poppy {
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
@@ -89,7 +90,6 @@ cv::Mat points_to_homogenous_mat(const std::vector<cv::Point2f> &pts) {
 
 void morph_points(std::vector<cv::Point2f> &srcPts1, std::vector<cv::Point2f> &srcPts2, std::vector<cv::Point2f> &dstPts, float s) {
 	assert(srcPts1.size() == srcPts2.size());
-
 	int numPts = srcPts1.size();
 
 	dstPts.resize(numPts);
@@ -247,13 +247,13 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
 	Mat fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
-	Mat fgMask2 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
+	Mat fgMask2 = Mat::ones(grey2.rows, grey2.cols, grey2.type());
 	Mat last = sharp1.clone();
 	Mat fgMask1Blur, fgMask2Blur;
 	Mat med, flow;
 
 	for (size_t i = 0; i < 24; ++i) {
-		medianBlur(last, med, i * 4 + 1);
+		medianBlur(last, med, i * 8 + 1);
 		draw_flow_heightmap(last, med, flow);
 		fgMask1 = fgMask1 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask1, fgMask1Blur, { 23, 23 }, 1);
@@ -264,7 +264,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	last = sharp2.clone();
 	for (size_t i = 0; i < 24; ++i) {
-		medianBlur(last, med, i * 4 + 1);
+		medianBlur(last, med, i * 8 + 1);
 		draw_flow_heightmap(last, med, flow);
 		fgMask2 = fgMask2 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask2, fgMask2Blur, { 23, 23 }, 1);
@@ -297,13 +297,36 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	show_image("eq1", eq1);
 
-	double t1 = 0, t2 = 0;
+	double localSensitivity = 1;
+	double t1 = 0;
+	double t2 = 255;
+	double highLimit = countNonZero(eq1) * 0.75;
 	Mat thresh1, thresh2;
-	std::vector<std::vector<Point>> contourPoints1;
 	vector<Vec4i> hierarchy1;
+	std::vector<std::vector<Point>> contourPoints1;
+
+	cv::threshold(eq1, thresh1, t1, t2, 0);
+	double cnt = 0;
+	do {
+		t1 = localSensitivity;
+		t2 = 255;
+		if(t1 >= 255)
+			t1 = 255;
+
+		if(t2 >= 255)
+			t2 = 255;
+		cv::threshold(eq1, thresh1, t1, t2, 0);
+		cnt = countNonZero(thresh1);
+		if(cnt > highLimit)
+			++localSensitivity;
+	} while(cnt > highLimit);
+
+	t1 = 0;
+	t2 = 0;
+	localSensitivity = localSensitivity / 255.0;
 	for (off_t i = 0; i < 16; ++i) {
-		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * Settings::instance().contour_sensitivity)));
-		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * Settings::instance().contour_sensitivity)));
+		t1 = std::max(0, std::min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
+		t2 = std::max(0, std::min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
 		cv::threshold(eq1, thresh1, t1, t2, 0);
 		cv::findContours(thresh1, contourPoints1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected1.push_back(contourPoints1);
@@ -313,12 +336,11 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat cmap1, cmap2;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
 
-	size_t off = 0;
 	std::vector<std::vector<Point>> contourPoints2;
 	vector<Vec4i> hierarchy2;
 	for (off_t j = 0; j < 16; ++j) {
-		t1 = std::min(255, (int) round((off + j) * 16 * Settings::instance().contour_sensitivity));
-		t2 = std::min(255, (int) round((off + j + 1) * 16 * Settings::instance().contour_sensitivity));
+		t1 = std::min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
+		t2 = std::min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
 		cv::threshold(eq2, thresh2, t1, t2, 0);
 		cv::findContours(thresh2, contourPoints2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
 		collected2.push_back(contourPoints2);
@@ -528,9 +550,6 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
 		zScore = (mean / sd) - std::fabs((value - mean) / sd);
-//		std::cerr
-//				<< "\tm/s/l/z/h: " << mean << "/" << sd << "/" << limit << "/" << zScore << "/" << highZScore
-//				<< std::endl;
 
 		if (value < mean && zScore < limit) {
 			srcPoints1.push_back((*it).second.first);
@@ -567,7 +586,7 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	cvtColor(src1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	show_image("matches reduced", matMatches);
+	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
