@@ -246,8 +246,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat sharp2 = grey2 - (0.7 * lap2);
 
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
-	Mat fgMask1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
-	Mat fgMask2 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+	Mat fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
+	Mat fgMask2 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
 	Mat last = sharp1.clone();
 	Mat fgMask1Blur, fgMask2Blur;
 	Mat med, flow;
