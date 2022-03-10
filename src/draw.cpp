@@ -29,30 +29,38 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 	}
 }
 #ifndef _WASM
-void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst) {
+void draw_flow_heightmap(const Mat &morphedGrey, const Mat &lastGrey, Mat &dst) {
 	UMat flowUmat;
 	Mat flow;
-	Mat grey1, grey2;
-	cvtColor(last, grey1, cv::COLOR_RGB2GRAY);
-	cvtColor(morphed, grey2, cv::COLOR_RGB2GRAY);
+	Mat grey1 = morphedGrey.clone();
+	Mat grey2 = lastGrey.clone();
 
 	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
 	flowUmat.copyTo(flow);
-	dst = morphed.clone();
+	dst = morphedGrey.clone();
 	uint32_t color;
-	Mat norm;
-	normalize(flow, norm, 1.0, 0.0, NORM_MINMAX);
 
-	for (off_t x = 0; x < morphed.cols; ++x) {
-		for (off_t y = 0; y < morphed.rows; ++y) {
-			circle(dst, Point(x, y), 1, Scalar(0), -1);
-			const Point2f flv1 = norm.at<Point2f>(y, x);
-			double mag = hypot(flv1.x, flv1.y);
+	double maxMag = 0;
+	double mag = 0;
+	for (off_t x = 0; x < morphedGrey.cols; ++x) {
+		for (off_t y = 0; y < morphedGrey.rows; ++y) {
+			const Point2f& flv1 = flow.at<Point2f>(y, x);
+			mag = hypot(flv1.x, flv1.y);
+			if(mag > maxMag)
+				maxMag = mag;
+		}
+	}
+
+	for (off_t x = 0; x < morphedGrey.cols; ++x) {
+		for (off_t y = 0; y < morphedGrey.rows; ++y) {
+//			circle(dst, Point(x, y), 1, Scalar(0), -1);
+			const Point2f flv1 = flow.at<Point2f>(y, x);
+			double mag = hypot(flv1.x, flv1.y) / maxMag;
 			color = std::round(double(255) * (double) mag);
 			circle(dst, Point(x, y), 1, Scalar(color, color, color), -1);
 		}
 	}
-	show_image("fhm", dst);
+//	show_image("fhm", dst);
 }
 
 void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {

@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoTransform = poppy::Settings::instance().enable_auto_transform;
 	bool srcScaling = poppy::Settings::instance().enable_src_scaling;
+	bool denoise = false;
 	string outputFile = "output.mkv";
 	std::vector<string> imageFiles;
 	po::options_description genericDesc("Options");
@@ -96,6 +97,10 @@ int main(int argc, char **argv) {
 		srcScaling = true;
 	}
 
+	if (vm.count("denoise")) {
+		denoise = true;
+	}
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -105,9 +110,10 @@ int main(int argc, char **argv) {
 	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);
-		fastNlMeansDenoising(image1, denoise1, 10,7,21);
-		denoise1.copyTo(image1);
-
+		if(denoise) {
+			fastNlMeansDenoising(image1, denoise1, 10,7,21);
+			denoise1.copyTo(image1);
+		}
 		if (image1.empty()) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 			exit(2);
@@ -148,8 +154,10 @@ int main(int argc, char **argv) {
 		Mat image2, denoise2;
 		try {
 			image2 = imread(imageFiles[i]);
-			fastNlMeansDenoising(image2, denoise2, 10,7,21);
-			denoise2.copyTo(image2);
+			if(denoise) {
+				fastNlMeansDenoising(image2, denoise2, 10,7,21);
+				denoise2.copyTo(image2);
+			}
 
 			if (image2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;

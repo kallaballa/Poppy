@@ -253,12 +253,7 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> &collecte
 }
 
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
-//	Mat sat1, sat2;
 	Mat grey1, grey2;
-
-//	saturate(img1, sat1, 10);
-//	saturate(img2, sat2, 10);
-
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
@@ -271,26 +266,37 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat sharp1 = grey1 - (0.7 * lap1);
 	Mat sharp2 = grey2 - (0.7 * lap2);
 
-//	show_image("sharp1", sharp1);
 	/*
 	 * create a foreground mask by doing a multi-stage blur and feeding it to a background subtractor.
 	 * the pixel-spread created by blurring registers as "motion" in the background subtractor, which in
 	 * turn generates a foreground mask
 	 */
-	Mat fgMask1, fgMask2;
-	Mat med, last = sharp1.clone();
-	auto pBackSub1 = createBackgroundSubtractorMOG2(500, 2, false);
-	for(size_t i = 0; i < 6; ++i) {
-		medianBlur(last, med, 17);
-		pBackSub1->apply(med, fgMask1);
+	Mat fgMask1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+	Mat fgMask2 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+	Mat last = sharp1.clone();
+	Mat fgMask1Blur, fgMask2Blur;
+	Mat med, flow;
+
+	for(size_t i = 0; i < 24; ++i) {
+		medianBlur(last, med, i * 4 + 1);
+		draw_flow_heightmap(last, med, flow);
+		fgMask1 = fgMask1 + (flow * (1.0/6.0));
+		GaussianBlur(fgMask1, fgMask1Blur, {23,23}, 1);
+		fgMask1 = fgMask1Blur.clone();
+		show_image("mask1", fgMask1);
+//		waitKey();
 		last = med.clone();
 	}
-//	show_image("fgm1", fgMask1);
+
 	last = sharp2.clone();
-	auto pBackSub2 = createBackgroundSubtractorMOG2(500, 2, false);
-	for(size_t i = 0; i < 6; ++i) {
-		medianBlur(last, med, 17);
-		pBackSub2->apply(med, fgMask2);
+	for(size_t i = 0; i < 24; ++i) {
+		medianBlur(last, med, i * 4 + 1);
+		draw_flow_heightmap(last, med, flow);
+		fgMask2 = fgMask2 + (flow * (1.0/6.0));
+		GaussianBlur(fgMask2, fgMask2Blur, {23,23}, 1);
+		fgMask2 = fgMask2Blur.clone();
+		show_image("mask2", fgMask2);
+//		waitKey();
 		last = med.clone();
 	}
 
@@ -306,7 +312,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 //
 //	fgMask1Blur.setTo(newValue, fgMask1Blur == oldValue);
 
-	show_image("mk1", fgMask1Float);
+//	show_image("mk1", fgMask1Float);
 
 	//multiply the fg mask with the enhanced image to extract foreground features
 	Mat masked1, masked2;
@@ -317,7 +323,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat fg1, fg2;
 	masked1.convertTo(fg1, CV_8U, 255.0);
 	masked2.convertTo(fg2, CV_8U, 255.0);
-	show_image("fg1", fg1);
+//	show_image("fg1", fg1);
 
 	//stretch the contrast evenly by equalizing the histograms
 	Mat eq1, eq2;
@@ -341,7 +347,6 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	Mat cmap1, cmap2;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
-	show_image("cmap1", cmap1);
 
 	size_t off = 0;
 	std::vector<std::vector<Point>> contourPoints2;
@@ -359,6 +364,8 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	allContours1 = cmap1.clone();
 	allContours2 = cmap2.clone();
+	show_image("cmap1", cmap1);
+	show_image("cmap2", cmap2);
 
 	dst1.clear();
 	dst2.clear();
