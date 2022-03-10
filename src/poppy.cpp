@@ -90,6 +90,10 @@ int main(int argc, char **argv) {
 		autoTransform = true;
 	}
 
+	if (vm.count("scaling")) {
+		srcScaling = true;
+	}
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -113,22 +117,28 @@ int main(int argc, char **argv) {
 	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
 			Size(image1.cols, image1.rows));
 
-	int szUnion[2] = { image1.cols, image1.rows };
+	Size szUnion = { image1.cols, image1.rows };
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat img = imread(imageFiles[i]);
-		if(szUnion[0] < img.cols) {
-			szUnion[0] = img.cols;
+		cerr << "preloading: " << imageFiles[i] << std::endl;
+		if(szUnion.width < img.cols) {
+			szUnion.width = img.cols;
 		}
 
-		if(szUnion[1] < img.rows) {
-			szUnion[1] = img.rows;
+		if(szUnion.height < img.rows) {
+			szUnion.height = img.rows;
 		}
 	}
-	Mat mUnion(szUnion[1], szUnion[0], image1.type(), {0,0,0});
-	Rect centerRect((szUnion[0] - image1.cols) / 2.0, (szUnion[1] - image1.rows) / 2.0, image1.cols, image1.rows);
-	image1.copyTo(mUnion(centerRect));
-	image1 = mUnion.clone();
 
+	Mat mUnion(szUnion.height, szUnion.width, image1.type(), {255,255,255});
+	if(poppy::Settings::instance().enable_src_scaling) {
+		Mat clone = image1.clone();
+		resize(clone, image1, szUnion, INTER_CUBIC);
+	} else {
+		Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
+		image1.copyTo(mUnion(centerRect));
+		image1 = mUnion.clone();
+	}
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat image2;
 		try {
@@ -139,10 +149,15 @@ int main(int argc, char **argv) {
 				exit(2);
 			}
 
-			mUnion = Scalar::all(0);
-			Rect cr((szUnion[0] - image2.cols) / 2.0, (szUnion[1] - image2.rows) / 2.0, image2.cols, image2.rows);
-			image2.copyTo(mUnion(cr));
-			image2 = mUnion.clone();
+			if(poppy::Settings::instance().enable_src_scaling) {
+				Mat clone = image2.clone();
+				resize(clone, image2, szUnion, INTER_CUBIC);
+			} else {
+				mUnion = Scalar::all(0);
+				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
+				image2.copyTo(mUnion(cr));
+				image2 = mUnion.clone();
+			}
 
 			if (image1.cols != image2.cols || image1.rows != image2.rows) {
 				std::cerr << "Image file sizes don't match: " << imageFiles[i] << std::endl;

@@ -9,9 +9,6 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
-#include <cstdlib>
-#include <ctime>
-#include <filesystem>
 #include <algorithm>
 #include <map>
 
@@ -236,47 +233,73 @@ void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> &collecte
 }
 
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2) {
-	Mat median1, median2, lap1, lap2, grey1, grey2;
-
-	vector<Vec4i> hierarchy1;
-	vector<Vec4i> hierarchy2;
+	Mat grey1, grey2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
+	//unsharp mask
+	Mat median1, median2, lap1, lap2;
 	medianBlur(grey1, median1, 3);
 	medianBlur(grey2, median2, 3);
-
 	Laplacian(median1, lap1, median1.depth());
 	Laplacian(median2, lap2, median2.depth());
 	Mat sharp1 = grey1 - (0.7 * lap1);
 	Mat sharp2 = grey2 - (0.7 * lap2);
-	Mat eq1;
-	Mat eq2;
 
-	equalizeHist(sharp1, eq1);
-	equalizeHist(sharp2, eq2);
-
+	/*
+	 * create a foreground mask by doing a two-stage blur and feeding it to a background subtractor.
+	 * the pixel-spread created by blurring registers as "motion" in the background subtractor, which in
+	 * turn generates a foreground mask
+ 	 */
 	Mat fgMask1;
 	Mat fgMask2;
-
+	Mat tmp1;
+	Mat tmp2;
 	auto pBackSub1 = createBackgroundSubtractorMOG2(500, 16, true);
-	medianBlur(eq1, median1, 3);
-	pBackSub1->apply(eq1, fgMask1);
-	pBackSub1->apply(median1, fgMask1);
+	medianBlur(sharp1, tmp1, 5);
+	medianBlur(sharp1, tmp2, 11);
+	pBackSub1->apply(sharp1, fgMask1);
+	pBackSub1->apply(tmp1, fgMask1);
+	pBackSub1->apply(tmp2, fgMask1);
+	median1 = tmp1.clone();
 
 	auto pBackSub2 = createBackgroundSubtractorMOG2(500, 16, true);
-	medianBlur(eq2, median2, 3);
-	pBackSub2->apply(eq2, fgMask2);
-	pBackSub2->apply(median2, fgMask2);
+	medianBlur(sharp2, tmp1, 5);
+	medianBlur(sharp2, tmp2, 11);
+	pBackSub2->apply(sharp2, fgMask2);
+	pBackSub2->apply(tmp1, fgMask2);
+	pBackSub2->apply(tmp2, fgMask2);
+	median2 = tmp1.clone();
 
-	eq1 = median1 * 0.25 + fgMask1 * 0.75;
-	eq2 = median2 * 0.25 + fgMask2 * 0.75;
+	//convert the images and masks to floating point for the subsequent multiplication
+	Mat median1Float, median2Float, fgMask1Float, fgMask2Float;
+	median1.convertTo(median1Float, CV_32F, 1.0 / 255.0);
+	median2.convertTo(median2Float, CV_32F, 1.0 / 255.0);
+	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
+	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
+
+	//multiply the fg mask with the enhanced image to extract foreground features
+	Mat masked1, masked2;
+	multiply(median1Float, fgMask1Float, masked1);
+	multiply(median2Float, fgMask2Float, masked2);
+
+	//convert back to 8-bit grey scale
+	Mat fg1, fg2;
+	masked1.convertTo(fg1, CV_8U, 255.0);
+	masked2.convertTo(fg2, CV_8U, 255.0);
+
+	//stretch the contrast by equalizing the histograms
+	Mat eq1, eq2;
+	equalizeHist(fg1, eq1);
+	equalizeHist(fg2, eq2);
+
 	show_image("eq1", eq1);
 	show_image("eq2", eq2);
 
 	double t1 = 0, t2 = 0;
 	Mat thresh1, thresh2;
 	std::vector<std::vector<Point>> contourPoints1;
+	vector<Vec4i> hierarchy1;
 	for (off_t i = 0; i < 16; ++i) {
 		t1 = std::max(0, std::min(255, (int) round(i * 16.0 * Settings::instance().contour_sensitivity)));
 		t2 = std::max(0, std::min(255, (int) round((i + 1) * 16.0 * Settings::instance().contour_sensitivity)));
@@ -292,6 +315,7 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 
 	size_t off = 0;
 	std::vector<std::vector<Point>> contourPoints2;
+	vector<Vec4i> hierarchy2;
 	for (off_t j = 0; j < 16; ++j) {
 		t1 = std::min(255, (int) round((off + j) * 16 * Settings::instance().contour_sensitivity));
 		t2 = std::min(255, (int) round((off + j + 1) * 16 * Settings::instance().contour_sensitivity));
