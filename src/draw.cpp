@@ -23,7 +23,7 @@ void draw_radial_gradiant(Mat &grad) {
 			point.x = col;
 			point.y = row;
 			double dist = euclidean_distance(center, point) / maxDist;
-			grad.at<float>(row, col) = pow(sin(sin(sin(dist) * (M_PI/2))* (M_PI/2)),8);
+			grad.at<float>(row, col) = pow(sin(sin(dist * (M_PI/2)) * (M_PI/2)),1024);
 		}
 	}
 
