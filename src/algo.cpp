@@ -266,7 +266,7 @@ void adjust_contrast_and_brightness(const Mat& src, Mat& dst) {
 	Mat hc(dst);
 	int contrast = 2;
 	Scalar imgAvgVec = sum(dst) / (dst.cols * dst.rows);
-	double imgAvg = (imgAvgVec[0] + imgAvgVec[1] + imgAvgVec[2]) / 3;
+	double imgAvg = imgAvgVec[0];
 	int brightness = -((contrast - 1) * imgAvg);
 	dst.convertTo(hc, -1, contrast , brightness);
 	hc.copyTo(dst);
@@ -354,28 +354,44 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	radial.convertTo(radialFloat, CV_32F, 1.0 / 255.0);
 
 	//multiply the fg mask with the radial mask to emphasis features in the center of the image
-	Mat biasedMask1, biasedMask2;
-	multiply(fgMask1Float, radialFloat, biasedMask1);
-	multiply(fgMask2Float, radialFloat, biasedMask2);
-	show_image("mask1", biasedMask1);
-	show_image("mask2", biasedMask2);
+	Mat biasedMask1Float, biasedMask2Float;
+	multiply(fgMask1Float, radialFloat, biasedMask1Float);
+	multiply(fgMask2Float, radialFloat, biasedMask2Float);
+	show_image("bias1", biasedMask1Float);
+	show_image("bias2", biasedMask2Float);
 
-	//multiply the fg mask with the enhanced image to extract foreground features
 	Mat masked1, masked2;
-	multiply(sharp1Float, biasedMask1, masked1);
-	multiply(sharp2Float, biasedMask2, masked2);
+
+//	//multiply the fg mask with the enhanced image to extract foreground features
+//	multiply(sharp1Float, biasedMask1Float, masked1);
+//	multiply(sharp2Float, biasedMask2Float, masked2);
+
+	Mat blurred1Float, blurredMask1Float, maskedBlur1Float;
+	cv::GaussianBlur(sharp1Float, blurred1Float, cv::Size(23, 23), 3);
+	cv::GaussianBlur(biasedMask1Float, blurredMask1Float, cv::Size(23, 23), 3);
+	maskedBlur1Float = blurred1Float / blurredMask1Float;
+	cv::addWeighted(sharp1Float, 1.1, maskedBlur1Float, -0.1, 0, masked1);
+
+	Mat blurred2Float, blurredMask2Float, maskedBlur2Float;
+	cv::GaussianBlur(sharp2Float, blurred2Float, cv::Size(23, 23), 3);
+	cv::GaussianBlur(biasedMask2Float, blurredMask2Float, cv::Size(23, 23), 3);
+	maskedBlur2Float = blurred2Float / blurredMask2Float;
+	cv::addWeighted(sharp2Float, 1.1, maskedBlur2Float, -0.1, 0, masked2);
 
 	//convert back to 8-bit grey scale
 	masked1.convertTo(masked1, CV_8U, 255.0);
 	masked2.convertTo(masked2, CV_8U, 255.0);
+
+	show_image("masked1", masked1);
+	show_image("masked2", masked2);
 
 	//stretch the contrast
 	Mat adjusted1, adjusted2;
 	adjust_contrast_and_brightness(masked1, adjusted1);
 	adjust_contrast_and_brightness(masked2, adjusted2);
 
-	show_image("stre1", adjusted1);
-	show_image("stre2", adjusted2);
+	show_image("adj1", adjusted1);
+	show_image("adj2", adjusted2);
 
 	double localSensitivity = 1;
 	double t1 = 0;
@@ -671,7 +687,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.10 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
+	double limit = 0.20 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;

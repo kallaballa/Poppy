@@ -54,7 +54,7 @@ void morph(Mat &image1, Mat &image2, Twriter &output) {
 
 		linear = j * step;
 		shape = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-		mask = pow(shape, 1.1);
+		mask = pow(shape, Settings::instance().number_of_frames / 60.0);
 		if (shape > 1.0)
 			shape = 1.0;
 
