@@ -8,6 +8,30 @@
 #include <opencv2/core/ocl.hpp>
 
 namespace poppy {
+double euclidean_distance(cv::Point center, cv::Point point) {
+	double distance = std::sqrt(
+			std::pow(center.x - point.x, 2) + std::pow(center.y - point.y, 2));
+	return distance;
+}
+
+void draw_radial_gradiant(Mat &grad) {
+	cv::Point center(grad.cols / 2.0, grad.rows / 2.0);
+	cv::Point point;
+	double maxDist = hypot(grad.cols / 2.0, grad.rows / 2.0);
+	for (int row = 0; row < grad.rows; ++row) {
+		for (int col = 0; col < grad.cols; ++col) {
+			point.x = col;
+			point.y = row;
+			double dist = euclidean_distance(center, point) / maxDist;
+			grad.at<float>(row, col) = pow(sin(sin(sin(dist) * (M_PI/2))* (M_PI/2)),8);
+		}
+	}
+
+	cv::normalize(grad, grad, 0, 255, cv::NORM_MINMAX, CV_8U);
+	cv::bitwise_not(grad, grad);
+	show_image("grad", grad);
+}
+
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
@@ -44,9 +68,9 @@ void draw_flow_heightmap(const Mat &morphedGrey, const Mat &lastGrey, Mat &dst) 
 	double mag = 0;
 	for (off_t x = 0; x < morphedGrey.cols; ++x) {
 		for (off_t y = 0; y < morphedGrey.rows; ++y) {
-			const Point2f& flv1 = flow.at<Point2f>(y, x);
+			const Point2f &flv1 = flow.at<Point2f>(y, x);
 			mag = hypot(flv1.x, flv1.y);
-			if(mag > maxMag)
+			if (mag > maxMag)
 				maxMag = mag;
 		}
 	}

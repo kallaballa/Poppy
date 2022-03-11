@@ -24,9 +24,9 @@ using namespace std;
 using namespace cv;
 
 namespace poppy {
+
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
-	GaussianBlur(src, detected_edges, Size(9, 9), 1);
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
 }
 
@@ -219,31 +219,88 @@ void create_map(const cv::Mat &triangleMap, const std::vector<cv::Mat> &homMatri
 
 void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>> &collected, vector<Vec4i> &hierarchy, Mat &dst, int cols, int rows, int type) {
 	dst = Mat::zeros(rows, cols, type);
-
+	size_t cnt = 0;
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
 		double shade = 0;
 
+		cnt += contours.size();
+		cerr << i << "/" << (collected.size() - 1) << '\r';
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			cv::drawContours(dst, contours, j, { shade, shade, shade }, 1.0, cv::LINE_8, hierarchy, 0);
+			cv::drawContours(dst, contours, j, { shade, shade, shade }, 1.0, cv::LINE_4, hierarchy, 0);
+		}
+	}
+	cerr << endl;
+}
+
+void stretch_contrast(const Mat& src, Mat& dst) {
+	dst = src.clone();
+	int minV = numeric_limits<int>::max();
+	int maxV = numeric_limits<int>::min();
+	double val = 0;
+	for (int y = 0; y < src.rows; y++) {
+		for (int x = 0; x < src.cols; x++) {
+			val = double(dst.at<uchar>(y, x));
+			maxV = max(double(maxV), val);
+			minV = min(double(minV), val);
+		}
+	}
+
+	for (int y = 0; y < src.rows; y++) {
+		for (int x = 0; x < src.cols; x++) {
+			val = dst.at<uchar>(y, x);
+			if(val < 20)
+				val = 0;
+			dst.at<uchar>(y,x) = 10*log(1 + double(val));
+		}
+	}
+
+	for (int y = 0; y < src.rows; y++) {
+		for (int x = 0; x < src.cols; x++) {
+			val = dst.at<uchar>(y, x);
+			dst.at<uchar>(y, x) = ((val - minV) / (maxV - minV)) * 255;
 		}
 	}
 }
 
 void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std::vector<Mat> &dst2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
-	Mat grey1, grey2;
+	cerr << "find_contours" << endl;
+	Mat grey1, grey2, canny1, canny2;
 	cvtColor(img1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, cv::COLOR_RGB2GRAY);
 
-	//unsharp mask
-	Mat median1, median2, lap1, lap2;
-	medianBlur(grey1, median1, 3);
-	medianBlur(grey2, median2, 3);
-	Laplacian(median1, lap1, median1.depth());
-	Laplacian(median2, lap2, median2.depth());
-	Mat sharp1 = grey1 - (0.7 * lap1);
-	Mat sharp2 = grey2 - (0.7 * lap2);
+	//use canny to measure image detail and if it exceeds the limit, blur them to lose detail.
+	canny_threshold(grey1, canny1, 50);
+	canny_threshold(grey2, canny2, 50);
+
+	size_t cnz1 = countNonZero(canny1);
+	size_t cnz2 = countNonZero(canny2);
+	Mat sharp1 = grey1.clone();
+	Mat sharp2 = grey2.clone();
+	double diag = hypot(sharp1.cols, sharp1.rows);
+	while (double(cnz1) / diag > 100) {
+		Mat blurred1, lap1, blurredMask;
+		medianBlur(sharp1, blurred1, 23);
+		Laplacian(blurred1, lap1, blurred1.depth());
+		sharp1 = blurred1 - (0.7 * lap1);
+		canny_threshold(sharp1, canny1, 50);
+		cnz1 = countNonZero(canny1);
+		cerr << "decimate detail 1: " << cnz1 << std::endl;
+	}
+
+	while (double(cnz2) / diag > 100) {
+		Mat blurred2, lap2, blurredMask;
+		medianBlur(sharp2, blurred2, 23);
+		Laplacian(blurred2, lap2, blurred2.depth());
+		sharp2 = blurred2 - (0.7 * lap2);
+		canny_threshold(sharp2, canny2, 50);
+		cnz2 = countNonZero(canny2);
+		cerr << "decimate detail 2: " << cnz2 << std::endl;
+	}
+
+	show_image("dec1", sharp1);
+	show_image("dec2", sharp2);
 
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
 	Mat fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
@@ -252,50 +309,72 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	Mat fgMask1Blur, fgMask2Blur;
 	Mat med, flow;
 
-	for (size_t i = 0; i < 24; ++i) {
+	// additionally create a radial mask to bias the contrast towards the center
+	cv::Mat radial = cv::Mat::ones(grey1.rows, grey1.cols, CV_32F);
+	draw_radial_gradiant(radial);
+
+	auto pBackSub1 = createBackgroundSubtractorMOG2();
+	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
-		draw_flow_heightmap(last, med, flow);
+		pBackSub1->apply(med, flow);
+//		draw_flow_heightmap(last, med, flow);
+		//FIXME AMIR: i don't know anymore what the next line exactly does
 		fgMask1 = fgMask1 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask1, fgMask1Blur, { 23, 23 }, 1);
 		fgMask1 = fgMask1Blur.clone();
 		last = med.clone();
 	}
-	show_image("mask1", fgMask1);
+	show_image("fgMask1", fgMask1);
 
 	last = sharp2.clone();
-	for (size_t i = 0; i < 24; ++i) {
+	auto pBackSub2 = createBackgroundSubtractorMOG2();
+	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
-		draw_flow_heightmap(last, med, flow);
+		pBackSub2->apply(med, flow);
+//		draw_flow_heightmap(last, med, flow);
+		//FIXME AMIR: i don't know anymore what the next line exactly does
 		fgMask2 = fgMask2 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask2, fgMask2Blur, { 23, 23 }, 1);
 		fgMask2 = fgMask2Blur.clone();
 		last = med.clone();
 	}
-	show_image("mask2", fgMask2);
+	show_image("fgMask2", fgMask2);
 
 	//convert the images and masks to floating point for the subsequent multiplication
-	Mat sharp1Float, sharp2Float, fgMask1Float, fgMask2Float;
+	Mat sharp1Float, sharp2Float, fgMask1Float, fgMask2Float, radialFloat;
 	sharp1.convertTo(sharp1Float, CV_32F, 1.0 / 255.0);
 	sharp2.convertTo(sharp2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
+	radial.convertTo(radialFloat, CV_32F, 1.0 / 255.0);
+
+	//multiply the fg mask with the radial mask to emphasis features in the center of the image
+	Mat biasedMask1, biasedMask2;
+	multiply(fgMask1Float, radialFloat, biasedMask1);
+	multiply(fgMask2Float, radialFloat, biasedMask2);
+//	biasedMask1 *= 0.5;
+//	biasedMask2 *= 0.5;
+	show_image("mask1", biasedMask1);
+	show_image("mask2", biasedMask2);
 
 	//multiply the fg mask with the enhanced image to extract foreground features
 	Mat masked1, masked2;
-	multiply(sharp1Float, fgMask1Float, masked1);
-	multiply(sharp2Float, fgMask2Float, masked2);
+	multiply(sharp1Float, biasedMask1, masked1);
+	multiply(sharp2Float, biasedMask2, masked2);
 
 	//convert back to 8-bit grey scale
 	Mat fg1, fg2;
 	masked1.convertTo(fg1, CV_8U, 255.0);
 	masked2.convertTo(fg2, CV_8U, 255.0);
-
+	show_image("fg1", fg1);
+	show_image("fg2", fg2);
 	//stretch the contrast evenly by equalizing the histograms
 	Mat eq1, eq2;
-	equalizeHist(fg1, eq1);
-	equalizeHist(fg2, eq2);
+	stretch_contrast(fg1, eq1);
+	stretch_contrast(fg2, eq2);
 
 	show_image("eq1", eq1);
+	show_image("eq2", eq2);
 
 	double localSensitivity = 1;
 	double t1 = 0;
@@ -303,50 +382,61 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	double highLimit = countNonZero(eq1) * 0.75;
 	Mat thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
-	std::vector<std::vector<Point>> contourPoints1;
-
+	std::vector<std::vector<Point>> contours1;
+	size_t numContours = 0;
 	cv::threshold(eq1, thresh1, t1, t2, 0);
-	double cnt = 0;
+	size_t cnt = 0;
 	do {
 		t1 = localSensitivity;
 		t2 = 255;
-		if(t1 >= 255)
+		if (t1 >= 255)
 			t1 = 255;
 
-		if(t2 >= 255)
+		if (t2 >= 255)
 			t2 = 255;
 		cv::threshold(eq1, thresh1, t1, t2, 0);
 		cnt = countNonZero(thresh1);
-		if(cnt > highLimit)
+		if (cnt > highLimit)
 			++localSensitivity;
-	} while(cnt > highLimit);
+	} while (cnt > highLimit);
 
 	t1 = 0;
 	t2 = 0;
 	localSensitivity = localSensitivity / 255.0;
+	cerr << "thresholding 1 -> " << endl;
 	for (off_t i = 0; i < 16; ++i) {
+		cerr << i << "/15" << '\r';
 		t1 = std::max(0, std::min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
 		t2 = std::max(0, std::min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
 		cv::threshold(eq1, thresh1, t1, t2, 0);
-		cv::findContours(thresh1, contourPoints1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		collected1.push_back(contourPoints1);
-		contourPoints1.clear();
+		cv::findContours(thresh1, contours1, hierarchy1, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		collected1.push_back(contours1);
+		numContours += contours1.size();
+		contours1.clear();
 	}
+	cerr << endl;
 
 	Mat cmap1, cmap2;
+	cerr << "draw map 1: " << numContours << " -> " << endl;
+	numContours = 0;
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
 
-	std::vector<std::vector<Point>> contourPoints2;
+	cerr << "thresholding 2 -> " << endl;
+	std::vector<std::vector<Point>> contours2;
 	vector<Vec4i> hierarchy2;
 	for (off_t j = 0; j < 16; ++j) {
+		cerr << j << "/15" << '\r';
 		t1 = std::min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
 		t2 = std::min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
 		cv::threshold(eq2, thresh2, t1, t2, 0);
-		cv::findContours(thresh2, contourPoints2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
-		collected2.push_back(contourPoints2);
-		contourPoints2.clear();
+		cv::findContours(thresh2, contours2, hierarchy2, cv::RETR_TREE, cv::CHAIN_APPROX_TC89_KCOS);
+		collected2.push_back(contours2);
+		numContours += contours2.size();
+		contours2.clear();
 	}
+	cerr << endl;
 
+	cerr << "draw map 2: " << numContours << " -> " << endl;
 	draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
 
 	allContours1 = cmap1.clone();
@@ -360,35 +450,63 @@ void find_contours(const Mat &img1, const Mat &img2, std::vector<Mat> &dst1, std
 	dst1.resize(minC);
 	dst2.resize(minC);
 
+	cerr << "draw all contours -> " << endl;
 	for (size_t i = 0; i < minC; ++i) {
+		cerr << i << "/" << (minC - 1) << '\r';
 		Mat &cont1 = dst1[i];
 		Mat &cont2 = dst2[i];
 		cont1 = Mat::zeros(img1.rows, img1.cols, img1.type());
 		cont2 = Mat::zeros(img2.rows, img2.cols, img2.type());
-		contourPoints1 = collected1[i];
-		contourPoints2 = collected2[i];
+		contours1 = collected1[i];
+		contours2 = collected2[i];
 
-		for (size_t j = 0; j < contourPoints1.size(); ++j) {
-			cv::drawContours(cont1, contourPoints1, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy1, 0);
+		for (size_t j = 0; j < contours1.size(); ++j) {
+			cv::drawContours(cont1, contours1, j, { 255, 255, 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
 		}
 
-		for (size_t j = 0; j < contourPoints2.size(); ++j) {
-			cv::drawContours(cont2, contourPoints2, j, { 255, 255, 255 }, 1.0, cv::LINE_8, hierarchy2, 0);
+		for (size_t j = 0; j < contours2.size(); ++j) {
+			cv::drawContours(cont2, contours2, j, { 255, 255, 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
 		}
 
 		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
 		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
 	}
+	cerr << endl;
 }
 
-void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
+std::pair<double, Point2f> get_orientation(const vector<Point> &pts)
+		{
+	//Construct a buffer used by the pca analysis
+	int sz = static_cast<int>(pts.size());
+	Mat data_pts = Mat(sz, 2, CV_64F);
+	for (int i = 0; i < data_pts.rows; i++)
+			{
+		data_pts.at<double>(i, 0) = pts[i].x;
+		data_pts.at<double>(i, 1) = pts[i].y;
+	}
+	//Perform PCA analysis
+	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW);
+	//Store the center of the object
+	Point cntr = Point(static_cast<int>(pca_analysis.mean.at<double>(0, 0)), static_cast<int>(pca_analysis.mean.at<double>(0, 1)));
+	//Store the eigenvalues and eigenvectors
+	vector<Point2d> eigen_vecs(2);
+	vector<double> eigen_val(2);
+	for (int i = 0; i < 2; i++) {
+		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0), pca_analysis.eigenvectors.at<double>(i, 1));
+		eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+	}
+
+	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x), cntr};
+}
+
+void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
 	vector<Point> flat1;
 	vector<Point> flat2;
 	for (auto &c : collected1) {
 		for (auto &v : c) {
 			if (c.size() > 1) {
 				RotatedRect rr1 = minAreaRect(v);
-				if (fabs(rr1.center.x - ((src1.cols - 1.0) / 2.0)) < 0.01) {
+				if (rr1.size.width > src1.cols * 0.5 || rr1.size.height > src1.rows * 0.5) {
 					continue;
 				}
 			}
@@ -404,8 +522,8 @@ void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, 
 	for (auto &c : collected2) {
 		for (auto &v : c) {
 			if (c.size() > 1) {
-				RotatedRect rv2 = minAreaRect(v);
-				if (fabs(rv2.center.x - ((src2.cols - 1.0) / 2.0)) < 0.01) {
+				RotatedRect rr2 = minAreaRect(v);
+				if (rr2.size.width > src2.cols * 0.5 || rr2.size.height > src2.rows * 0.5) {
 					continue;
 				}
 			}
@@ -420,40 +538,46 @@ void correct_rotation_and_position(const Mat &src1, const Mat &src2, Mat &dst1, 
 
 	RotatedRect rr1 = minAreaRect(flat1);
 	RotatedRect rr2 = minAreaRect(flat2);
-	double targetAng = rr2.angle - rr1.angle;
-	double wdiff = std::fabs(rr1.size.width - rr2.size.width);
-	double hdiff = std::fabs(rr1.size.height - rr2.size.height);
-	double wdiffrot = std::fabs(rr1.size.width - rr2.size.height);
-	double hdiffrot = std::fabs(rr1.size.height - rr2.size.width);
-	cerr << (wdiffrot + hdiffrot / 2.0) << " < " << (wdiff + hdiff / 2.0) << endl;
-	if ((wdiffrot + hdiffrot / 2.0) < (wdiff + hdiff / 2.0)) {
-		if (targetAng > 0)
-			targetAng = -90;
-		else if (targetAng < 0)
-			targetAng = +90;
+	auto o1 = get_orientation(flat1);
+	auto o2 = get_orientation(flat2);
+	double angle1, angle2;
+	o1.first = o1.first * 180 / M_PI;
+	o2.first = o2.first * 180 / M_PI;
+	o1.first = o1.first < 0 ? o1.first + 360 : o1.first;
+	o2.first = o2.first < 0 ? o2.first + 360 : o2.first;
+
+	if (fabs(o1.first - rr1.angle) < 22.5) {
+		angle1 = (o1.first + rr1.angle) / 2.0;
+	} else {
+		double drr = fabs(rr1.angle - rr2.angle);
+		double dor = fabs(o1.first - o2.first);
+		if (dor < drr) {
+			angle1 = dor;
+		} else {
+			angle1 = drr;
+		}
 	}
 
-	if (targetAng > 0) {
-		if (targetAng >= 270) {
-			targetAng -= 270;
-		} else if (targetAng >= 180) {
-			targetAng -= 180;
-		} else if (targetAng >= 90) {
-			targetAng -= 90;
-		}
-	} else if (targetAng < 0) {
-		if (targetAng <= -270) {
-			targetAng += 270;
-		} else if (targetAng <= -180) {
-			targetAng += 180;
-		} else if (targetAng <= -90) {
-			targetAng += 90;
+	if (fabs(o2.first - rr2.angle) < 22.5) {
+		angle2 = (o2.first + rr2.angle) / 2.0;
+	} else {
+		double drr = fabs(rr1.angle - rr2.angle);
+		double dor = fabs(o1.first - o2.first);
+		if (dor < drr) {
+			angle2 = dor;
+		} else {
+			angle2 = drr;
 		}
 	}
-	cv::Mat rm2 = getRotationMatrix2D(rr2.center, targetAng, 1.0);
+
+	double targetAng = angle2 - angle1;
+
+	Point2f center1 = rr1.center;
+	Point2f center2 = rr2.center;
+	cv::Mat rm2 = getRotationMatrix2D(center2, targetAng, 1.0);
 	Mat rotated2;
 	warpAffine(src2, rotated2, rm2, src2.size());
-	float warpValues[] = { 1.0, 0.0, rr1.center.x - rr2.center.x, 0.0, 1.0, rr1.center.y - rr2.center.y };
+	float warpValues[] = { 1.0, 0.0, center1.x - center2.x, 0.0, 1.0, center1.y - center2.y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
 	warpAffine(rotated2, dst2, translation_matrix, src2.size());
 
@@ -467,7 +591,7 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, std:
 
 	find_contours(orig1, orig2, contours1, contours2, allContours1, allContours2, collected1, collected2);
 	if (Settings::instance().enable_auto_transform) {
-		correct_rotation_and_position(orig1, orig2, corrected1, corrected2, collected1, collected2);
+		correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
 		contours1.clear();
 		contours2.clear();
 		collected1.clear();
@@ -478,13 +602,14 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, std:
 		corrected2 = orig2.clone();
 	}
 
+	cerr << "find matches -> ";
 	for (size_t i = 0; i < contours1.size(); ++i) {
 		auto matches = find_matches(contours1[i], contours2[i]);
 		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 	}
 
-	std::cerr << "contour points: " << srcPoints1.size() << std::endl;
+	std::cerr << "contour points: " << srcPoints1.size() << " -> ";
 }
 
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, std::pair<Point2f, Point2f>> distanceMap) {
@@ -545,7 +670,7 @@ void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector
 	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.1 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
+	double limit = 0.10 * Settings::instance().match_tolerance * highZScore * std::fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
@@ -579,14 +704,14 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	//edit matches
 	std::cerr << "prepare: " << srcPoints1.size() << " -> ";
 	match_points_by_proximity(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	std::cerr << "match: " << srcPoints1.size() << " -> ";
+	std::cerr << "match: " << srcPoints1.size() << endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
 	cvtColor(src1, grey1, cv::COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, cv::COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matches reduced", matMatches);
+//	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());

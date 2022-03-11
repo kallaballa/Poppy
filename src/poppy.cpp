@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoTransform = poppy::Settings::instance().enable_auto_transform;
-	bool srcScaling = poppy::Settings::instance().enable_src_scaling;
+	bool srcScaling = false;
 	bool denoise = false;
 	string outputFile = "output.mkv";
 	std::vector<string> imageFiles;
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 	("gui,g", "Show analysis windows.")
 	("autotrans,a", "Try to automatically rotate and translate the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
-	("scaling,s", "Instead of extending the source material, to match in size, use scaling.")
+	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoTransform, srcScaling);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoTransform);
 	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);
@@ -124,13 +124,10 @@ int main(int argc, char **argv) {
 	}
 
 	Mat image2;
-	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
-			Size(image1.cols, image1.rows));
 
 	Size szUnion = { image1.cols, image1.rows };
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat img = imread(imageFiles[i]);
-		cerr << "preloading: " << imageFiles[i] << std::endl;
 		if(szUnion.width < img.cols) {
 			szUnion.width = img.cols;
 		}
@@ -141,7 +138,7 @@ int main(int argc, char **argv) {
 	}
 
 	Mat mUnion(szUnion.height, szUnion.width, image1.type(), {255,255,255});
-	if(poppy::Settings::instance().enable_src_scaling) {
+	if(srcScaling) {
 		Mat clone = image1.clone();
 		resize(clone, image1, szUnion, INTER_CUBIC);
 	} else {
@@ -149,6 +146,9 @@ int main(int argc, char **argv) {
 		image1.copyTo(mUnion(centerRect));
 		image1 = mUnion.clone();
 	}
+
+	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
+			Size(szUnion.width, szUnion.height));
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat image2, denoise2;
@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
 				exit(2);
 			}
 
-			if(poppy::Settings::instance().enable_src_scaling) {
+			if(srcScaling) {
 				Mat clone = image2.clone();
 				resize(clone, image2, szUnion, INTER_CUBIC);
 			} else {
