@@ -48,10 +48,10 @@ you either have bad source material, feel like
 experimenting or are trying to do something funny.
 The first thing to try is to adjust the match
 tolerance (--tolerance). If you want to tinker more,
- you should enable the gui (--gui) and play with the
+You could enable the gui (--gui) and play with the
 tolerance and maybe a little with contour sensitivity
 (--contour) and watch how it effects the algorithm.
-you probably shouldn't waste much time on the contour
+You probably shouldn't waste much time on the contour
 sensitivity parameter because it has little or even 
 detrimental effect, which makes it virtually obsolete
 and it will be removed in the near future.
@@ -61,8 +61,12 @@ two many keypoints for a particular machine. e.g.
 embedded systems. Please note that the feature extractor
 generates a larger number of key points than defined
 by this limit and only decides to retain that number
-in the end. If you have images with lots of noise you
-can try --denoise.
+in the end. The only means of reducing the number of
+generated key points at the moment is to denoise
+(--denoise) the source images. Obviously that is not
+optimal because you have no control over which
+features will be removed. Usually the parameter is used
+to enhance noisy images.
 
 Options:
   -g [ --gui ]                        Show analysis windows.
