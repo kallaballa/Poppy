@@ -31,25 +31,45 @@ The following demos are very low quality renderings of what Poppy can do. If you
 ```
 
 ## Usage
+
 ```
-Usage: poppy [options] <imageFiles>...
-Default options will work fine on good source material. 
-If you don't like the result you might try aligning the 
-source images by hand. Anyway, there are also a couple 
-of options you can specifiy. But usually you would only
-want to do this if you either have bad source material, 
-feel like experimenting or are trying to do something 
-funny. The first thing to try is to adjust the match 
-tolerance (--tolerance). If you still wanna tinker you
-should enable the gui (--gui) and play with the 
-contour sensitivity (--contour) and/or the tolerance
-and watch how it effects the algorithm.
+Usage: poppy [OPTIONS]... [IMAGEFILES]...
+Poppy automatically creates smooth transitions of shape
+and color between two images. That process is called 
+image morphing and can be seen as a form of tweening or
+interpolation.
+
+Default options will work fine on good source material.
+If you don't like the result you might try aligning the
+source images by hand (instead of using --autoalign). 
+Anyway, there are also a couple of options you can
+specify. But usually you would only want to do this if
+you either have bad source material, feel like
+experimenting or are trying to do something funny.
+The first thing to try is to adjust the match
+tolerance (--tolerance). If you want to tinker more,
+ you should enable the gui (--gui) and play with the
+tolerance and maybe a little with contour sensitivity
+(--contour) and watch how it effects the algorithm.
+you probably shouldn't waste much time on the contour
+sensitivity parameter because it has little or even 
+detrimental effect, which makes it virtually obsolete
+and it will be removed in the near future.
+The key point limit (--maxkey) is useful for large
+images with lots of features which could easily yield
+two many keypoints for a particular machine. e.g. 
+embedded systems. Please note that the feature extractor
+generates a larger number of key points than defined
+by this limit and only decides to retain that number
+in the end. If you have images with lots of noise you
+can try --denoise.
 
 Options:
-  -g [ --gui ]                        Show analysis windows
-  -a [ --autotrans ]                  Try to automatically rotate and translate
-                                      the source material to match.
-  -s [ --scaling ]                    Instead of extending the source material,
+  -g [ --gui ]                        Show analysis windows.
+  -a [ --autoalign ]                  Try to automatically align (rotate and 
+                                      translate) the source material to match.
+  -d [ --denoise ]                    Denoise images before morphing.
+  -s [ --scaling ]                    Instead of extending the source images, 
                                       to match in size, use scaling.
   -m [ --maxkey ] arg (=-1)           Manual override for the number of 
                                       keypoints to retain during detection. The
@@ -58,7 +78,7 @@ Options:
   -f [ --frames ] arg (=60)           The number of frames to generate.
   -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
-  -c [ --contour ] arg (=2)           How sensitive poppy is to contours.
+  -c [ --contour ] arg (=1)           How sensitive poppy is to contours.
   -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to.
   -h [ --help ]                       Print the help message.
 ```
