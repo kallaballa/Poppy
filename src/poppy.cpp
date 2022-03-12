@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows.")
-	("autotrans,a", "Try to automatically rotate and translate the source material to match.")
+	("autoalign,a", "Try to automatically align (rotate and translate) the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
@@ -71,29 +71,36 @@ int main(int argc, char **argv) {
 	po::notify(vm);
 
 	if (vm.count("help") || imageFiles.empty()) {
+		cerr << "Usage: poppy [OPTIONS]... [IMAGEFILES]..." << endl;
+		cerr << "Poppy automatically creates smooth transitions of shape" << endl;
+		cerr << "and color between two images. That process is called " << endl;
+		cerr << "image morphing and can be seen as a form of tweening or" << endl;
+		cerr << "interpolation." << endl;
+		cerr << endl;
 		cerr << "Default options will work fine on good source material." << endl;
 		cerr << "If you don't like the result you might try aligning the" << endl;
-		cerr << "source images by hand. Anyway, there are also a couple" << endl;
-		cerr << "of options you can specifiy. But usually you would only" << endl;
-		cerr << "want to do this if you either have bad source material," << endl;
-		cerr << "feel like experimenting or are trying to do something" << endl;
-		cerr << "funny. The first thing to try is to adjust the match" << endl;
-		cerr << "tolerance (--tolerance). If you still wanna tinker you" << endl;
-		cerr << "should enable the gui (--gui) and play with the" << endl;
+		cerr << "source images by hand (instead of using --autoalign). " << endl;
+		cerr << "Anyway, there are also a couple of options you can" << endl;
+		cerr << "specify. But usually you would only want to do this if" << endl;
+		cerr << "you either have bad source material, feel like" << endl;
+		cerr << "experimenting or are trying to do something funny." << endl;
+		cerr << "The first thing to try is to adjust the match" << endl;
+		cerr << "tolerance (--tolerance). If you want to tinker more," << endl;
+		cerr << " you should enable the gui (--gui) and play with the" << endl;
 		cerr << "tolerance and maybe a little with contour sensitivity" << endl;
 		cerr << "(--contour) and watch how it effects the algorithm." << endl;
-		cerr << "Auto contour sensitivity works very well, that is why" << endl;
-		cerr << "you probably shouldn't waste your time on it. One of" << endl;
-		cerr << "goals of Poppy is to minimize manual parameters, so" << endl;
-		cerr << "sooner or later parameter tinkering shouldn't be" << endl;
-		cerr << "necessary anymore." << endl;
+		cerr << "you probably shouldn't waste much time on the contour" << endl;
+		cerr << "sensitivity parameter because it has little or even " << endl;
+		cerr << "detrimental effect, which makes it virtually obsolete" << endl;
+		cerr << "and it will be removed in the near future." << endl;
 		cerr << "The key point limit (--maxkey) is useful for large" << endl;
 		cerr << "images with lots of features which could easily yield" << endl;
 		cerr << "two many keypoints for a particular machine. e.g. " << endl;
-		cerr << "embedded systems. Please not that the cv::ORB" << endl;
-		cerr << "extractor generates a larger number of key points than" << endl;
-		cerr << "defined by this limit and only decides to retain that" << endl;
-		cerr << "number in the end." << endl;
+		cerr << "embedded systems. Please note that the feature extractor" << endl;
+		cerr << "generates a larger number of key points than defined" << endl;
+		cerr << "by this limit and only decides to retain that number" << endl;
+		cerr << "in the end. If you have images with lots of noise you" << endl;
+		cerr << "can try --denoise." << endl;
 		cerr << visible;
 		return 0;
 	}
