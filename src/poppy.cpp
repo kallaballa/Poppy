@@ -80,8 +80,20 @@ int main(int argc, char **argv) {
 		cerr << "funny. The first thing to try is to adjust the match" << endl;
 		cerr << "tolerance (--tolerance). If you still wanna tinker you" << endl;
 		cerr << "should enable the gui (--gui) and play with the" << endl;
-		cerr << "contour sensitivity (--contour) and/or the tolerance" << endl;
-		cerr << "and watch how it effects the algorithm." << endl;
+		cerr << "tolerance and maybe a little with contour sensitivity" << endl;
+		cerr << "(--contour) and watch how it effects the algorithm." << endl;
+		cerr << "Auto contour sensitivity works very well, that is why" << endl;
+		cerr << "you probably shouldn't waste your time on it. One of" << endl;
+		cerr << "goals of Poppy is to minimize manual parameters, so" << endl;
+		cerr << "sooner or later parameter tinkering shouldn't be" << endl;
+		cerr << "necessary anymore." << endl;
+		cerr << "The key point limit (--maxkey) is useful for large" << endl;
+		cerr << "images with lots of features which could easily yield" << endl;
+		cerr << "two many keypoints for a particular machine. e.g. " << endl;
+		cerr << "embedded systems. Please not that the cv::ORB" << endl;
+		cerr << "extractor generates a larger number of key points than" << endl;
+		cerr << "defined by this limit and only decides to retain that" << endl;
+		cerr << "number in the end." << endl;
 		cerr << visible;
 		return 0;
 	}
