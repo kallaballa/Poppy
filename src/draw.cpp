@@ -24,7 +24,7 @@ void draw_radial_gradiant(Mat &grad) {
 			point.y = row;
 			double dist = euclidean_distance(center, point) / maxDist;
 //			grad.at<float>(row, col) = dist;
-			grad.at<float>(row, col) = pow(sin(dist * (M_PI/2)),12);
+			grad.at<float>(row, col) = pow(sin(sin(dist * (M_PI/2)) * (M_PI/2)),12);
 		}
 	}
 

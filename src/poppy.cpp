@@ -155,6 +155,7 @@ int main(int argc, char **argv) {
 		try {
 			image2 = imread(imageFiles[i]);
 			if(denoise) {
+				std::cerr << "Denoising -> " << endl;
 				fastNlMeansDenoising(image2, denoise2, 10,7,21);
 				denoise2.copyTo(image2);
 			}
