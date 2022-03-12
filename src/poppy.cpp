@@ -86,10 +86,10 @@ int main(int argc, char **argv) {
 		cerr << "experimenting or are trying to do something funny." << endl;
 		cerr << "The first thing to try is to adjust the match" << endl;
 		cerr << "tolerance (--tolerance). If you want to tinker more," << endl;
-		cerr << " you should enable the gui (--gui) and play with the" << endl;
+		cerr << "You could enable the gui (--gui) and play with the" << endl;
 		cerr << "tolerance and maybe a little with contour sensitivity" << endl;
 		cerr << "(--contour) and watch how it effects the algorithm." << endl;
-		cerr << "you probably shouldn't waste much time on the contour" << endl;
+		cerr << "You probably shouldn't waste much time on the contour" << endl;
 		cerr << "sensitivity parameter because it has little or even " << endl;
 		cerr << "detrimental effect, which makes it virtually obsolete" << endl;
 		cerr << "and it will be removed in the near future." << endl;
@@ -99,8 +99,12 @@ int main(int argc, char **argv) {
 		cerr << "embedded systems. Please note that the feature extractor" << endl;
 		cerr << "generates a larger number of key points than defined" << endl;
 		cerr << "by this limit and only decides to retain that number" << endl;
-		cerr << "in the end. If you have images with lots of noise you" << endl;
-		cerr << "can try --denoise." << endl;
+		cerr << "in the end. The only means of reducing the number of" << endl;
+		cerr << "generated key points at the moment is to denoise" << endl;
+		cerr << "(--denoise) the source images. Obviously that is not" << endl;
+		cerr << "optimal because you have no control over which" << endl;
+		cerr << "features will be removed. Usually the parameter is used" << endl;
+		cerr << "to enhance noisy images." << endl;
 		cerr << visible;
 		return 0;
 	}
