@@ -659,7 +659,7 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.20 * Settings::instance().match_tolerance * highZScore * fabs(sd - mean);
+	double limit = 0.35 * Settings::instance().match_tolerance * highZScore * fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
