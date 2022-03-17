@@ -346,10 +346,10 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
-//	multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
-//	multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
-	fgMask1Float.copyTo(finalMask1Float);
-	fgMask2Float.copyTo(finalMask2Float);
+	multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
+	multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
+//	fgMask1Float.copyTo(finalMask1Float);
+//	fgMask2Float.copyTo(finalMask2Float);
 	show_image("bias1", finalMask1Float);
 	show_image("bias2", finalMask2Float);
 	/*
