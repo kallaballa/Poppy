@@ -10,7 +10,7 @@ rm -f ../videos/*mkv
 mencoder -vf scale=250:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/faces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/faces.gif
 
-../src/poppy -g -f240 -o ../videos/cars.mkv kindpng1s.png kindpng2s.png kindpng1s.png
+../src/poppy -t0.6 -g -f240 -o ../videos/cars.mkv kindpng1s.png kindpng2s.png kindpng1s.png
 mencoder -vf scale=250:160 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/cars.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/cars.gif
 
@@ -18,7 +18,7 @@ ffmpeg -y -i "$LOW" ../demo/cars.gif
 mencoder -vf scale=360:202 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/browns.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/browns.gif
 
-../src/poppy -t10 -g -f240 -o ../videos/catdog.mkv cat.png dog.png cat.png
+../src/poppy -t5 -g -f240 -o ../videos/catdog.mkv cat.png dog.png cat.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/catdog.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/catdog.gif
 
