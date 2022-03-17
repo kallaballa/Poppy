@@ -319,7 +319,6 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub1->apply(med, flow);
-		//FIXME AMIR: i don't know anymore what the next line exactly does
 		fgMask1 = fgMask1 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask1, fgMask1Blur, { 23, 23 }, 1);
 		fgMask1 = fgMask1Blur.clone();
@@ -331,7 +330,6 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub2->apply(med, flow);
-		//FIXME AMIR: i don't know anymore what the next line exactly does
 		fgMask2 = fgMask2 + (flow * (1.0 / 6.0));
 		GaussianBlur(fgMask2, fgMask2Blur, { 23, 23 }, 1);
 		fgMask2 = fgMask2Blur.clone();
