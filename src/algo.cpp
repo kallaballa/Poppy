@@ -52,7 +52,7 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, vector<Point2f> &dst
 
 pair<vector<Point2f>, vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
 	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) / 2.0;
+		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) / 3.0;
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	Ptr<ORB> extractor = ORB::create();
 
@@ -228,7 +228,7 @@ void draw_contour_map(vector<vector<vector<Point>>> &collected, vector<Vec4i> &h
 		double shade = 0;
 
 		cnt += contours.size();
-		cerr << i << "/" << (collected.size() - 1) << '\n';
+		cerr << i << "/" << (collected.size() - 1) << '\r';
 		for (size_t j = 0; j < contours.size(); ++j) {
 			shade = 32.0 + 223.0 * (double(j) / contours.size());
 			drawContours(dst, contours, j, { shade, shade, shade }, 1.0, LINE_4, hierarchy, 0);
@@ -265,54 +265,96 @@ void adjust_contrast_and_brightness(const Mat& src, Mat& dst, double contrast, d
 	hc.copyTo(dst);
 }
 
-void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
-	cerr << "find_contours" << endl;
-	Mat grey1, grey2, canny1, canny2;
-	cvtColor(img1, grey1, COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, COLOR_RGB2GRAY);
+double dft_detail(const Mat& src, Mat& dst) {
+	Mat padded;
+	int m = getOptimalDFTSize( src.rows );
+	int n = getOptimalDFTSize( src.cols ); // on the border add zero values
+	copyMakeBorder(src, padded, 0, m - src.rows, 0, n - src.cols, BORDER_CONSTANT, Scalar::all(0));
+	Mat z = Mat::zeros(m, n, CV_32F);
+	Mat p;
+	padded.convertTo(p, CV_32F);
+	vector<Mat> planes = {p, z};
+	Mat complexI;
+	merge(planes, complexI);         // Add to the expanded another plane with zeros
+	dft(complexI, complexI);         // this way the result may fit in the source matrix
+	// compute the magnitude and switch to logarithmic scale
+	// => log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
+	split(complexI, planes);                   // planes[0] = Re(DFT(I), planes[1] = Im(DFT(I))
+	magnitude(planes[0], planes[1], planes[0]);// planes[0] = magnitude
+	Mat magI = planes[0];
+	magI += Scalar::all(1);                    // switch to logarithmic scale
+	log(magI, magI);
+	normalize(magI, magI, 0, 1, NORM_MINMAX);
+	magI.copyTo(dst);
+	show_image("magI", magI);
+	Scalar mean, stddev;
+	cv::meanStdDev(magI, mean, stddev);
+	return pow(stddev[0], 2);
+}
 
-	//use canny to measure image detail and if it exceeds the limit, blur it to decimate features.
-	canny_threshold(grey1, canny1, 50);
-	canny_threshold(grey2, canny2, 50);
+void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat &decimated2) {
+	cerr << "decimate features" << endl;
+	Mat mag1, mag2;
 
-	size_t cnz1 = countNonZero(canny1);
-	size_t cnz2 = countNonZero(canny2);
-	Mat sharp1 = grey1.clone();
-	Mat sharp2 = grey2.clone();
-	double diag = hypot(sharp1.cols, sharp1.rows);
-	while (double(cnz1) / diag > 100) {
+	//use dft spectrum to measure image detail and if it exceeds the limit, use unsharp mask to decimate features.
+	double cnz1 = dft_detail(grey1, mag1);
+	double cnz2 = dft_detail(grey2, mag2);
+	decimated1 = grey1.clone();
+	decimated2 = grey2.clone();
+	double diag = hypot(decimated1.cols, decimated1.rows);
+	cerr << "features 1: " << cnz1 << endl;
+	cerr << "features 2: " << cnz2 << endl;
+
+	while ((cnz1 / diag) > 100.0) {
 		Mat blurred1, lap1, blurredMask;
-		medianBlur(sharp1, blurred1, 23);
+		medianBlur(decimated1, blurred1, 23);
 		Laplacian(blurred1, lap1, blurred1.depth());
-		sharp1 = blurred1 - (0.7 * lap1);
-		canny_threshold(sharp1, canny1, 50);
-		cnz1 = countNonZero(canny1);
+		decimated1 = blurred1 - (0.7 * lap1);
+		cnz1 = dft_detail(decimated1, mag1);
 		cerr << "decimate features 1: " << cnz1 << endl;
 	}
 
-	while (double(cnz2) / diag > 100) {
+
+	while ((cnz2 / diag) > 100) {
 		Mat blurred2, lap2, blurredMask;
-		medianBlur(sharp2, blurred2, 23);
+		medianBlur(decimated2, blurred2, 23);
 		Laplacian(blurred2, lap2, blurred2.depth());
-		sharp2 = blurred2 - (0.7 * lap2);
-		canny_threshold(sharp2, canny2, 50);
-		cnz2 = countNonZero(canny2);
+		decimated2 = blurred2 - (0.7 * lap2);
+		cnz2 = dft_detail(decimated2, mag2);
 		cerr << "decimate features 2: " << cnz2 << endl;
 	}
 
-	show_image("dec1", sharp1);
-	show_image("dec2", sharp2);
+	if(cnz2 < (cnz1 * 0.9)) {
+		while (cnz2 < (cnz1 * 0.9)) {
+			Mat blurred1, lap1, blurredMask;
+			medianBlur(decimated1, blurred1, 5);
+			Laplacian(blurred1, lap1, blurred1.depth());
+			decimated1 = blurred1 - (0.5 * lap1);
+			cnz1 = dft_detail(decimated1, mag1);
+			cerr << "decimate features 1: " << cnz1 << endl;
+		}
+	} else if(cnz1 < (cnz2 * 0.9)) {
+		while (cnz1 < (cnz2 * 0.9)) {
+			Mat blurred2, lap2, blurredMask;
+			medianBlur(decimated2, blurred2, 5);
+			Laplacian(blurred2, lap2, blurred2.depth());
+			decimated2 = blurred2 - (0.5 * lap2);
+			cnz2 = dft_detail(decimated2, mag2);
+			cerr << "decimate features 2: " << cnz2 << endl;
+		}
+	}
 
+	show_image("dec1", decimated1);
+	show_image("dec2", decimated2);
+}
+
+void extract_foreground_mask(const Mat &grey1, const Mat &grey2, Mat &fgMask1, Mat &fgMask2) {
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
-	Mat fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
-	Mat fgMask2 = Mat::ones(grey2.rows, grey2.cols, grey2.type());
-	Mat last = sharp1.clone();
+	fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
+	fgMask2 = Mat::ones(grey2.rows, grey2.cols, grey2.type());
+	Mat last = grey1.clone();
 	Mat fgMask1Blur, fgMask2Blur;
 	Mat med, flow;
-
-	// additionally create a radial mask to bias the contrast towards the center
-	Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
-	draw_radial_gradiant(radial);
 
 	//optical flow tracking works as well but is much slower
 	auto pBackSub1 = createBackgroundSubtractorMOG2();
@@ -325,7 +367,7 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 		last = med.clone();
 	}
 
-	last = sharp2.clone();
+	last = grey2.clone();
 	auto pBackSub2 = createBackgroundSubtractorMOG2();
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
@@ -335,27 +377,48 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 		fgMask2 = fgMask2Blur.clone();
 		last = med.clone();
 	}
+}
+
+void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
+	cerr << "extract features" << endl;
+	Mat grey1, grey2, canny1, canny2;
+	cvtColor(img1, grey1, COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, COLOR_RGB2GRAY);
+
+	Mat decimated1;
+	Mat decimated2;
+	//get rid of too many features
+	decimate_features(grey1, grey2, decimated1, decimated2);
+
+	Mat fgMask1;
+	Mat fgMask2;
+	//extract areas of interest (aka. foreground)
+	extract_foreground_mask(decimated1, decimated2, fgMask1, fgMask2);
+
+	//create a radial mask to bias the contrast towards the center
+	Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
+	draw_radial_gradiant(radial);
 
 	//convert the images and masks to floating point for the subsequent multiplication
 	Mat sharp1Float, sharp2Float, fgMask1Float, fgMask2Float, radialMaskFloat;
-	sharp1.convertTo(sharp1Float, CV_32F, 1.0 / 255.0);
-	sharp2.convertTo(sharp2Float, CV_32F, 1.0 / 255.0);
+	decimated1.convertTo(sharp1Float, CV_32F, 1.0 / 255.0);
+	decimated2.convertTo(sharp2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
 	radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
-	multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
-	multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
-//	fgMask1Float.copyTo(finalMask1Float);
-//	fgMask2Float.copyTo(finalMask2Float);
+//	multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
+//	multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
+	fgMask1Float.copyTo(finalMask1Float);
+	fgMask2Float.copyTo(finalMask2Float);
 	show_image("bias1", finalMask1Float);
 	show_image("bias2", finalMask2Float);
 	/*
  	 * create the final masked image. uses gaussian blur to sharpen the image.
 	 * But before the blurred image is subtracted from the image (to sharpen)
-	 * it is divided by the blurred mask. The way features in the center will
+	 * it is divided by the blurred mask. That way features in the center will
 	 * be emphasized
 	 */
 	Mat masked1, masked2;
