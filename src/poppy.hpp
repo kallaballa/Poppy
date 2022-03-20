@@ -16,13 +16,13 @@ namespace poppy {
 double ease_in_out_cubic(double x) {
 	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
 }
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoTransformation) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().match_tolerance = matchTolerance;
 	Settings::instance().max_keypoints = maxKeypoints;
 	Settings::instance().contour_sensitivity = contourSensitivity;
-	Settings::instance().enable_auto_transform = autoTransformation;
+	Settings::instance().enable_auto_align = autoAlign;
 }
 
 template<typename Twriter>
@@ -58,19 +58,26 @@ void morph(Mat &image1, Mat &image2, Twriter &output) {
 		linear = j * step;
 		shape = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
 //		mask = sin(pow(linear,3) * M_PI/2);
-		mask = pow(tan(tan(tan(linear * M_PI/4)* M_PI/4)* M_PI/4),2);
+		mask = pow(tan(tan(tan(linear * M_PI/4)* M_PI/4)* M_PI/4),4);
 		if (shape > 1.0)
 			shape = 1.0;
 
-		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, mask);
+		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, mask, mask);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
 
 		show_image("morphed", morphed);
 #ifndef _WASM
-		if (Settings::instance().show_gui)
-			waitKey(1);
+		if (Settings::instance().show_gui) {
+			int key = waitKey(1);
+
+			switch (key) {
+			case ((int) ('q')):
+				exit(0);
+				break;
+			}
+		}
 #endif
 		std::cerr << int((j / double(Settings::instance().number_of_frames)) * 100.0) << "%\r";
 	}

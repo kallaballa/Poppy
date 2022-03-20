@@ -16,7 +16,7 @@ public:
 	double contour_sensitivity = 1;
 	off_t max_keypoints = -1;
 	size_t pyramid_levels = 4;
-	bool enable_auto_transform = false;
+	bool enable_auto_align = false;
 
 	static Settings& instance() {
 		if(instance_ == nullptr)

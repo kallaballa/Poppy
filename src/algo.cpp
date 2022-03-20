@@ -18,6 +18,7 @@
 #include <opencv2/videoio/videoio.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/video/video.hpp>
 
 using namespace std;
@@ -50,9 +51,9 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, vector<Point2f> &dst
 	}
 }
 
-pair<vector<Point2f>, vector<Point2f>> find_matches(const Mat &grey1, const Mat &grey2) {
+pair<vector<Point2f>, vector<Point2f>> find_keypoints(const Mat &grey1, const Mat &grey2) {
 	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) / 3.0;
+		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) * 5.0;
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	Ptr<ORB> extractor = ORB::create();
 
@@ -65,7 +66,22 @@ pair<vector<Point2f>, vector<Point2f>> find_matches(const Mat &grey1, const Mat 
 	detector->compute(grey1, keypoints1, descriptors1);
 	detector->compute(grey2, keypoints2, descriptors2);
 
-	Mat matMatches;
+//	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(6, 12, 1);
+//	FlannBasedMatcher matcher(indexParams);
+//	std::vector<std::vector<cv::DMatch>> matches;
+//	matcher.knnMatch(descriptors1, descriptors2, matches, 2);
+//
+//	std::vector<Point2f> points1;
+//	std::vector<Point2f> points2;
+//
+//	for(auto& v : matches) {
+//		for(auto& dm : v) {
+//			points1.push_back(keypoints1[dm.queryIdx].pt);
+//			points2.push_back(keypoints2[dm.trainIdx].pt);
+//		}
+//	}
+//
+//	return {points1,points2};
 
 	vector<Point2f> points1, points2;
 	for (auto pt1 : keypoints1)
@@ -73,6 +89,11 @@ pair<vector<Point2f>, vector<Point2f>> find_matches(const Mat &grey1, const Mat 
 
 	for (auto pt2 : keypoints2)
 		points2.push_back(pt2.pt);
+
+	if (points1.size() > points2.size())
+		points1.resize(points2.size());
+	else
+		points2.resize(points1.size());
 
 	return {points1,points2};
 }
@@ -88,18 +109,16 @@ Mat points_to_homogenous_mat(const vector<Point2f> &pts) {
 	return homMat;
 }
 
-void morph_points(vector<Point2f> &srcPts1, vector<Point2f> &srcPts2, vector<Point2f> &dstPts, float s, int cols, int rows) {
+void morph_points(vector<Point2f> &srcPts1, vector<Point2f> &srcPts2, vector<Point2f> &dstPts, float s) {
 	assert(srcPts1.size() == srcPts2.size());
 	int numPts = srcPts1.size();
 	double totalDistance = 0;
 	dstPts.resize(numPts);
 	for (int i = 0; i < numPts; i++) {
 		totalDistance += hypot(srcPts2[i].x - srcPts1[i].x, srcPts2[i].y - srcPts1[i].y);
-		dstPts[i].x = (1.0 - s) * srcPts1[i].x + s * srcPts2[i].x;
-		dstPts[i].y = (1.0 - s) * srcPts1[i].y + s * srcPts2[i].y;
+		dstPts[i].x = round((1.0 - s) * srcPts1[i].x + s * srcPts2[i].x);
+		dstPts[i].y = round((1.0 - s) * srcPts1[i].y + s * srcPts2[i].y);
 	}
-//	double diag = hypot(cols, rows);
-//	cerr << "morph distance: " << (totalDistance / numPts) / diag << endl;
 }
 
 void get_triangle_indices(const Subdiv2D &subDiv, const vector<Point2f> &points, vector<Vec3i> &triangleVertices) {
@@ -265,95 +284,81 @@ void adjust_contrast_and_brightness(const Mat& src, Mat& dst, double contrast, d
 	hc.copyTo(dst);
 }
 
-double dft_detail(const Mat& src, Mat& dst) {
-	Mat padded;
-	int m = getOptimalDFTSize( src.rows );
-	int n = getOptimalDFTSize( src.cols ); // on the border add zero values
-	copyMakeBorder(src, padded, 0, m - src.rows, 0, n - src.cols, BORDER_CONSTANT, Scalar::all(0));
-	Mat z = Mat::zeros(m, n, CV_32F);
-	Mat p;
-	padded.convertTo(p, CV_32F);
-	vector<Mat> planes = {p, z};
-	Mat complexI;
-	merge(planes, complexI);         // Add to the expanded another plane with zeros
-	dft(complexI, complexI);         // this way the result may fit in the source matrix
-	// compute the magnitude and switch to logarithmic scale
-	// => log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
-	split(complexI, planes);                   // planes[0] = Re(DFT(I), planes[1] = Im(DFT(I))
-	magnitude(planes[0], planes[1], planes[0]);// planes[0] = magnitude
-	Mat magI = planes[0];
-	magI += Scalar::all(1);                    // switch to logarithmic scale
-	log(magI, magI);
-	normalize(magI, magI, 0, 1, NORM_MINMAX);
-	magI.copyTo(dst);
-	show_image("magI", magI);
-	Scalar mean, stddev;
-	cv::meanStdDev(magI, mean, stddev);
-	return pow(stddev[0], 2);
+double feature_metric(const Mat &grey1) {
+	Mat corners;
+	cornerHarris(grey1, corners, 2,3,0.04);
+	cv::Scalar mean, stddev;
+	cv::meanStdDev(corners, mean, stddev);
+
+	return stddev[0];
 }
 
 void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat &decimated2) {
 	cerr << "decimate features" << endl;
-	Mat mag1, mag2;
+	Mat filtered1, filtered2;
 
 	//use dft spectrum to measure image detail and if it exceeds the limit, use unsharp mask to decimate features.
-	double cnz1 = dft_detail(grey1, mag1);
-	double cnz2 = dft_detail(grey2, mag2);
 	decimated1 = grey1.clone();
 	decimated2 = grey2.clone();
-	double diag = hypot(decimated1.cols, decimated1.rows);
+
+	double cnz1 = feature_metric(decimated1);
+	double cnz2 = feature_metric(decimated2);
 	cerr << "features 1: " << cnz1 << endl;
 	cerr << "features 2: " << cnz2 << endl;
 
-	while ((cnz1 / diag) > 100.0) {
-		Mat blurred1, lap1, blurredMask;
-		medianBlur(decimated1, blurred1, 23);
-		Laplacian(blurred1, lap1, blurred1.depth());
-		decimated1 = blurred1 - (0.7 * lap1);
-		cnz1 = dft_detail(decimated1, mag1);
-		cerr << "decimate features 1: " << cnz1 << endl;
-	}
+//	while ((cnz1 / maxSum) > 0.5) {
+//		Mat blurred1, lap1, blurredMask;
+//		medianBlur(decimated1, blurred1, 23);
+//		Laplacian(blurred1, lap1, blurred1.depth());
+//		decimated1 = blurred1 - (0.7 * lap1);
+//		cnz1 = sum(decimated1)[0];
+//		cerr << "decimate features 1: " << cnz1 << endl;
+//	}
 
 
-	while ((cnz2 / diag) > 100) {
-		Mat blurred2, lap2, blurredMask;
-		medianBlur(decimated2, blurred2, 23);
-		Laplacian(blurred2, lap2, blurred2.depth());
-		decimated2 = blurred2 - (0.7 * lap2);
-		cnz2 = dft_detail(decimated2, mag2);
-		cerr << "decimate features 2: " << cnz2 << endl;
-	}
+//	while ((cnz2 / maxSum) > 0.5) {
+//		Mat blurred2, lap2, blurredMask;
+//		medianBlur(decimated2, blurred2, 23);
+//		Laplacian(blurred2, lap2, blurred2.depth());
+//		decimated2 = blurred2 - (0.7 * lap2);
+//		cnz2 = sum(decimated2)[0];
+//		cerr << "decimate features 2: " << cnz2 << endl;
+//	}
 
 	if(cnz2 < (cnz1 * 0.9)) {
+		int i = 0;
 		while (cnz2 < (cnz1 * 0.9)) {
-			Mat blurred1, lap1, blurredMask;
-			medianBlur(decimated1, blurred1, 5);
-			Laplacian(blurred1, lap1, blurred1.depth());
-			decimated1 = blurred1 - (0.5 * lap1);
-			cnz1 = dft_detail(decimated1, mag1);
-			cerr << "decimate features 1: " << cnz1 << endl;
+			Mat blurred1;
+			bilateralFilter(decimated1, blurred1, -1, 50 + i, 50 + i);
+			decimated1 = blurred1.clone();
+			cnz1 = feature_metric(decimated1);
+			cerr << "redecimate features 1: " << cnz1 << "\r";
+			++i;
 		}
+		cerr << endl;
 	} else if(cnz1 < (cnz2 * 0.9)) {
+		int i = 0;
 		while (cnz1 < (cnz2 * 0.9)) {
-			Mat blurred2, lap2, blurredMask;
-			medianBlur(decimated2, blurred2, 5);
-			Laplacian(blurred2, lap2, blurred2.depth());
-			decimated2 = blurred2 - (0.5 * lap2);
-			cnz2 = dft_detail(decimated2, mag2);
-			cerr << "decimate features 2: " << cnz2 << endl;
+			Mat blurred2;
+			bilateralFilter(decimated2, blurred2, -1, 50 + i, 50 + i);
+			decimated2 = blurred2.clone();
+			cnz2 = feature_metric(decimated2);
+			cerr << "redecimate features 2: " << cnz2 << "\r";
+			++i;
 		}
+		cerr << endl;
 	}
 
 	show_image("dec1", decimated1);
 	show_image("dec2", decimated2);
 }
 
-void extract_foreground_mask(const Mat &grey1, const Mat &grey2, Mat &fgMask1, Mat &fgMask2) {
+
+void extract_foreground_mask(const Mat &grey, Mat &fgMask) {
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
-	fgMask1 = Mat::ones(grey1.rows, grey1.cols, grey1.type());
-	fgMask2 = Mat::ones(grey2.rows, grey2.cols, grey2.type());
-	Mat last = grey1.clone();
-	Mat fgMask1Blur, fgMask2Blur;
+	fgMask = Mat::ones(grey.rows, grey.cols, grey.type());
+	Mat last = grey.clone();
+	Mat fgMaskBlur;
 	Mat med, flow;
 
 	//optical flow tracking works as well but is much slower
@@ -361,20 +366,9 @@ void extract_foreground_mask(const Mat &grey1, const Mat &grey2, Mat &fgMask1, M
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub1->apply(med, flow);
-		fgMask1 = fgMask1 + (flow * (1.0 / 6.0));
-		GaussianBlur(fgMask1, fgMask1Blur, { 23, 23 }, 1);
-		fgMask1 = fgMask1Blur.clone();
-		last = med.clone();
-	}
-
-	last = grey2.clone();
-	auto pBackSub2 = createBackgroundSubtractorMOG2();
-	for (size_t i = 0; i < 12; ++i) {
-		medianBlur(last, med, i * 8 + 1);
-		pBackSub2->apply(med, flow);
-		fgMask2 = fgMask2 + (flow * (1.0 / 6.0));
-		GaussianBlur(fgMask2, fgMask2Blur, { 23, 23 }, 1);
-		fgMask2 = fgMask2Blur.clone();
+		fgMask = fgMask + (flow * (1.0 / 6.0));
+		GaussianBlur(fgMask, fgMaskBlur, { 23, 23 }, 1);
+		fgMask = fgMaskBlur.clone();
 		last = med.clone();
 	}
 }
@@ -385,24 +379,20 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, COLOR_RGB2GRAY);
 
-	Mat decimated1;
-	Mat decimated2;
-	//get rid of too many features
-	decimate_features(grey1, grey2, decimated1, decimated2);
-
 	Mat fgMask1;
 	Mat fgMask2;
 	//extract areas of interest (aka. foreground)
-	extract_foreground_mask(decimated1, decimated2, fgMask1, fgMask2);
+	extract_foreground_mask(grey1, fgMask1);
+	extract_foreground_mask(grey2, fgMask2);
 
 	//create a radial mask to bias the contrast towards the center
 	Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
 	draw_radial_gradiant(radial);
 
 	//convert the images and masks to floating point for the subsequent multiplication
-	Mat sharp1Float, sharp2Float, fgMask1Float, fgMask2Float, radialMaskFloat;
-	decimated1.convertTo(sharp1Float, CV_32F, 1.0 / 255.0);
-	decimated2.convertTo(sharp2Float, CV_32F, 1.0 / 255.0);
+	Mat grey1Float, grey2Float, fgMask1Float, fgMask2Float, radialMaskFloat;
+	grey1.convertTo(grey1Float, CV_32F, 1.0 / 255.0);
+	grey2.convertTo(grey2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
 	radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
@@ -423,16 +413,16 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	 */
 	Mat masked1, masked2;
 	Mat blurred1Float, blurredMask1Float, maskedSharp1Float;
-	GaussianBlur(sharp1Float, blurred1Float, Size(23, 23), 3);
+	GaussianBlur(grey1Float, blurred1Float, Size(23, 23), 3);
 	GaussianBlur(finalMask1Float, blurredMask1Float, Size(23, 23), 3);
 	maskedSharp1Float = blurred1Float / blurredMask1Float;
-	addWeighted(sharp1Float, 1.1, maskedSharp1Float, -0.1, 0, masked1);
+	addWeighted(grey1Float, 1.1, maskedSharp1Float, -0.1, 0, masked1);
 
 	Mat blurred2Float, blurredMask2Float, maskedBlur2Float;
-	GaussianBlur(sharp2Float, blurred2Float, Size(23, 23), 3);
+	GaussianBlur(grey2Float, blurred2Float, Size(23, 23), 3);
 	GaussianBlur(finalMask2Float, blurredMask2Float, Size(23, 23), 3);
 	maskedBlur2Float = blurred2Float / blurredMask2Float;
-	addWeighted(sharp2Float, 1.1, maskedBlur2Float, -0.1, 0, masked2);
+	addWeighted(grey2Float, 1.1, maskedBlur2Float, -0.1, 0, masked2);
 
 	//convert back to 8-bit grey scale
 	masked1.convertTo(masked1, CV_8U, 255.0);
@@ -444,6 +434,11 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 
 	show_image("fg1", foreground1);
 	show_image("fg2", foreground2);
+
+//	Mat decimated1;
+//	Mat decimated2;
+//	//get rid of too many features
+//	decimate_features(foreground1, foreground2, decimated1, decimated2);
 
 	double localSensitivity = 1;
 	double t1 = 0;
@@ -488,7 +483,7 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	Mat cmap1, cmap2;
 	cerr << "draw map 1: " << numContours << endl;
 	numContours = 0;
-	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
+	draw_contour_map(collected1, hierarchy1, cmap1, foreground1.cols, foreground1.rows, foreground1.type());
 
 	cerr << "thresholding 2" << endl;
 	vector<vector<Point>> contours2;
@@ -506,7 +501,7 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 	cerr << endl;
 
 	cerr << "draw map 2: " << numContours << endl;
-	draw_contour_map(collected2, hierarchy2, cmap2, thresh2.cols, thresh2.rows, thresh2.type());
+	draw_contour_map(collected2, hierarchy2, cmap2, foreground2.cols, foreground2.rows, foreground2.type());
 
 	allContours1 = cmap1.clone();
 	allContours2 = cmap2.clone();
@@ -568,7 +563,14 @@ pair<double, Point2f> get_orientation(const vector<Point> &pts)
 	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x), cntr};
 }
 
+void translate(const Mat& src, Mat& dst, int x, int y) {
+	float warpValues[] = { 1.0, 0.0, x, 0.0, 1.0, y };
+	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
+	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(255, 255, 255));
+}
+
 void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
+	cerr << "correcting alignment" << endl;
 	vector<Point> flat1;
 	vector<Point> flat2;
 	for (auto &c : collected1) {
@@ -609,48 +611,102 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 	RotatedRect rr2 = minAreaRect(flat2);
 	auto o1 = get_orientation(flat1);
 	auto o2 = get_orientation(flat2);
-//	double angle1, angle2;
+	double angle1, angle2;
 	o1.first = o1.first * 180 / M_PI;
 	o2.first = o2.first * 180 / M_PI;
 	o1.first = o1.first < 0 ? o1.first + 360 : o1.first;
 	o2.first = o2.first < 0 ? o2.first + 360 : o2.first;
 
-//	if (fabs(o1.first - rr1.angle) < 22.5) {
-//		angle1 = (o1.first + rr1.angle) / 2.0;
-//	} else {
-//		double drr = fabs(rr1.angle - rr2.angle);
-//		double dor = fabs(o1.first - o2.first);
-//		if (dor < drr) {
-//			angle1 = dor;
-//		} else {
-//			angle1 = drr;
-//		}
-//	}
-//
-//	if (fabs(o2.first - rr2.angle) < 22.5) {
-//		angle2 = (o2.first + rr2.angle) / 2.0;
-//	} else {
-//		double drr = fabs(rr1.angle - rr2.angle);
-//		double dor = fabs(o1.first - o2.first);
-//		if (dor < drr) {
-//			angle2 = dor;
-//		} else {
-//			angle2 = drr;
-//		}
-//	}
+	if (fabs(o1.first - rr1.angle) < 22.5) {
+		angle1 = (o1.first + rr1.angle) / 2.0;
+	} else {
+		double drr = fabs(rr1.angle - rr2.angle);
+		double dor = fabs(o1.first - o2.first);
+		if (dor < drr) {
+			angle1 = dor;
+		} else {
+			angle1 = drr;
+		}
+	}
 
-	double targetAng = o2.first - o1.first;
+	if (fabs(o2.first - rr2.angle) < 22.5) {
+		angle2 = (o2.first + rr2.angle) / 2.0;
+	} else {
+		double drr = fabs(rr1.angle - rr2.angle);
+		double dor = fabs(o1.first - o2.first);
+		if (dor < drr) {
+			angle2 = dor;
+		} else {
+			angle2 = drr;
+		}
+	}
 
+	double targetAng = angle2 - angle1;
 	Point2f center1 = rr1.center;
 	Point2f center2 = rr2.center;
 	Mat rm2 = getRotationMatrix2D(center2, targetAng, 1.0);
 	Mat rotated2;
 	warpAffine(src2, rotated2, rm2, src2.size());
-	float warpValues[] = { 1.0, 0.0, center1.x - center2.x, 0.0, 1.0, center1.y - center2.y };
-	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
-	warpAffine(rotated2, dst2, translation_matrix, src2.size());
-
+	translate(rotated2, dst2, center1.x - center2.x, center1.y - center2.y);
 	dst1 = src1.clone();
+
+//	Mat test, copy1, copy2;
+//	copy1 = dst1.clone();
+//	copy2 = dst2.clone();
+//	double lastDistance = numeric_limits<double>::max();
+//	map<double, Mat> morphDistMap;
+//	Mat distanceMap = Mat::zeros(copy1.rows, copy1.cols, CV_32FC1);
+//	Mat preview;
+//
+//	for(int x = 0; x < copy1.cols; ++x) {
+//		for(int y = 0; y < copy1.rows; ++y) {
+//			translate(copy2, test,  x,  y);
+//			distanceMap.at<float>(y,x) = cheap_morph_distance(copy1, test);
+//			cerr << ((double(x * copy1.rows + y) / double(copy1.cols * copy1.rows)) * 100.0) << "%" << "\n";
+//			normalize(distanceMap, preview, 0, 1, NORM_MINMAX);
+//			show_image("DM",1.0 - preview);
+//			waitKey(1);
+//		}
+//	}
+//	cerr << endl;
+//
+//	while(true)
+//		waitKey(0);
+
+
+//	Mat t, test, grey1, grey2;
+//	cvtColor(dst1, grey1, COLOR_RGB2GRAY);
+//	cvtColor(dst2, grey2, COLOR_RGB2GRAY);
+//
+//	double d1, d2, d3, d4;
+//	double lastDistance = numeric_limits<double>::max();
+//	map<double, Mat> morphDistMap;
+//
+//	t = dst2.clone();
+//	for(size_t i = 0; i < 100; ++i) {
+//		morphDistMap.clear();
+//		translate(t, test,  1,  0);
+//		d1 = cheap_morph_distance(dst1, test);
+//		morphDistMap[d1] = test;
+//		translate(t, test, -1,  0);
+//		d2 = cheap_morph_distance(dst1, test);
+//		morphDistMap[d2] = test;
+//		translate(t, test,  0,  1);
+//		d3 = cheap_morph_distance(dst1, test);
+//		morphDistMap[d3] = test;
+//		translate(t, test,  0, -1);
+//		d4 = cheap_morph_distance(dst1, test);
+//		morphDistMap[d4] = test;
+//		const auto& p = *morphDistMap.begin();
+//		cerr << "searching: " << p.first << "\n";
+//		if(p.first < lastDistance) {
+//			cerr << "found: " << p.first << "\n";
+//			lastDistance = p.first;
+//			dst2 = p.second.clone();
+//		}
+//		t = p.second.clone();
+//	}
+//	cerr << endl;
 }
 
 void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
@@ -661,11 +717,11 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 	vector<Mat> contourLayers2;
 
 	extract_features(orig1, orig2, goodFeatures1, goodFeatures2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
-	if (Settings::instance().enable_auto_transform) {
+	if (Settings::instance().enable_auto_align) {
 		correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
 		collected1.clear();
 		collected2.clear();
-		extract_features(corrected1, corrected2, goodFeatures1, goodFeatures2, contourMap1, contourMap2, collected1, collected2, contourLayers2, contourLayers2);
+		extract_features(corrected1, corrected2, goodFeatures1, goodFeatures2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
 	} else {
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
@@ -705,17 +761,17 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 //
 //	drawContours(goodFeatures2, collected2[candidate.first], candidate.second, {255,255,255});
 
-	show_image("gf1", goodFeatures1);
-	show_image("gf2", goodFeatures2);
+//	show_image("gf1", goodFeatures1);
+//	show_image("gf2", goodFeatures2);
 
 	Mat features1, features2;
 	features1 = goodFeatures1 * 0.5 + contourLayers1[0] * 0.5;
 	features2 = goodFeatures2 * 0.5 + contourLayers2[0] * 0.5;
 
 	cerr << "find matches" << endl;
-	show_image("FT1", features1);
-	show_image("FT2", features2);
-	auto matches = find_matches(features1, features2);
+	show_image("ft1", features1);
+	show_image("ft2", features2);
+	auto matches = find_keypoints(features1, features2);
 	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 //	for (size_t i = 0; i < contourLayers1.size(); ++i) {
@@ -750,7 +806,7 @@ tuple<double, double, double> calculate_sum_mean_and_sd(multimap<double, pair<Po
 
 void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
-
+	std::random_shuffle(srcPoints1.begin(), srcPoints1.end());
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
 		double dist = 0;
@@ -778,10 +834,11 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		closest->y = -1;
 	}
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
+	assert(!distanceMap.empty());
+	if(get<1>(distribution) == 0 || get<2>(distribution) == 0)
+		return;
 	srcPoints1.clear();
 	srcPoints2.clear();
-	assert(!distanceMap.empty());
-	assert(get<1>(distribution) != 0 && get<2>(distribution) != 0);
 	double distance = (*distanceMap.rbegin()).first;
 	double mean = get<1>(distribution);
 	double sd = get<2>(distribution);
@@ -789,7 +846,7 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 	assert(highZScore > 0);
 	double zScore = 0;
 	double value = 0;
-	double limit = 0.25 * Settings::instance().match_tolerance * highZScore * fabs(sd - mean);
+	double limit = 0.035 * Settings::instance().match_tolerance * highZScore * fabs(sd - mean);
 
 	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 		value = (*it).first;
@@ -850,23 +907,26 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	check_points(srcPoints1, origImg1.cols, origImg1.rows);
 	make_uniq(srcPoints1, uniq1);
 	check_uniq(uniq1);
-	for (auto pt : uniq1)
-		subDiv1.insert(pt);
+	subDiv1.insert(uniq1);
+//	for (auto pt : uniq1)
+//		subDiv1.insert(pt);
 
 	check_points(srcPoints2, origImg2.cols, origImg2.rows);
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
-	for (auto pt : uniq2)
-		subDiv2.insert(pt);
+	subDiv2.insert(uniq2);
+//	for (auto pt : uniq2)
+//		subDiv2.insert(pt);
 
-	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio, origImg1.cols, origImg1.rows);
+	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 
 	check_points(morphedPoints, origImg1.cols, origImg1.rows);
 	make_uniq(morphedPoints, uniqMorph);
 	check_uniq(uniqMorph);
-	for (auto pt : uniqMorph)
-		subDivMorph.insert(pt);
+	subDivMorph.insert(uniqMorph);
+	//	for (auto pt : uniqMorph)
+//		subDivMorph.insert(pt);
 
 	// Get the ID list of corners of Delaunay traiangles.
 	vector<Vec3i> triangleIndices;

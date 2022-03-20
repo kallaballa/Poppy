@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
-	bool autoTransform = poppy::Settings::instance().enable_auto_transform;
+	bool autoAlign = poppy::Settings::instance().enable_auto_align;
 	bool srcScaling = false;
 	bool denoise = false;
 	string outputFile = "output.mkv";
@@ -112,8 +112,8 @@ int main(int argc, char **argv) {
 		showGui = true;
 	}
 
-	if (vm.count("autotrans")) {
-		autoTransform = true;
+	if (vm.count("autoalign")) {
+		autoAlign = true;
 	}
 
 	if (vm.count("scaling")) {
@@ -129,7 +129,7 @@ int main(int argc, char **argv) {
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoTransform);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign);
 	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);
