@@ -17,18 +17,55 @@ void show_image(const string &name, const Mat &img) {
 }
 
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
+#ifndef NDEBUG
 	for (const auto &pt : pts) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
 		assert(pt.x < cols && pt.y < rows);
 	}
+#endif
 }
 
+
 void check_uniq(const std::vector<Point2f> &pts) {
+#ifndef NDEBUG
 	std::set<Point2f, LessPointOp> uniq;
 	for (const auto &pt : pts) {
 		assert(uniq.insert(pt).second);
+	}
+#endif
+}
+
+void check_min_distance(const std::vector<Point2f> &in, double minDistance) {
+#ifndef NDEBUG
+	double dist = 0;
+	for (size_t i = 0; i < in.size(); ++i) {
+		const auto& pt1 = in[i];
+		for (size_t j = 0; j < in.size(); ++j) {
+			if(i == j)
+				continue;
+			const auto& pt2 = in[j];
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+			assert(dist >= minDistance);
+		}
+	}
+#endif
+}
+
+void filter_min_distance(const std::vector<Point2f> &in, std::vector<Point2f> &out, double minDistance) {
+	double dist = 0;
+	for (size_t i = 0; i < in.size(); ++i) {
+		const auto& pt1 = in[i];
+		out.push_back(pt1);
+		for (size_t j = i + 1; j < in.size(); ++j) {
+			assert(i != j);
+			const auto& pt2 = in[j];
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+			if(dist >= minDistance) {
+				out.push_back(pt2);
+			}
+		}
 	}
 }
 
