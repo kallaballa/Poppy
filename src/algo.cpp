@@ -564,7 +564,7 @@ pair<double, Point2f> get_orientation(const vector<Point> &pts)
 }
 
 void translate(const Mat& src, Mat& dst, int x, int y) {
-	float warpValues[] = { 1.0, 0.0, x, 0.0, 1.0, y };
+	float warpValues[] = { 1.0, 0.0, float(x), 0.0, 1.0, float(y) };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
 	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(255, 255, 255));
 }
