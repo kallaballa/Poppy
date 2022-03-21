@@ -3,7 +3,7 @@ TARGET := poppy.html
 #else
 TARGET := poppy
 #endif
-SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp
+SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp face.cpp
 
 #precompiled headers
 HEADERS := 

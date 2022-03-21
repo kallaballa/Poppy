@@ -349,8 +349,8 @@ void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat 
 		cerr << endl;
 	}
 
-	show_image("dec1", decimated1);
-	show_image("dec2", decimated2);
+//	show_image("dec1", decimated1);
+//	show_image("dec2", decimated2);
 }
 
 
@@ -399,12 +399,15 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
-//	multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
-//	multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
-	fgMask1Float.copyTo(finalMask1Float);
-	fgMask2Float.copyTo(finalMask2Float);
-	show_image("bias1", finalMask1Float);
-	show_image("bias2", finalMask2Float);
+	if(Settings::instance().enable_radial_mask) {
+		multiply(fgMask1Float, radialMaskFloat, finalMask1Float);
+		multiply(fgMask2Float, radialMaskFloat, finalMask2Float);
+	} else {
+		fgMask1Float.copyTo(finalMask1Float);
+		fgMask2Float.copyTo(finalMask2Float);
+	}
+	show_image("mask1", finalMask1Float);
+	show_image("mask2", finalMask2Float);
 	/*
  	 * create the final masked image. uses gaussian blur to sharpen the image.
 	 * But before the blurred image is subtracted from the image (to sharpen)
@@ -727,62 +730,25 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 		corrected2 = orig2.clone();
 	}
 
+	assert(!contourLayers1.empty() && !contourLayers2.empty());
+	assert(contourLayers1.size() == contourLayers2.size());
 
-//	double maxArea = -1;
-//	pair<size_t, size_t> candidate;
-//	for(size_t i = 0; i < collected1.size(); ++i) {
-//		const auto& v = collected1[i];
-//		for(size_t j = 0; j < v.size(); ++j) {
-//			const auto& c = v[j];
-//			double area = minAreaRect(c).size.area();
-//			if(area > maxArea) {
-//				maxArea = area;
-//				candidate = {i,j};
-//			}
-//		}
-//
-//	}
-//
-//	drawContours(goodFeatures1, collected1[candidate.first], candidate.second, {255,255,255});
-//
-//	maxArea = -1;
-//	candidate = { 0 , 0 };
-//	for(size_t i = 0; i < collected2.size(); ++i) {
-//		const auto& v = collected2[i];
-//		for(size_t j = 0; j < v.size(); ++j) {
-//			const auto& c = v[j];
-//			double area = minAreaRect(c).size.area();
-//			if(area > maxArea) {
-//				maxArea = area;
-//				candidate = {i,j};
-//			}
-//		}
-//	}
-//
-//	drawContours(goodFeatures2, collected2[candidate.first], candidate.second, {255,255,255});
-
-//	show_image("gf1", goodFeatures1);
-//	show_image("gf2", goodFeatures2);
+	show_image("gf1", goodFeatures1);
+	show_image("gf2", goodFeatures2);
 
 	Mat features1, features2;
-	features1 = goodFeatures1 * 0.5 + contourLayers1[0] * 0.5;
-	features2 = goodFeatures2 * 0.5 + contourLayers2[0] * 0.5;
-
 	cerr << "find matches" << endl;
-	show_image("ft1", features1);
-	show_image("ft2", features2);
-	auto matches = find_keypoints(features1, features2);
-	srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-	srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-//	for (size_t i = 0; i < contourLayers1.size(); ++i) {
-//		if(countNonZero(contourLayers1[i]) > 0 && countNonZero(contourLayers2[i]) > 0) {
-//			show_image("CL1", contourLayers1[i]);
-//			waitKey(0);
-//			auto matches = find_matches(contourLayers1[i], contourLayers2[i]);
-//			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-//			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-//		}
-//	}
+	for(size_t i = 0; i < contourLayers1.size(); ++i) {
+		if(contourLayers1[i].empty() || contourLayers2[i].empty())
+			continue;
+
+		features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
+		features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
+
+		auto matches = find_keypoints(features1, features2);
+		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+	}
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 }
@@ -990,7 +956,6 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 
 	if (ky % 2 != 1)
 		ky -= 1;
-	show_image("m", m);
 	GaussianBlur(m, mask, Size(kx, ky), 12);
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
@@ -1000,7 +965,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	if (prev.empty())
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
-	show_image("analysis", analysis);
+	show_image("mesh", analysis);
 	return 0;
 }
 }

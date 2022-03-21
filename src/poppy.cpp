@@ -35,13 +35,16 @@ int main(int argc, char **argv) {
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoAlign = poppy::Settings::instance().enable_auto_align;
+	bool radial = poppy::Settings::instance().enable_radial_mask;
 	bool srcScaling = false;
 	bool denoise = false;
+
 	string outputFile = "output.mkv";
 	std::vector<string> imageFiles;
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows.")
+	("radial,r", "Use a radial mask to emphasize features in the center.")
 	("autoalign,a", "Try to automatically align (rotate and translate) the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
@@ -124,12 +127,16 @@ int main(int argc, char **argv) {
 		denoise = true;
 	}
 
+	if(vm.count("radial")) {
+		radial = true;
+	}
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial);
 	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);

@@ -33,7 +33,8 @@ endif
 
 ifndef WASM
 CXXFLAGS += -march=native `pkg-config --cflags opencv4 libpng`
-LIBS += -lboost_program_options `pkg-config --libs opencv4 libpng`
+LIBS += -lboost_program_options `pkg-config --libs opencv4 libpng` -ldlib -lopenblas
+LDFLAGS += -L../third/dlib-19.23/
 else
 CXX     := em++
 CXXFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=0 -I../third/opencv-4.5.5/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.5.5/modules/imgproc/include/ -I../third/opencv-4.5.5/modules/features2d/include/ -I../third/opencv-4.5.5/modules/flann/include/ -I../third/opencv-4.5.5/modules/videoio/include/ -I../third/opencv-4.5.5/modules/highgui/include/  -I../third/opencv-4.5.5/modules/calib3d/include/ -I../third/opencv-4.5.5/modules/video/include/ -I../third/opencv-4.5.5/modules/imgcodecs/include/ -I../third/opencv-4.5.5/include/

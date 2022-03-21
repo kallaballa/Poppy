@@ -17,6 +17,7 @@ public:
 	off_t max_keypoints = -1;
 	size_t pyramid_levels = 4;
 	bool enable_auto_align = false;
+	bool enable_radial_mask = false;
 
 	static Settings& instance() {
 		if(instance_ == nullptr)
