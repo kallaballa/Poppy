@@ -31,11 +31,13 @@ int main(int argc, char **argv) {
 #ifndef _WASM
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+	double phase = 1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoAlign = poppy::Settings::instance().enable_auto_align;
 	bool radial = poppy::Settings::instance().enable_radial_mask;
+	bool face = poppy::Settings::instance().enable_face_detection;
 	bool srcScaling = false;
 	bool denoise = false;
 
@@ -44,12 +46,14 @@ int main(int argc, char **argv) {
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows.")
+	("face,e", "Enable face detection mode. Use if your source material consists of faces only.")
 	("radial,r", "Use a radial mask to emphasize features in the center.")
 	("autoalign,a", "Try to automatically align (rotate and translate) the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
+	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
 	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours.")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to.")
@@ -131,12 +135,16 @@ int main(int argc, char **argv) {
 		radial = true;
 	}
 
+	if(vm.count("face")) {
+		face = true;
+	}
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face);
 	Mat image1, denoise1;
 	try {
 		image1 = imread(imageFiles[0]);
@@ -214,7 +222,7 @@ int main(int argc, char **argv) {
 			exit(2);
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
-		poppy::morph(image1, image2, output);
+		poppy::morph(image1, image2, phase, output);
 		image1 = image2.clone();
 	}
 #endif

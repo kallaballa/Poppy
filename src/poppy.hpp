@@ -16,7 +16,7 @@ namespace poppy {
 double ease_in_out_cubic(double x) {
 	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
 }
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().match_tolerance = matchTolerance;
@@ -24,10 +24,11 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 	Settings::instance().contour_sensitivity = contourSensitivity;
 	Settings::instance().enable_auto_align = autoAlign;
 	Settings::instance().enable_radial_mask = radialMask;
+	Settings::instance().enable_face_detection = faceDetect;
 }
 
 template<typename Twriter>
-void morph(Mat &image1, Mat &image2, Twriter &output) {
+void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 	Mat morphed;
 
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
@@ -42,7 +43,12 @@ void morph(Mat &image1, Mat &image2, Twriter &output) {
 		}
 		return;
 	}
-	prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
+	if(!Settings::instance().enable_face_detection) {
+		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
+	} else {
+		add_corners(srcPoints1, srcPoints2, image1.size);
+	}
+
 	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
 	double shape = 0;
@@ -59,7 +65,7 @@ void morph(Mat &image1, Mat &image2, Twriter &output) {
 		linear = j * step;
 		shape = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
 		mask = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-		shape = 1 - pow(1 - shape, 3);
+		shape = (1 - pow(1 - shape, 3)) * phase;
 		//		mask = sin(pow(linear,3) * M_PI/2);
 //		mask = pow(tan(tan(tan(shape * M_PI/4)* M_PI/4)* M_PI/4),4);
 		if (shape > 1.0)

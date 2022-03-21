@@ -18,6 +18,7 @@ public:
 	size_t pyramid_levels = 4;
 	bool enable_auto_align = false;
 	bool enable_radial_mask = false;
+	bool enable_face_detection = false;
 
 	static Settings& instance() {
 		if(instance_ == nullptr)

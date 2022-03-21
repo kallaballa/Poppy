@@ -16,6 +16,15 @@ void show_image(const string &name, const Mat &img) {
 	}
 }
 
+void clip_points(std::vector<Point2f> &pts, int cols, int rows) {
+	for (auto &pt : pts) {
+		pt.x = pt.x > cols ? cols - 1 : pt.x;
+		pt.y = pt.y > rows ? rows - 1 : pt.y;
+		pt.x = pt.x < 0 ? 0 : pt.x;
+		pt.y = pt.y < 0 ? 0 : pt.y;
+	}
+}
+
 void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
 #ifndef NDEBUG
 	for (const auto &pt : pts) {

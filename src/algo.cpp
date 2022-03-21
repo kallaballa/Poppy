@@ -3,7 +3,7 @@
 #include "util.hpp"
 #include "blend.hpp"
 #include "settings.hpp"
-
+#include "face.hpp"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -373,7 +373,110 @@ void extract_foreground_mask(const Mat &grey, Mat &fgMask) {
 	}
 }
 
-void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
+void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
+	Mat grey1, grey2;
+	cvtColor(img1, grey1, COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, COLOR_RGB2GRAY);
+
+	double localSensitivity = 1;
+	double t1 = 0;
+	double t2 = 255;
+	double highLimit = countNonZero(grey1) * 0.75;
+	Mat thresh1, thresh2;
+	vector<Vec4i> hierarchy1;
+	vector<vector<Point>> contours1;
+	size_t numContours = 0;
+	threshold(grey1, thresh1, t1, t2, 0);
+	size_t cnt = 0;
+	do {
+		t1 = localSensitivity;
+		t2 = 255;
+		if (t1 >= 255)
+			t1 = 255;
+
+		if (t2 >= 255)
+			t2 = 255;
+		threshold(grey1, thresh1, t1, t2, 0);
+		cnt = countNonZero(thresh1);
+		if (cnt > highLimit)
+			++localSensitivity;
+	} while (cnt > highLimit);
+
+	t1 = 0;
+	t2 = 0;
+	localSensitivity = localSensitivity / 255.0;
+	cerr << "thresholding 1" << endl;
+	for (off_t i = 0; i < 16; ++i) {
+		cerr << i << "/15" << '\r';
+		t1 = max(0, min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
+		t2 = max(0, min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
+		threshold(grey1, thresh1, t1, t2, 0);
+		findContours(thresh1, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
+		collected1.push_back(contours1);
+		numContours += contours1.size();
+		contours1.clear();
+	}
+	cerr << endl;
+
+	Mat cmap1, cmap2;
+	cerr << "draw map 1: " << numContours << endl;
+	numContours = 0;
+	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
+
+	cerr << "thresholding 2" << endl;
+	vector<vector<Point>> contours2;
+	vector<Vec4i> hierarchy2;
+	for (off_t j = 0; j < 16; ++j) {
+		cerr << j << "/15" << '\r';
+		t1 = min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
+		t2 = min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
+		threshold(grey2, thresh2, t1, t2, 0);
+		findContours(thresh2, contours2, hierarchy2, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
+		collected2.push_back(contours2);
+		numContours += contours2.size();
+		contours2.clear();
+	}
+	cerr << endl;
+
+	cerr << "draw map 2: " << numContours << endl;
+	draw_contour_map(collected2, hierarchy2, cmap2, grey2.cols, grey2.rows, grey2.type());
+
+	allContours1 = cmap1.clone();
+	allContours2 = cmap2.clone();
+	show_image("cmap1", cmap1);
+	show_image("cmap2", cmap2);
+
+	contourLayers1.clear();
+	contourLayers2.clear();
+	size_t minC = std::min(collected1.size(), collected2.size());
+	contourLayers1.resize(minC);
+	contourLayers2.resize(minC);
+
+	cerr << "draw all contours -> " << endl;
+	for (size_t i = 0; i < 1; ++i) {
+		cerr << i << "/" << (minC - 1) << '\r';
+		Mat &cont1 = contourLayers1[i];
+		Mat &cont2 = contourLayers2[i];
+		cont1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
+		cont2 = Mat::zeros(grey2.rows, grey2.cols, grey2.type());
+		contours1 = collected1[i];
+		contours2 = collected2[i];
+
+		for (size_t j = 0; j < contours1.size(); ++j) {
+			cv::drawContours(cont1, contours1, j, { 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
+		}
+
+		for (size_t j = 0; j < contours2.size(); ++j) {
+			cv::drawContours(cont2, contours2, j, { 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
+		}
+
+//		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
+//		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
+	}
+	cerr << endl;
+}
+
+void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
 	cerr << "extract features" << endl;
 	Mat grey1, grey2, canny1, canny2;
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
@@ -443,102 +546,6 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 //	//get rid of too many features
 //	decimate_features(foreground1, foreground2, decimated1, decimated2);
 
-	double localSensitivity = 1;
-	double t1 = 0;
-	double t2 = 255;
-	double highLimit = countNonZero(foreground1) * 0.75;
-	Mat thresh1, thresh2;
-	vector<Vec4i> hierarchy1;
-	vector<vector<Point>> contours1;
-	size_t numContours = 0;
-	threshold(foreground1, thresh1, t1, t2, 0);
-	size_t cnt = 0;
-	do {
-		t1 = localSensitivity;
-		t2 = 255;
-		if (t1 >= 255)
-			t1 = 255;
-
-		if (t2 >= 255)
-			t2 = 255;
-		threshold(foreground1, thresh1, t1, t2, 0);
-		cnt = countNonZero(thresh1);
-		if (cnt > highLimit)
-			++localSensitivity;
-	} while (cnt > highLimit);
-
-	t1 = 0;
-	t2 = 0;
-	localSensitivity = localSensitivity / 255.0;
-	cerr << "thresholding 1" << endl;
-	for (off_t i = 0; i < 16; ++i) {
-		cerr << i << "/15" << '\r';
-		t1 = max(0, min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
-		t2 = max(0, min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
-		threshold(foreground1, thresh1, t1, t2, 0);
-		findContours(thresh1, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
-		collected1.push_back(contours1);
-		numContours += contours1.size();
-		contours1.clear();
-	}
-	cerr << endl;
-
-	Mat cmap1, cmap2;
-	cerr << "draw map 1: " << numContours << endl;
-	numContours = 0;
-	draw_contour_map(collected1, hierarchy1, cmap1, foreground1.cols, foreground1.rows, foreground1.type());
-
-	cerr << "thresholding 2" << endl;
-	vector<vector<Point>> contours2;
-	vector<Vec4i> hierarchy2;
-	for (off_t j = 0; j < 16; ++j) {
-		cerr << j << "/15" << '\r';
-		t1 = min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
-		t2 = min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
-		threshold(foreground2, thresh2, t1, t2, 0);
-		findContours(thresh2, contours2, hierarchy2, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
-		collected2.push_back(contours2);
-		numContours += contours2.size();
-		contours2.clear();
-	}
-	cerr << endl;
-
-	cerr << "draw map 2: " << numContours << endl;
-	draw_contour_map(collected2, hierarchy2, cmap2, foreground2.cols, foreground2.rows, foreground2.type());
-
-	allContours1 = cmap1.clone();
-	allContours2 = cmap2.clone();
-	show_image("cmap1", cmap1);
-	show_image("cmap2", cmap2);
-
-	contourLayers1.clear();
-	contourLayers2.clear();
-	size_t minC = std::min(collected1.size(), collected2.size());
-	contourLayers1.resize(minC);
-	contourLayers2.resize(minC);
-
-	cerr << "draw all contours -> " << endl;
-	for (size_t i = 0; i < 1; ++i) {
-		cerr << i << "/" << (minC - 1) << '\r';
-		Mat &cont1 = contourLayers1[i];
-		Mat &cont2 = contourLayers2[i];
-		cont1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
-		cont2 = Mat::zeros(grey2.rows, grey2.cols, grey2.type());
-		contours1 = collected1[i];
-		contours2 = collected2[i];
-
-		for (size_t j = 0; j < contours1.size(); ++j) {
-			cv::drawContours(cont1, contours1, j, { 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
-		}
-
-		for (size_t j = 0; j < contours2.size(); ++j) {
-			cv::drawContours(cont2, contours2, j, { 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
-		}
-
-//		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
-//		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
-	}
-	cerr << endl;
 }
 
 pair<double, Point2f> get_orientation(const vector<Point> &pts)
@@ -572,8 +579,32 @@ void translate(const Mat& src, Mat& dst, int x, int y) {
 	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(255, 255, 255));
 }
 
+void rotate(const Mat& src, Mat& dst, Point2f center, double angle) {
+	Mat rm = getRotationMatrix2D(center, angle, 1.0);
+	warpAffine(src, dst, rm, src.size());
+}
+
+Point2f rotate_point(const cv::Point2f& inPoint, const double& angDeg) {
+	double rad = angDeg * M_PI/180.0;
+    cv::Point2f outPoint;
+    outPoint.x = std::cos(rad)*inPoint.x - std::sin(rad)*inPoint.y;
+    outPoint.y = std::sin(rad)*inPoint.x + std::cos(rad)*inPoint.y;
+    return outPoint;
+}
+
+Point2f rotate_point(const cv::Point2f& inPoint, const cv::Point2f& center, const double& angDeg) {
+    return rotate_point(inPoint - center, angDeg) + center;
+}
+
+void rotate_points(vector<Point2f>& pts, const Point2f& center, const double& angDeg) {
+	for(auto& pt : pts) {
+		pt = rotate_point(pt - center, angDeg) + center;
+	}
+}
+
 void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
 	cerr << "correcting alignment" << endl;
+
 	vector<Point> flat1;
 	vector<Point> flat2;
 	for (auto &c : collected1) {
@@ -647,9 +678,8 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 	double targetAng = angle2 - angle1;
 	Point2f center1 = rr1.center;
 	Point2f center2 = rr2.center;
-	Mat rm2 = getRotationMatrix2D(center2, targetAng, 1.0);
 	Mat rotated2;
-	warpAffine(src2, rotated2, rm2, src2.size());
+	rotate(src2, rotated2, center2, targetAng);
 	translate(rotated2, dst2, center1.x - center2.x, center1.y - center2.y);
 	dst1 = src1.clone();
 
@@ -712,42 +742,95 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 //	cerr << endl;
 }
 
+FaceDetector face;
+
 void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
-	Mat goodFeatures1, goodFeatures2;
 	vector<vector<vector<Point>>> collected1;
 	vector<vector<vector<Point>>> collected2;
 	vector<Mat> contourLayers1;
 	vector<Mat> contourLayers2;
 
-	extract_features(orig1, orig2, goodFeatures1, goodFeatures2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
-	if (Settings::instance().enable_auto_align) {
-		correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
-		collected1.clear();
-		collected2.clear();
-		extract_features(corrected1, corrected2, goodFeatures1, goodFeatures2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
-	} else {
-		corrected1 = orig1.clone();
-		corrected2 = orig2.clone();
+	Features ft1;
+	Features ft2;
+
+	if(Settings::instance().enable_face_detection) {
+		ft1 = face.detect(orig1);
+		ft2 = face.detect(orig2);
 	}
 
-	assert(!contourLayers1.empty() && !contourLayers2.empty());
-	assert(contourLayers1.size() == contourLayers2.size());
+	if(ft1.empty() || ft2.empty()) {
+		cerr << "general algorithm..." << endl;
+		Mat goodFeatures1, goodFeatures2;
 
-	show_image("gf1", goodFeatures1);
-	show_image("gf2", goodFeatures2);
+		extract_features(orig1, orig2, goodFeatures1, goodFeatures2);
+		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		if (Settings::instance().enable_auto_align) {
+			correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
+			collected1.clear();
+			collected2.clear();
+			extract_features(corrected1, corrected2, goodFeatures1, goodFeatures2);
+			extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		} else {
+			corrected1 = orig1.clone();
+			corrected2 = orig2.clone();
+		}
 
-	Mat features1, features2;
-	cerr << "find matches" << endl;
-	for(size_t i = 0; i < contourLayers1.size(); ++i) {
-		if(contourLayers1[i].empty() || contourLayers2[i].empty())
-			continue;
+		assert(!contourLayers1.empty() && !contourLayers2.empty());
+		assert(contourLayers1.size() == contourLayers2.size());
 
-		features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
-		features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
+		show_image("gf1", goodFeatures1);
+		show_image("gf2", goodFeatures2);
 
-		auto matches = find_keypoints(features1, features2);
-		srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-		srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+		Mat features1, features2;
+		cerr << "find matches" << endl;
+		for(size_t i = 0; i < contourLayers1.size(); ++i) {
+			if(contourLayers1[i].empty() || contourLayers2[i].empty())
+				continue;
+
+			features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
+			features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
+
+			auto matches = find_keypoints(features1, features2);
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+		}
+	} else {
+		cerr << "face algorithm..." << endl;
+		assert(!ft1.empty() && !ft2.empty());
+		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		srcPoints1 = ft1.getAllPoints();
+		srcPoints2 = ft2.getAllPoints();
+
+		if (Settings::instance().enable_auto_align) {
+			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
+			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
+			Point2f center1(ft1.left_eye_[0].x + (eyeVec1.x / 2.0), ft1.left_eye_[0].y + (eyeVec1.y / 2.0));
+			Point2f center2(ft2.left_eye_[0].x + (eyeVec2.x / 2.0), ft2.left_eye_[0].y + (eyeVec2.y / 2.0));
+			double angle1 = atan2(eyeVec1.y, eyeVec1.x);
+			double angle2 = atan2(eyeVec2.y, eyeVec2.x);
+			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
+			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
+			double dy = center2.y - center1.y;
+			double dx;
+			dx = (w2 - w1) / 2.0;
+			corrected1 = orig1.clone();
+
+			Mat translated2;
+			translate(orig2, translated2, dx, dy);
+			angle1 = angle1 * 180 / M_PI;
+			angle2 = angle2 * 180 / M_PI;
+			angle1 = angle1 < 0 ? angle1 + 360 : angle1;
+			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
+			std::cerr << "angle: " << angle1 << "/" << angle2 << endl;
+			double targetAng = angle2 - angle1;
+
+			rotate(translated2, corrected2, center2, targetAng);
+			rotate_points(srcPoints2, center2, -targetAng);
+
+		} else {
+			corrected1 = orig1.clone();
+			corrected2 = orig2.clone();
+		}
 	}
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
@@ -870,6 +953,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Subdiv2D subDivMorph(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 
 	vector<Point2f> uniq1, uniq2, uniqMorph;
+	clip_points(srcPoints1, origImg1.cols, origImg1.rows);
 	check_points(srcPoints1, origImg1.cols, origImg1.rows);
 	make_uniq(srcPoints1, uniq1);
 	check_uniq(uniq1);
@@ -877,6 +961,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 //	for (auto pt : uniq1)
 //		subDiv1.insert(pt);
 
+	clip_points(srcPoints2, origImg2.cols, origImg2.rows);
 	check_points(srcPoints2, origImg2.cols, origImg2.rows);
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
@@ -887,6 +972,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 
+	clip_points(morphedPoints, origImg1.cols, origImg1.rows);
 	check_points(morphedPoints, origImg1.cols, origImg1.rows);
 	make_uniq(morphedPoints, uniqMorph);
 	check_uniq(uniqMorph);
@@ -948,16 +1034,17 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	m2(Range::all(), Range::all()) = 1.0;
 	Mat mask;
 	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
+	show_image("blend", m);
+//	off_t kx = round(m.cols / 32.0);
+//	off_t ky = round(m.rows / 32.0);
+//	if (kx % 2 != 1)
+//		kx -= 1;
+//
+//	if (ky % 2 != 1)
+//		ky -= 1;
+//	GaussianBlur(m, mask, Size(kx, ky), 12);
 
-	off_t kx = round(m.cols / 32.0);
-	off_t ky = round(m.rows / 32.0);
-	if (kx % 2 != 1)
-		kx -= 1;
-
-	if (ky % 2 != 1)
-		ky -= 1;
-	GaussianBlur(m, mask, Size(kx, ky), 12);
-	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
+	LaplacianBlending lb(l, r, m, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
 	Mat analysis = dst.clone();

@@ -13,6 +13,7 @@ struct LessPointOp {
 };
 
 void show_image(const std::string &name, const cv::Mat &img);
+void clip_points(std::vector<cv::Point2f> &pts, int cols, int rows);
 void check_points(const std::vector<cv::Point2f> &pts, int cols, int rows);
 void check_uniq(const std::vector<cv::Point2f> &pts);
 void check_min_distance(const std::vector<cv::Point2f> &in, double minDistance);
