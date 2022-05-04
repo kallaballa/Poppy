@@ -293,16 +293,17 @@ double feature_metric(const Mat &grey1) {
 	return stddev[0];
 }
 
-void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat &decimated2) {
+void decimate_features(const Mat &img1, const Mat &img2, Mat &decimated1, Mat &decimated2) {
+	Mat grey1, grey2;
+	cvtColor(img1, grey1, COLOR_RGB2GRAY);
+	cvtColor(img2, grey2, COLOR_RGB2GRAY);
 	cerr << "decimate features" << endl;
-	Mat filtered1, filtered2;
 
-	//use dft spectrum to measure image detail and if it exceeds the limit, use unsharp mask to decimate features.
-	decimated1 = grey1.clone();
-	decimated2 = grey2.clone();
+	decimated1 = img1.clone();
+	decimated2 = img2.clone();
 
-	double cnz1 = feature_metric(decimated1);
-	double cnz2 = feature_metric(decimated2);
+	double cnz1 = feature_metric(grey1);
+	double cnz2 = feature_metric(grey2);
 	cerr << "features 1: " << cnz1 << endl;
 	cerr << "features 2: " << cnz2 << endl;
 
@@ -329,9 +330,10 @@ void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat 
 		int i = 0;
 		while (cnz2 < (cnz1 * 0.9)) {
 			Mat blurred1;
-			bilateralFilter(decimated1, blurred1, -1, 50 + i, 50 + i);
+			GaussianBlur(decimated1, blurred1, {i * 2 + 1,i * 2 + 1}, i);
 			decimated1 = blurred1.clone();
-			cnz1 = feature_metric(decimated1);
+			cvtColor(decimated1, grey1, COLOR_RGB2GRAY);
+			cnz1 = feature_metric(grey1);
 			cerr << "redecimate features 1: " << cnz1 << "\r";
 			++i;
 		}
@@ -340,9 +342,10 @@ void decimate_features(const Mat &grey1, const Mat &grey2, Mat &decimated1, Mat 
 		int i = 0;
 		while (cnz1 < (cnz2 * 0.9)) {
 			Mat blurred2;
-			bilateralFilter(decimated2, blurred2, -1, 50 + i, 50 + i);
+			GaussianBlur(decimated2, blurred2, {i * 2 + 1,i * 2 + 1}, i);
 			decimated2 = blurred2.clone();
-			cnz2 = feature_metric(decimated2);
+			cvtColor(decimated2, grey2, COLOR_RGB2GRAY);
+			cnz2 = feature_metric(grey2);
 			cerr << "redecimate features 2: " << cnz2 << "\r";
 			++i;
 		}
@@ -476,7 +479,7 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	cerr << endl;
 }
 
-void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
+void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
 	cerr << "extract features" << endl;
 	Mat grey1, grey2, canny1, canny2;
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
@@ -540,12 +543,6 @@ void extract_features(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &f
 
 	show_image("fg1", foreground1);
 	show_image("fg2", foreground2);
-
-//	Mat decimated1;
-//	Mat decimated2;
-//	//get rid of too many features
-//	decimate_features(foreground1, foreground2, decimated1, decimated2);
-
 }
 
 pair<double, Point2f> get_orientation(const vector<Point> &pts)
@@ -604,14 +601,16 @@ void rotate_points(vector<Point2f>& pts, const Point2f& center, const double& an
 
 void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
 	cerr << "correcting alignment" << endl;
+	assert(!collected1.empty() && !collected1[0].empty()
+			&& !collected2.empty() && !collected2[0].empty());
 
 	vector<Point> flat1;
 	vector<Point> flat2;
 	for (auto &c : collected1) {
 		for (auto &v : c) {
 			if (c.size() > 1) {
-				RotatedRect rr1 = minAreaRect(v);
-				if (rr1.size.width > src1.cols * 0.5 || rr1.size.height > src1.rows * 0.5) {
+				RotatedRect rr = minAreaRect(v);
+				if (rr.size.width > src1.cols * 0.5 || rr.size.height > src1.rows * 0.5) {
 					continue;
 				}
 			}
@@ -627,8 +626,8 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 	for (auto &c : collected2) {
 		for (auto &v : c) {
 			if (c.size() > 1) {
-				RotatedRect rr2 = minAreaRect(v);
-				if (rr2.size.width > src2.cols * 0.5 || rr2.size.height > src2.rows * 0.5) {
+				RotatedRect rr = minAreaRect(v);
+				if (rr.size.width > src2.cols * 0.5 || rr.size.height > src2.rows * 0.5) {
 					continue;
 				}
 			}
@@ -744,11 +743,32 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 
 FaceDetector face;
 
+void scale_points(vector<Point2f>& pts, double coef) {
+	for(auto& pt : pts) {
+		pt.x *= coef;
+		pt.y *= coef;
+	}
+}
+
+void scale_features(Features& ft, double coef) {
+	scale_points(ft.chin_, coef);
+	scale_points(ft.top_nose_, coef);
+	scale_points(ft.bottom_nose_, coef);
+	scale_points(ft.left_eyebrow_, coef);
+	scale_points(ft.right_eyebrow_, coef);
+	scale_points(ft.left_eye_, coef);
+	scale_points(ft.right_eye_, coef);
+	scale_points(ft.outer_lips_, coef);
+	scale_points(ft.inside_lips_, coef);
+}
+
 void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	vector<vector<vector<Point>>> collected1;
 	vector<vector<vector<Point>>> collected2;
 	vector<Mat> contourLayers1;
 	vector<Mat> contourLayers2;
+	Mat decimated1;
+	Mat decimated2;
 
 	Features ft1;
 	Features ft2;
@@ -762,14 +782,16 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 
-		extract_features(orig1, orig2, goodFeatures1, goodFeatures2);
-		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
+		decimate_features(orig1, orig2, decimated1, decimated2);
+		extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
 		if (Settings::instance().enable_auto_align) {
 			correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
 			collected1.clear();
 			collected2.clear();
-			extract_features(corrected1, corrected2, goodFeatures1, goodFeatures2);
-			extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+			extract_foreground(corrected1, corrected2, goodFeatures1, goodFeatures2);
+			decimate_features(corrected1, corrected2, decimated1, decimated2);
+			extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
 		} else {
 			corrected1 = orig1.clone();
 			corrected2 = orig2.clone();
@@ -802,31 +824,45 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 		srcPoints2 = ft2.getAllPoints();
 
 		if (Settings::instance().enable_auto_align) {
+			cerr << orig1.size() << "/" << orig2.size() << endl;
+
+			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
+			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
+			double scale2 = w1 / w2;
+			cerr << "scale: " << scale2 << endl;
+			scale_features(ft2, scale2);
+			Mat scaled2;
+			resize(orig2, scaled2, Size{orig2.cols*scale2,orig2.rows*scale2});
+			ft2 = face.detect(scaled2);
+
 			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
 			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
 			Point2f center1(ft1.left_eye_[0].x + (eyeVec1.x / 2.0), ft1.left_eye_[0].y + (eyeVec1.y / 2.0));
 			Point2f center2(ft2.left_eye_[0].x + (eyeVec2.x / 2.0), ft2.left_eye_[0].y + (eyeVec2.y / 2.0));
 			double angle1 = atan2(eyeVec1.y, eyeVec1.x);
 			double angle2 = atan2(eyeVec2.y, eyeVec2.x);
-			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
-			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
-			double dy = center2.y - center1.y;
-			double dx;
-			dx = (w2 - w1) / 2.0;
-			corrected1 = orig1.clone();
+			double dy = center1.y - center2.y;
+			double dx = center1.x - center2.x;
 
 			Mat translated2;
-			translate(orig2, translated2, dx, dy);
+			translate(scaled2, translated2, dx, dy);
+
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
 			angle1 = angle1 < 0 ? angle1 + 360 : angle1;
 			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
 			std::cerr << "angle: " << angle1 << "/" << angle2 << endl;
 			double targetAng = angle2 - angle1;
-
-			rotate(translated2, corrected2, center2, targetAng);
+			Mat rotated2;
+			rotate(translated2, rotated2, center2, targetAng);
 			rotate_points(srcPoints2, center2, -targetAng);
+			cerr << rotated2.size() << "/" << orig2.size() << endl;
 
+			double dw = rotated2.cols - orig2.cols;
+			double dh = rotated2.rows - orig2.rows;
+			corrected2 = rotated2(Rect(dw / 2, dh / 2, orig2.cols, orig2.rows));
+			corrected1 = orig1.clone();
+			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
 			corrected1 = orig1.clone();
 			corrected2 = orig2.clone();
@@ -936,7 +972,7 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	cvtColor(src1, grey1, COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	show_image("matches reduced", matMatches);
+	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1017,34 +1053,34 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
 	equalizeHist(allContours1, allContours1);
-	equalizeHist(allContours1, allContours1);
+	equalizeHist(allContours2, allContours2);
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m2.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
+			m1.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m1.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
+			m2.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
-	m2(Range::all(), Range::all()) = 1.0;
+	Mat ones = Mat::ones(m1.rows, m1.cols, m1.type());
 	Mat mask;
-	m = (m2 * (1.0 - maskRatio) + m1 * maskRatio);
+	m = ones * (1.0 - maskRatio) + m2 * maskRatio;
 	show_image("blend", m);
-//	off_t kx = round(m.cols / 32.0);
-//	off_t ky = round(m.rows / 32.0);
-//	if (kx % 2 != 1)
-//		kx -= 1;
-//
-//	if (ky % 2 != 1)
-//		ky -= 1;
-//	GaussianBlur(m, mask, Size(kx, ky), 12);
+	off_t kx = round(m.cols / 32.0);
+	off_t ky = round(m.rows / 32.0);
+	if (kx % 2 != 1)
+		kx -= 1;
 
-	LaplacianBlending lb(l, r, m, Settings::instance().pyramid_levels);
+	if (ky % 2 != 1)
+		ky -= 1;
+	GaussianBlur(m, mask, Size(kx, ky), 12);
+
+	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend().clone();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
 	Mat analysis = dst.clone();

@@ -163,18 +163,19 @@ int main(int argc, char **argv) {
 
 	Mat image2;
 
-	Size szUnion = { image1.cols, image1.rows };
-	for (size_t i = 1; i < imageFiles.size(); ++i) {
+	Size szUnion(0,0);
+	for (size_t i = 0; i < imageFiles.size(); ++i) {
 		Mat img = imread(imageFiles[i]);
-		if(szUnion.width < img.cols) {
-			szUnion.width = img.cols;
+		double diag = hypot(img.cols, img.rows);
+		if(szUnion.width < diag) {
+			szUnion.width = diag;
 		}
 
-		if(szUnion.height < img.rows) {
-			szUnion.height = img.rows;
+		if(szUnion.height < diag) {
+			szUnion.height = diag;
 		}
 	}
-
+	cerr << "union: " << szUnion << endl;
 	Mat mUnion(szUnion.height, szUnion.width, image1.type(), {255,255,255});
 	if(srcScaling) {
 		Mat clone = image1.clone();
@@ -207,14 +208,14 @@ int main(int argc, char **argv) {
 				Mat clone = image2.clone();
 				resize(clone, image2, szUnion, INTER_CUBIC);
 			} else {
-				mUnion = Scalar::all(0);
+				mUnion = Scalar::all(255);
 				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
 				image2.copyTo(mUnion(cr));
 				image2 = mUnion.clone();
 			}
 
 			if (image1.cols != image2.cols || image1.rows != image2.rows) {
-				std::cerr << "Image file sizes don't match: " << imageFiles[i] << std::endl;
+				std::cerr << "Image file sizes don't match: " << image1.size() << "/" << image2.size() << "/" << szUnion << std::endl;
 				exit(3);
 			}
 		} catch (...) {
