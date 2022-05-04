@@ -70,6 +70,10 @@ to enhance noisy images.
 
 Options:
   -g [ --gui ]                        Show analysis windows.
+  -e [ --face ]                       Enable face detection mode. Use if your 
+                                      source material consists of faces only.
+  -r [ --radial ]                     Use a radial mask to emphasize features 
+                                      in the center.
   -a [ --autoalign ]                  Try to automatically align (rotate and 
                                       translate) the source material to match.
   -d [ --denoise ]                    Denoise images before morphing.
@@ -80,6 +84,8 @@ Options:
                                       default is automatic determination of 
                                       that number.
   -f [ --frames ] arg (=60)           The number of frames to generate.
+  -p [ --phase ] arg (=1)             A value from 0 to 1 telling poppy how far
+                                      into the morph to start from.
   -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
   -c [ --contour ] arg (=1)           How sensitive poppy is to contours.
