@@ -166,13 +166,12 @@ int main(int argc, char **argv) {
 	Size szUnion(0,0);
 	for (size_t i = 0; i < imageFiles.size(); ++i) {
 		Mat img = imread(imageFiles[i]);
-		double diag = hypot(img.cols, img.rows);
-		if(szUnion.width < diag) {
-			szUnion.width = diag;
+		if(szUnion.width < img.cols) {
+			szUnion.width = img.cols;
 		}
 
-		if(szUnion.height < diag) {
-			szUnion.height = diag;
+		if(szUnion.height < img.rows) {
+			szUnion.height = img.rows;
 		}
 	}
 	cerr << "union: " << szUnion << endl;
