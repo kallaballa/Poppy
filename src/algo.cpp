@@ -832,7 +832,7 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 			cerr << "scale: " << scale2 << endl;
 			scale_features(ft2, scale2);
 			Mat scaled2;
-			resize(orig2, scaled2, Size{orig2.cols*scale2,orig2.rows*scale2});
+			resize(orig2, scaled2, Size{int(std::round(orig2.cols*scale2)),int(std::round(orig2.rows*scale2))});
 			ft2 = face.detect(scaled2);
 
 			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
