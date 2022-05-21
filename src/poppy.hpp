@@ -16,7 +16,7 @@ namespace poppy {
 double ease_in_out_cubic(double x) {
 	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
 }
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().match_tolerance = matchTolerance;
@@ -24,7 +24,13 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 	Settings::instance().contour_sensitivity = contourSensitivity;
 	Settings::instance().enable_auto_align = autoAlign;
 	Settings::instance().enable_radial_mask = radialMask;
+	Settings::instance().enable_denoise = denoise;
+	Settings::instance().enable_src_scaling = srcScaling;
+#ifndef _NO_FACE_DETECT
 	Settings::instance().enable_face_detection = faceDetect;
+#else
+	Settings::instance().enable_face_detection = false;
+#endif
 }
 
 template<typename Twriter>
@@ -36,13 +42,19 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 	Mat corrected1, corrected2;
 	Mat allContours1, allContours2;
 	find_matches(image1, image2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
+#ifndef _WASM
 	if(srcPoints1.empty() || srcPoints2.empty()) {
 		cerr << "No matches found. Inserting dups." << endl;
-		for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
+		if(phase != -1) {
 			output.write(image1);
+		} else {
+			for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
+				output.write(image1);
+			}
 		}
 		return;
 	}
+#endif
 	if(!Settings::instance().enable_face_detection) {
 		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
 	} else {
@@ -71,7 +83,7 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 		if (shape > 1.0)
 			shape = 1.0;
 
-		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, shape);
+		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, linear, linear);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);

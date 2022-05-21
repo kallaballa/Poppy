@@ -1,9 +1,9 @@
-#ifdef WASM
-TARGET := poppy.html
-#else
+ifdef WASM
+TARGET := poppy.js
+else
 TARGET := poppy
-#endif
-SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp face.cpp
+endif
+SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp face.cpp canvas.cpp
 
 #precompiled headers
 HEADERS := 

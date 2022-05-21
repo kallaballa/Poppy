@@ -1,4 +1,6 @@
 #include "face.hpp"
+#ifndef _NO_FACE_DETECT
+
 #include <sstream>
 #include <vector>
 #include <string>
@@ -86,3 +88,4 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	return features;
 }
 } /* namespace poppy */
+#endif

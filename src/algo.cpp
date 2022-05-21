@@ -5,6 +5,7 @@
 #include "settings.hpp"
 #include "face.hpp"
 #include <iostream>
+#include <random>
 #include <string>
 #include <vector>
 #include <cassert>
@@ -491,17 +492,20 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	extract_foreground_mask(grey1, fgMask1);
 	extract_foreground_mask(grey2, fgMask2);
 
-	//create a radial mask to bias the contrast towards the center
-	Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
-	draw_radial_gradiant(radial);
+	Mat radialMaskFloat;
+	if(Settings::instance().enable_radial_mask) {
+		//create a radial mask to bias the contrast towards the center
+		Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
+		draw_radial_gradiant(radial);
+		radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
+	}
 
 	//convert the images and masks to floating point for the subsequent multiplication
-	Mat grey1Float, grey2Float, fgMask1Float, fgMask2Float, radialMaskFloat;
+	Mat grey1Float, grey2Float, fgMask1Float, fgMask2Float;
 	grey1.convertTo(grey1Float, CV_32F, 1.0 / 255.0);
 	grey2.convertTo(grey2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
-	radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
@@ -740,9 +744,9 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 //	}
 //	cerr << endl;
 }
-
+#ifndef _NO_FACE_DETECT
 FaceDetector face;
-
+#endif
 void scale_points(vector<Point2f>& pts, double coef) {
 	for(auto& pt : pts) {
 		pt.x *= coef;
@@ -772,11 +776,12 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 
 	Features ft1;
 	Features ft2;
-
+#ifndef _NO_FACE_DETECT
 	if(Settings::instance().enable_face_detection) {
 		ft1 = face.detect(orig1);
 		ft2 = face.detect(orig2);
 	}
+#endif
 
 	if(ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
@@ -817,6 +822,7 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 		}
 	} else {
+#ifndef _NO_FACE_DETECT
 		cerr << "face algorithm..." << endl;
 		assert(!ft1.empty() && !ft2.empty());
 		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
@@ -867,6 +873,8 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 			corrected1 = orig1.clone();
 			corrected2 = orig2.clone();
 		}
+#endif
+
 	}
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
@@ -888,10 +896,13 @@ tuple<double, double, double> calculate_sum_mean_and_sd(multimap<double, pair<Po
 
 	return {sum, mean, sqrt(standardDeviation / s)};
 }
+std::random_device rd;
+std::mt19937 g(rd());
+
 
 void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
-	std::random_shuffle(srcPoints1.begin(), srcPoints1.end());
+	std::shuffle(srcPoints1.begin(), srcPoints1.end(),g);
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
 		double dist = 0;

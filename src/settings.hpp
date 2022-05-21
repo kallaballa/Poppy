@@ -19,6 +19,8 @@ public:
 	bool enable_auto_align = false;
 	bool enable_radial_mask = false;
 	bool enable_face_detection = false;
+	bool enable_denoise = false;
+	bool enable_src_scaling = false;
 
 	static Settings& instance() {
 		if(instance_ == nullptr)

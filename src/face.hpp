@@ -3,16 +3,17 @@
 
 #include <opencv2/dnn.hpp>
 #include <vector>
+#ifndef _NO_FACE_DETECT
+
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
 
+#endif
 namespace poppy {
 
 using std::vector;
 using cv::Point2f;
-namespace d = dlib;
-
 struct Features {
   vector<Point2f> chin_;
   vector<Point2f> top_nose_;
@@ -43,6 +44,16 @@ struct Features {
 	  return getAllPoints().empty();
   }
 };
+#ifndef _NO_FACE_DETECT
+
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_processing/render_face_detections.h>
+#include <dlib/image_processing.h>
+
+
+using std::vector;
+using cv::Point2f;
+namespace d = dlib;
 
 class FaceDetector {
 public:
@@ -53,6 +64,6 @@ private:
 	d::frontal_face_detector detector_;
 };
 
+#endif
 } /* namespace poppy */
-
 #endif /* SRC_FACE_HPP_ */

@@ -1,5 +1,7 @@
 #include "poppy.hpp"
+#include "canvas.hpp"
 
+#include <mutex>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -8,16 +10,23 @@
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <thread>
+#include <algorithm>
+
+#include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
+#include <SDL/SDL_stdinc.h>
 
 #ifndef _WASM
 #include <boost/program_options.hpp>
+#else
+#include <emscripten.h>
 #endif
 
 #include <opencv2/photo/photo.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
 
 #ifndef _WASM
 namespace po = boost::program_options;
@@ -26,12 +35,185 @@ namespace po = boost::program_options;
 using namespace std;
 using namespace cv;
 
+volatile poppy::Canvas* canvas = nullptr;
+std::mutex frameBufferMtx;
+cv::Mat frameBuffer;
+
+struct ChannelWriter {
+	void write(Mat mat) {
+		std::unique_lock lock(frameBufferMtx);
+		frameBuffer = mat.clone();
+	}
+};
+
+struct SDLWriter {
+	void write(Mat mat) {
+		std::unique_lock lock(frameBufferMtx);
+		cvtColor(mat, mat, COLOR_RGB2RGBA);
+		SDL_Surface *sdl_img = SDL_CreateRGBSurface(0,
+		            mat.size().width, mat.size().height,
+		        24,
+		            mat.step, 0xff0000, 0x00ff00, 0x0000ff);
+		int bpp = sdl_img->format->BytesPerPixel;
+		/* Here p is the address to the pixel we want to set */
+		for(size_t i = 0; i < mat.cols; i++) {
+			for(size_t j = 0; j < mat.rows; j++) {
+				Uint8 *p = (((Uint8 *) sdl_img->pixels) + (j * sdl_img->pitch + i * bpp));
+				Uint32& pixel = mat.at<Uint32>(j,i);
+				*(Uint32*)p = pixel;
+			}
+		}
+		std::cerr << "draw" << std::endl;
+		canvas->draw((image_t const&)sdl_img->pixels);
+		SDL_FreeSurface(sdl_img);
+
+	}
+};
+
+SDLWriter sdl_writer;
+void loop() {
+	try {
+	if(canvas != nullptr) {
+		sdl_writer.write(frameBuffer);
+	}
+	} catch (std::exception& ex) {
+		std::cerr << "SDLWriter exception: " << ex.what() << std::endl;
+	}
+}
+
+Mat read_image(const string &path) {
+	SDL_Surface *loadedSurface = IMG_Load(path.c_str());
+	Mat result;
+	if (loadedSurface == NULL) {
+		printf("Unable to load image %s! SDL_image Error: %s\n", path.c_str(),
+		IMG_GetError());
+	} else {
+		if (loadedSurface->w == 0 && loadedSurface->h == 0) {
+			std::cerr << "Empty image loaded" << std::endl;
+			return Mat();
+		}
+		if(loadedSurface->format->BytesPerPixel == 1) {
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC1, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			cvtColor(result,result, COLOR_GRAY2BGR);
+		} else if(loadedSurface->format->BytesPerPixel == 3) {
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC3, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			if(loadedSurface->format->Rmask == 0x0000ff)
+				cvtColor(result,result, COLOR_RGB2BGR);
+		} else if(loadedSurface->format->BytesPerPixel == 4) {
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC4, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			if(loadedSurface->format->Rmask == 0x000000ff)
+				cvtColor(result,result, COLOR_RGBA2BGR);
+			else
+				cvtColor(result,result, COLOR_RGBA2RGB);
+		} else {
+			std::cerr << "Unsupported image depth" << std::endl;
+			return Mat();
+		}
+	}
+	return result;
+}
+
+void run(const std::vector<string> &imageFiles, const string &outputFile, double phase) {
+	for (auto p : imageFiles) {
+		if (!std::filesystem::exists(p))
+			throw std::runtime_error("File doesn't exist: " + p);
+	}
+
+	Mat image1, denoise1;
+	try {
+		image1 = read_image(imageFiles[0]);
+		if (poppy::Settings::instance().enable_denoise) {
+			fastNlMeansDenoising(image1, denoise1, 10, 7, 21);
+			denoise1.copyTo(image1);
+		}
+		if (image1.empty()) {
+			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
+			exit(2);
+		}
+	} catch (std::exception& ex) {
+		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << " Exception: " << ex.what() << std::endl;
+		exit(2);
+	}
+
+	Mat image2;
+
+	Size szUnion(0, 0);
+	for (size_t i = 0; i < imageFiles.size(); ++i) {
+		Mat img = read_image(imageFiles[i]);
+		if (szUnion.width < img.cols) {
+			szUnion.width = img.cols;
+		}
+
+		if (szUnion.height < img.rows) {
+			szUnion.height = img.rows;
+		}
+	}
+	cerr << "union: " << szUnion << endl;
+	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 255, 255, 255 });
+	if (poppy::Settings::instance().enable_src_scaling) {
+		Mat clone = image1.clone();
+		resize(clone, image1, szUnion, INTER_CUBIC);
+	} else {
+		Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
+		image1.copyTo(mUnion(centerRect));
+		image1 = mUnion.clone();
+	}
+
+#ifndef _WASM
+	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
+			Size(szUnion.width, szUnion.height));
+#else
+	if(canvas == nullptr)
+		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
+	ChannelWriter output;
+#endif
+
+	for (size_t i = 1; i < imageFiles.size(); ++i) {
+		Mat image2, denoise2;
+		try {
+			image2 = read_image(imageFiles[i]);
+			if (poppy::Settings::instance().enable_denoise) {
+				std::cerr << "Denoising -> " << endl;
+				fastNlMeansDenoising(image2, denoise2, 10, 7, 21);
+				denoise2.copyTo(image2);
+			}
+
+			if (image2.empty()) {
+				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
+				exit(2);
+			}
+
+			if (poppy::Settings::instance().enable_src_scaling) {
+				Mat clone = image2.clone();
+				resize(clone, image2, szUnion, INTER_CUBIC);
+			} else {
+				mUnion = Scalar::all(255);
+				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
+				image2.copyTo(mUnion(cr));
+				image2 = mUnion.clone();
+			}
+
+			if (image1.cols != image2.cols || image1.rows != image2.rows) {
+				std::cerr << "Image file sizes don't match: " << image1.size() << "/" << image2.size() << "/" << szUnion << std::endl;
+				exit(3);
+			}
+		} catch (std::exception& ex) {
+			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << " Exception: " << ex.what() << std::endl;
+			exit(2);
+		}
+		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
+		poppy::morph(image1, image2, phase, output);
+		image1 = image2.clone();
+	}
+}
+
 int main(int argc, char **argv) {
 	srand(time(NULL));
+
 #ifndef _WASM
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
-	double phase = 1;
+	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
@@ -40,9 +222,9 @@ int main(int argc, char **argv) {
 	bool face = poppy::Settings::instance().enable_face_detection;
 	bool srcScaling = false;
 	bool denoise = false;
-
-	string outputFile = "output.mkv";
 	std::vector<string> imageFiles;
+	string outputFile = "output.mkv";
+
 	po::options_description genericDesc("Options");
 	genericDesc.add_options()
 	("gui,g", "Show analysis windows.")
@@ -115,115 +297,61 @@ int main(int argc, char **argv) {
 		cerr << visible;
 		return 0;
 	}
-	if (vm.count("gui")) {
-		showGui = true;
-	}
 
-	if (vm.count("autoalign")) {
-		autoAlign = true;
-	}
-
-	if (vm.count("scaling")) {
-		srcScaling = true;
-	}
-
-	if (vm.count("denoise")) {
-		denoise = true;
-	}
-
-	if(vm.count("radial")) {
-		radial = true;
-	}
-
-	if(vm.count("face")) {
-		face = true;
-	}
-
-	for (auto p : imageFiles) {
-		if (!std::filesystem::exists(p))
-			throw std::runtime_error("File doesn't exist: " + p);
-	}
-
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face);
-	Mat image1, denoise1;
-	try {
-		image1 = imread(imageFiles[0]);
-		if(denoise) {
-			fastNlMeansDenoising(image1, denoise1, 10,7,21);
-			denoise1.copyTo(image1);
-		}
-		if (image1.empty()) {
-			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
-			exit(2);
-		}
-	} catch (...) {
-		std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
-		exit(2);
-	}
-
-	Mat image2;
-
-	Size szUnion(0,0);
-	for (size_t i = 0; i < imageFiles.size(); ++i) {
-		Mat img = imread(imageFiles[i]);
-		if(szUnion.width < img.cols) {
-			szUnion.width = img.cols;
-		}
-
-		if(szUnion.height < img.rows) {
-			szUnion.height = img.rows;
-		}
-	}
-	cerr << "union: " << szUnion << endl;
-	Mat mUnion(szUnion.height, szUnion.width, image1.type(), {255,255,255});
-	if(srcScaling) {
-		Mat clone = image1.clone();
-		resize(clone, image1, szUnion, INTER_CUBIC);
-	} else {
-		Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
-		image1.copyTo(mUnion(centerRect));
-		image1 = mUnion.clone();
-	}
-
-	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
-			Size(szUnion.width, szUnion.height));
-
-	for (size_t i = 1; i < imageFiles.size(); ++i) {
-		Mat image2, denoise2;
-		try {
-			image2 = imread(imageFiles[i]);
-			if(denoise) {
-				std::cerr << "Denoising -> " << endl;
-				fastNlMeansDenoising(image2, denoise2, 10,7,21);
-				denoise2.copyTo(image2);
-			}
-
-			if (image2.empty()) {
-				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
-				exit(2);
-			}
-
-			if(srcScaling) {
-				Mat clone = image2.clone();
-				resize(clone, image2, szUnion, INTER_CUBIC);
-			} else {
-				mUnion = Scalar::all(255);
-				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
-				image2.copyTo(mUnion(cr));
-				image2 = mUnion.clone();
-			}
-
-			if (image1.cols != image2.cols || image1.rows != image2.rows) {
-				std::cerr << "Image file sizes don't match: " << image1.size() << "/" << image2.size() << "/" << szUnion << std::endl;
-				exit(3);
-			}
-		} catch (...) {
-			std::cerr << "Can't read (invalid?) image file: " << imageFiles[i] << std::endl;
-			exit(2);
-		}
-		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
-		poppy::morph(image1, image2, phase, output);
-		image1 = image2.clone();
-	}
+	showGui = vm.count("gui");
+	autoAlign = vm.count("autoalign");
+	srcScaling = vm.count("scaling");
+	denoise = vm.count("denoise");
+	radial = vm.count("radial");
 #endif
+
+#ifndef _NO_FACE_DETECT
+	face = vm.count("face");
+#endif
+
+#ifndef _WASM
+	run(imageFiles, outputFile, showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, phase);
+#else
+		std::cerr << "Entering main loop..." << std::endl;
+		std::cerr << "loaded" << std::endl;
+
+		emscripten_set_main_loop(loop, 0, true);
+		std::cerr << "Main loop canceled..." << std::endl;
+#endif
+}
+
+extern "C" {
+static double morph_phase = 0;
+int load_images(char *file_path1, char *file_path2) {
+	try {
+		std::vector<string> imageFiles;
+		bool showGui = poppy::Settings::instance().show_gui;
+		size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+		double matchTolerance = poppy::Settings::instance().match_tolerance;
+		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
+		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
+		bool autoAlign = poppy::Settings::instance().enable_auto_align;
+		bool radial = poppy::Settings::instance().enable_radial_mask;
+		bool face = poppy::Settings::instance().enable_face_detection;
+		bool srcScaling = false;
+		bool denoise = false;
+		string outputFile = "output.mkv";
+
+		imageFiles.push_back(string(file_path1));
+		imageFiles.push_back(string(file_path2));
+		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling);
+		std::thread t([=](){
+//			while(morph_phase < 1.0) {
+				run(imageFiles, outputFile, -1);
+//				morph_phase+=1.0/numberOfFrames;
+//			}
+		});
+		t.detach();
+		morph_phase = 0;
+	} catch(...) {
+//		std::cerr << "caught: " << ex.what() << std::endl;
+		std::cerr << "caught" << std::endl;
+	}
+	return 0;
+}
 }
