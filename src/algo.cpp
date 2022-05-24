@@ -929,34 +929,34 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		closest->x = -1;
 		closest->y = -1;
 	}
+
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	assert(!distanceMap.empty());
 	if(get<1>(distribution) == 0 || get<2>(distribution) == 0)
 		return;
 	srcPoints1.clear();
 	srcPoints2.clear();
-	double distance = (*distanceMap.rbegin()).first;
 	double mean = get<1>(distribution);
-	double sd = get<2>(distribution);
-	double highZScore = (fabs(distance - mean) / sd) / (max(sd, mean) - fabs(sd - mean));
-	assert(highZScore > 0);
-	double zScore = 0;
 	double value = 0;
-	double limit = 0.035 * Settings::instance().match_tolerance * highZScore * fabs(sd - mean);
+	double limit = mean;
 
-	for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
-		value = (*it).first;
-		zScore = (mean / sd) - fabs((value - mean) / sd);
+	do {
+		srcPoints1.clear();
+		srcPoints2.clear();
+		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
+			value = (*it).first;
 
-		if (value < mean && zScore < limit) {
-			srcPoints1.push_back((*it).second.first);
-			srcPoints2.push_back((*it).second.second);
+			if (value > 0 && value < limit) {
+				srcPoints1.push_back((*it).second.first);
+				srcPoints2.push_back((*it).second.second);
+			}
 		}
-	}
 
-	assert(srcPoints1.size() == srcPoints2.size());
-	check_points(srcPoints1, cols, rows);
-	check_points(srcPoints2, cols, rows);
+		assert(srcPoints1.size() == srcPoints2.size());
+		check_points(srcPoints1, cols, rows);
+		check_points(srcPoints2, cols, rows);
+		limit *= 0.25;
+	} while(srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
 }
 
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, MatSize sz) {

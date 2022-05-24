@@ -39,8 +39,8 @@ else
 CXX     := em++
 CXXFLAGS += -D_NO_FACE_DETECT -D_WASM -I../third/opencv-4.5.5/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.5.5/modules/imgproc/include/ -I../third/opencv-4.5.5/modules/features2d/include/ -I../third/opencv-4.5.5/modules/flann/include/ -I../third/opencv-4.5.5/modules/videoio/include/ -I../third/opencv-4.5.5/modules/highgui/include/  -I../third/opencv-4.5.5/modules/calib3d/include/ -I../third/opencv-4.5.5/modules/video/include/ -I../third/opencv-4.5.5/modules/imgcodecs/include/ -I../third/opencv-4.5.5/include/ -I../third/opencv-4.5.5/modules/dnn/include/ -I../third/opencv-4.5.5/modules/photo/include/
 LDFLAGS += -L../third/build_wasm/lib/ -L../third/build_wasm/3rdparty/lib/
-EMCXXFLAGS += -flto -s USE_PTHREADS=1 -s DISABLE_EXCEPTION_CATCHING=0
-EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s INITIAL_MEMORY=419430400 -s TOTAL_STACK=52428800 -s WASM_BIGINT -s MALLOC=emmalloc -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s DISABLE_EXCEPTION_CATCHING=0
+EMCXXFLAGS += -flto -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s DISABLE_EXCEPTION_CATCHING=0
+EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s INITIAL_MEMORY=419430400 -s TOTAL_STACK=52428800 -s WASM_BIGINT -s MALLOC=emmalloc -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s DISABLE_EXCEPTION_CATCHING=0 -s ALLOW_MEMORY_GROWTH=1
 LIBS += -lzlib -lopencv_calib3d -lopencv_core -lopencv_dnn -lopencv_features2d -lopencv_flann -lopencv_imgproc -lopencv_objdetect -lopencv_photo -lopencv_video
 
 ifdef AUTOVECTOR

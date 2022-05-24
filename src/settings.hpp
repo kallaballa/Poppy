@@ -12,8 +12,8 @@ private:
 public:
 	bool show_gui = false;
 	double number_of_frames = 60;
-	double match_tolerance = 1;
 	double contour_sensitivity = 1;
+	double match_tolerance = 5;
 	off_t max_keypoints = -1;
 	size_t pyramid_levels = 4;
 	bool enable_auto_align = false;

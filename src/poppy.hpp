@@ -63,8 +63,6 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 
 	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
-	double shape = 0;
-//	double mask = 0;
 
 	image1 = corrected1.clone();
 	image2 = corrected2.clone();
@@ -74,14 +72,10 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 			srcPoints1 = lastMorphedPoints;
 		morphedPoints.clear();
 
-		linear = j * step;
-		shape = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-//		mask = ((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-		shape = (1 - pow(1 - shape, 3)) * phase;
-		//		mask = sin(pow(linear,3) * M_PI/2);
-//		mask = pow(tan(tan(tan(shape * M_PI/4)* M_PI/4)* M_PI/4),4);
-		if (shape > 1.0)
-			shape = 1.0;
+		if(phase != -1)
+			linear = j * (step / 5.0) * phase;
+		else
+			linear = j * (step / 5.0);
 
 		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, linear, linear);
 		image1 = morphed.clone();

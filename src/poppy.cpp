@@ -36,48 +36,52 @@ using namespace std;
 using namespace cv;
 
 volatile poppy::Canvas* canvas = nullptr;
+volatile bool running = false;
+
 std::mutex frameBufferMtx;
 cv::Mat frameBuffer;
 
 struct ChannelWriter {
-	void write(Mat mat) {
+	void write(Mat& mat) {
 		std::unique_lock lock(frameBufferMtx);
 		frameBuffer = mat.clone();
 	}
 };
 
 struct SDLWriter {
-	void write(Mat mat) {
+	void write(Mat& mat) {
 		std::unique_lock lock(frameBufferMtx);
+		if(mat.empty())
+			return;
 		cvtColor(mat, mat, COLOR_RGB2RGBA);
 		SDL_Surface *sdl_img = SDL_CreateRGBSurface(0,
 		            mat.size().width, mat.size().height,
 		        24,
 		            mat.step, 0xff0000, 0x00ff00, 0x0000ff);
 		int bpp = sdl_img->format->BytesPerPixel;
-		/* Here p is the address to the pixel we want to set */
-		for(size_t i = 0; i < mat.cols; i++) {
-			for(size_t j = 0; j < mat.rows; j++) {
+		for(int i = 0; i < mat.cols; i++) {
+			for(int j = 0; j < mat.rows; j++) {
 				Uint8 *p = (((Uint8 *) sdl_img->pixels) + (j * sdl_img->pitch + i * bpp));
-				Uint32& pixel = mat.at<Uint32>(j,i);
-				*(Uint32*)p = pixel;
+				Uint8 *srcPix = (Uint8 *)&mat.at<Uint32>(j,i);
+				p[0] = srcPix[2];
+				p[1] = srcPix[1];
+				p[2] = srcPix[0];
 			}
 		}
 		std::cerr << "draw" << std::endl;
 		canvas->draw((image_t const&)sdl_img->pixels);
 		SDL_FreeSurface(sdl_img);
-
 	}
 };
 
 SDLWriter sdl_writer;
 void loop() {
 	try {
-	if(canvas != nullptr) {
-		sdl_writer.write(frameBuffer);
-	}
+		if(canvas != nullptr && running) {
+			sdl_writer.write(frameBuffer);
+		}
 	} catch (std::exception& ex) {
-		std::cerr << "SDLWriter exception: " << ex.what() << std::endl;
+		std::cerr << "Main loop exception: " << ex.what() << std::endl;
 	}
 }
 
@@ -220,8 +224,8 @@ int main(int argc, char **argv) {
 	bool autoAlign = poppy::Settings::instance().enable_auto_align;
 	bool radial = poppy::Settings::instance().enable_radial_mask;
 	bool face = poppy::Settings::instance().enable_face_detection;
-	bool srcScaling = false;
-	bool denoise = false;
+	bool srcScaling = true;
+	bool denoise = poppy::Settings::instance().enable_denoise;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -284,7 +288,7 @@ int main(int argc, char **argv) {
 		cerr << "and it will be removed in the near future." << endl;
 		cerr << "The key point limit (--maxkey) is useful for large" << endl;
 		cerr << "images with lots of features which could easily yield" << endl;
-		cerr << "two many keypoints for a particular machine. e.g. " << endl;
+		cerr << "too many keypoints for a particular machine. e.g. " << endl;
 		cerr << "embedded systems. Please note that the feature extractor" << endl;
 		cerr << "generates a larger number of key points than defined" << endl;
 		cerr << "by this limit and only decides to retain that number" << endl;
@@ -310,30 +314,31 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	run(imageFiles, outputFile, showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, phase);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling);
+	run(imageFiles, outputFile, phase);
 #else
-		std::cerr << "Entering main loop..." << std::endl;
-		std::cerr << "loaded" << std::endl;
+	std::cerr << "Entering main loop..." << std::endl;
+	std::cerr << "loaded" << std::endl;
 
-		emscripten_set_main_loop(loop, 0, true);
-		std::cerr << "Main loop canceled..." << std::endl;
+	emscripten_set_main_loop(loop, 0, true);
+	std::cerr << "Main loop canceled..." << std::endl;
 #endif
 }
 
 extern "C" {
-static double morph_phase = 0;
-int load_images(char *file_path1, char *file_path2) {
+
+int load_images(char *file_path1, char *file_path2, double tolerance) {
 	try {
 		std::vector<string> imageFiles;
 		bool showGui = poppy::Settings::instance().show_gui;
 		size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
-		double matchTolerance = poppy::Settings::instance().match_tolerance;
+		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 		bool autoAlign = poppy::Settings::instance().enable_auto_align;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
 		bool face = poppy::Settings::instance().enable_face_detection;
-		bool srcScaling = false;
+		bool srcScaling = true;
 		bool denoise = false;
 		string outputFile = "output.mkv";
 
@@ -341,13 +346,11 @@ int load_images(char *file_path1, char *file_path2) {
 		imageFiles.push_back(string(file_path2));
 		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling);
 		std::thread t([=](){
-//			while(morph_phase < 1.0) {
+				running = true;
 				run(imageFiles, outputFile, -1);
-//				morph_phase+=1.0/numberOfFrames;
-//			}
+				running = false;
 		});
 		t.detach();
-		morph_phase = 0;
 	} catch(...) {
 //		std::cerr << "caught: " << ex.what() << std::endl;
 		std::cerr << "caught" << std::endl;

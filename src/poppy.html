@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Poppy - Free Image Morping!</title>
+<meta name="author" content="amir@viel-zu.org">
+<meta name="viewport" content="width=768">
+<style>
+
+body {
+	position: relative;
+	width: 98vw;
+}
+
+#upload {
+	position: fixed;
+	top: calc(100% - 4vh);
+	left: 1em;
+	width: 75em;
+	margin: auto;
+	color: rgba(255, 255, 255, 0.8);
+	max-height: 1.8em;
+	font-size: 1em;
+	padding: 0.1em;
+	visibility: hidden;
+}
+
+#content {
+	position: relative;
+	padding-bottom: calc(100% * 9/ 16);
+}
+
+#canvas {
+	position: absolute;
+	top: 0;
+	left: 0;
+	/*cursor: none;*/
+}
+</style>
+<script>
+	function resize_canvas() {
+		var canvas = document.getElementById('canvas');
+		var container = document.getElementById("content");
+		canvas.style.width = container.clientWidth + "px";
+		canvas.style.height = container.clientHeight + "px";
+	}
+</script>
+</head>
+<body style="background-color: #000000;">
+	<div id="content">
+		<canvas id="canvas"></canvas>
+		<script>
+			var canvas = document.getElementById('canvas');
+			var container = document.getElementById("content");
+
+			var Module = {
+				onRuntimeInitialized: function() {
+					document.getElementById("upload").style.visibility = "visible";
+// 					canvas.style.width = container.clientWidth + "px";
+// 					canvas.style.height = container.clientHeight + "px";
+				},
+				print : (function() {
+					return function(message) {
+						console.log(message);
+					};
+				})(),
+				printErr : function(message) {
+					console.error(message);
+				},
+				canvas : (function() {
+					return document.getElementById('canvas');
+				})()
+			};
+// 			window.addEventListener("resize", function(e) {
+// 				canvas.style.width = container.clientWidth + "px";
+// 				canvas.style.height = container.clientHeight + "px";
+// 			}, true);
+
+			let reader1;
+			let reader2;
+
+			function load_files() {
+				document.getElementById('startbtn').disabled = true;
+				reader1 = new FileReader();
+				reader2 = new FileReader();
+				let file1 = document.getElementById('imageload1').files[0];
+				let file2 = document.getElementById('imageload2').files[0];
+
+				reader1.readAsArrayBuffer(file1);
+				reader1.addEventListener('loadend', function(e) {
+					reader2.addEventListener('loadend', load_images);
+					reader2.readAsArrayBuffer(file2);
+				});
+
+			}
+
+			function load_images(e) {
+				let result1 = reader1.result;
+				const uint8_view1 = new Uint8Array(result1);
+				let result2 = reader2.result;
+				const uint8_view2 = new Uint8Array(result2);
+				let tolerance  = document.getElementById('tolerance').value;
+
+				FS.writeFile('temp1.png', uint8_view1)
+				FS.writeFile('temp2.png', uint8_view2)
+
+				Module.ccall('load_images', 'number', [ 'string', 'string', 'number' ], [
+						'temp1.png', 'temp2.png', tolerance ])
+			}
+		</script>
+                <div id="upload">
+                        <label for="imageload1">First image: </label><input type="file" id="imageload1" accept="image/png, image/jpeg"/>
+                        <label for="imageload2">Second image: </label><input type="file" id="imageload2"
+                        accept="image/png, image/jpeg"/>
+                        <label for="tolerance">Tolerance: </label><input type="range" min="1" max="16" value="4" id="tolerance">
+                        <button id="startbtn" onclick="load_files()">Start</button>
+                </div>
+
+		<script src="./get.php?res=poppy.js"></script>
+
+	</div>
+</body>
+</html>
