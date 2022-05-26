@@ -1,19 +1,22 @@
 #ifndef SRC_FACE_HPP_
 #define SRC_FACE_HPP_
 
-#include <opencv2/dnn.hpp>
 #include <vector>
+#include <opencv2/opencv.hpp>
+
 #ifndef _NO_FACE_DETECT
-
-#include <dlib/image_processing/frontal_face_detector.h>
-#include <dlib/image_processing/render_face_detections.h>
-#include <dlib/image_processing.h>
-
+#include <opencv2/face.hpp>
+#include <opencv2/face/facemark.hpp>
 #endif
+
 namespace poppy {
 
 using std::vector;
 using cv::Point2f;
+#ifndef _NO_FACE_DETECT
+using namespace cv::face;
+#endif
+
 struct Features {
   vector<Point2f> chin_;
   vector<Point2f> top_nose_;
@@ -44,26 +47,31 @@ struct Features {
 	  return getAllPoints().empty();
   }
 };
-#ifndef _NO_FACE_DETECT
-
-#include <dlib/image_processing/frontal_face_detector.h>
-#include <dlib/image_processing/render_face_detections.h>
-#include <dlib/image_processing.h>
-
-
-using std::vector;
-using cv::Point2f;
-namespace d = dlib;
 
 class FaceDetector {
+	struct Conf {
+	    cv::String model_path;
+	    double scaleFactor;
+	    Conf(std::string s, double d){
+	        model_path = s;
+	        scaleFactor = d;
+	#ifndef _NO_FACE_DETECT
+	        face_detector.load(model_path);
+	#endif
+	    };
+	#ifndef _NO_FACE_DETECT
+	    CascadeClassifier face_detector;
+	#endif
+	};
 public:
-    explicit FaceDetector();
+    explicit FaceDetector(std::string cascade_model, double scale);
     Features detect(const cv::Mat &frame);
 private:
-	d::shape_predictor sp_;
-	d::frontal_face_detector detector_;
+    Conf cfg;
+#ifndef _NO_FACE_DETECT
+    Ptr<Facemark> facemark;
+#endif
 };
 
-#endif
 } /* namespace poppy */
 #endif /* SRC_FACE_HPP_ */

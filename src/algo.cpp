@@ -744,9 +744,7 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 //	}
 //	cerr << endl;
 }
-#ifndef _NO_FACE_DETECT
-FaceDetector face;
-#endif
+FaceDetector face("assets/lbpcascade_frontalface.xml", 1.4);
 void scale_points(vector<Point2f>& pts, double coef) {
 	for(auto& pt : pts) {
 		pt.x *= coef;
@@ -776,12 +774,11 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 
 	Features ft1;
 	Features ft2;
-#ifndef _NO_FACE_DETECT
+
 	if(Settings::instance().enable_face_detection) {
 		ft1 = face.detect(orig1);
 		ft2 = face.detect(orig2);
 	}
-#endif
 
 	if(ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
@@ -822,7 +819,6 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 		}
 	} else {
-#ifndef _NO_FACE_DETECT
 		cerr << "face algorithm..." << endl;
 		assert(!ft1.empty() && !ft2.empty());
 		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
@@ -873,8 +869,6 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 			corrected1 = orig1.clone();
 			corrected2 = orig2.clone();
 		}
-#endif
-
 	}
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;

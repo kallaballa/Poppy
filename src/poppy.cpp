@@ -307,10 +307,8 @@ int main(int argc, char **argv) {
 	srcScaling = vm.count("scaling");
 	denoise = vm.count("denoise");
 	radial = vm.count("radial");
-#endif
-
-#ifndef _NO_FACE_DETECT
 	face = vm.count("face");
+	std::cerr << face << std::endl;
 #endif
 
 #ifndef _WASM

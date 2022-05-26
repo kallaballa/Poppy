@@ -19,15 +19,15 @@ ffmpeg -y -i "$LOW" ../demo/cars.gif
 mencoder -vf scale=360:202 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/browns.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/browns.gif
 
-../src/poppy $OPTS -o ../videos/catdog.mkv cat.png dog.png cat.png
+../src/poppy -t16 $OPTS -o ../videos/catdog.mkv cat.png dog.png cat.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/catdog.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/catdog.gif
 
-../src/poppy -t8 $OPTS -o ../videos/squarecircle.mkv circle.png square.png circle.png
+../src/poppy -t16 $OPTS -o ../videos/squarecircle.mkv circle.png square.png circle.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/squarecircle.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/squarecircle.gif
 
-../src/poppy -t8 $OPTS -o ../videos/numbers.mkv 1st.png 2nd.png 3rd.png 2nd.png 1st.png
+../src/poppy -t16 $OPTS -o ../videos/numbers.mkv 1st.png 2nd.png 3rd.png 2nd.png 1st.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/numbers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/numbers.gif
 

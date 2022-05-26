@@ -26,11 +26,7 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 	Settings::instance().enable_radial_mask = radialMask;
 	Settings::instance().enable_denoise = denoise;
 	Settings::instance().enable_src_scaling = srcScaling;
-#ifndef _NO_FACE_DETECT
 	Settings::instance().enable_face_detection = faceDetect;
-#else
-	Settings::instance().enable_face_detection = false;
-#endif
 }
 
 template<typename Twriter>
@@ -55,6 +51,7 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 		return;
 	}
 #endif
+	cerr << Settings::instance().enable_face_detection << endl;
 	if(!Settings::instance().enable_face_detection) {
 		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
 	} else {
@@ -73,9 +70,9 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 		morphedPoints.clear();
 
 		if(phase != -1)
-			linear = j * (step / 5.0) * phase;
+			linear = j * step * phase;
 		else
-			linear = j * (step / 5.0);
+			linear = j * step;
 
 		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, linear, linear);
 		image1 = morphed.clone();
