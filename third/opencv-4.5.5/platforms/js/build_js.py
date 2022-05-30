@@ -82,6 +82,8 @@ class Builder:
         cmd = [
             "cmake",
             "-DPYTHON_DEFAULT_EXECUTABLE=%s" % sys.executable,
+               "-DCMAKE_INSTALL_PREFIX=install",
+               "-DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib-4.5.5/modules",
                "-DENABLE_PIC=FALSE", # To workaround emscripten upstream backend issue https://github.com/emscripten-core/emscripten/issues/8761
                "-DCMAKE_BUILD_TYPE=Release",
                "-DCMAKE_TOOLCHAIN_FILE='%s'" % self.get_toolchain_file(),
@@ -124,11 +126,12 @@ class Builder:
                "-DBUILD_opencv_calib3d=ON",
                "-DBUILD_opencv_dnn=ON",
                "-DBUILD_opencv_features2d=ON",
+               "-DBUILD_opencv_face=ON",
                "-DBUILD_opencv_flann=ON",  # No bindings provided. This module is used as a dependency for other modules.
                "-DBUILD_opencv_gapi=OFF",
                "-DBUILD_opencv_ml=OFF",
                "-DBUILD_opencv_photo=ON",
-               "-DBUILD_opencv_imgcodecs=OFF",
+               "-DBUILD_opencv_imgcodecs=ON",
                "-DBUILD_opencv_shape=OFF",
                "-DBUILD_opencv_videoio=OFF",
                "-DBUILD_opencv_videostab=OFF",

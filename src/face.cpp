@@ -8,35 +8,33 @@
 #include <opencv2/face/facemark.hpp>
 #endif
 
-namespace poppy {
-using namespace cv;
-using namespace std;
 
+namespace poppy {
 
 FaceDetector::FaceDetector(std::string cascade_model, double scale) : cfg(cascade_model, scale) {
-#ifndef _NO_FACE_DETECT
-	FacemarkLBF::Params params;
-	params.model_filename = "assets/lbfmodel.yaml";
-	facemark->loadModel(params.model_filename);
-#endif
+	facemark = FacemarkLBF::create();
+
+	try {
+		facemark->loadModel("assets/lbfmodel.yaml");
+	}	catch(...) {
+		facemark->loadModel("../assets/lbfmodel.yaml");
+	}
 }
 
 Features FaceDetector::detect(const cv::Mat &frame) {
 	Features features;
 #ifndef _NO_FACE_DETECT
+	if(frame.empty())
+		return features;
+
 	Mat img = frame.clone();
 
 	vector<Rect> faces;
 	resize(img,img,Size(460,460),0,0,INTER_LINEAR_EXACT);
 	Mat gray;
-	if(img.channels()>1){
-	    cvtColor(img,gray,COLOR_BGR2GRAY);
-	}
-	else{
-	    gray = img.clone();
-	}
+	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	cfg.face_detector.detectMultiScale( gray, faces, 1.1, 3,0, Size(30, 30) );
+	cfg.face_detector.detectMultiScale( gray, faces, 1.1, 2, 0, Size(30, 30) );
 
 	cerr << "Number of faces detected: " << faces.size() << endl;
 	if (faces.empty())

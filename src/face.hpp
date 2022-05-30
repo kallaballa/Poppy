@@ -11,8 +11,9 @@
 
 namespace poppy {
 
-using std::vector;
-using cv::Point2f;
+using namespace cv;
+using namespace std;
+
 #ifndef _NO_FACE_DETECT
 using namespace cv::face;
 #endif

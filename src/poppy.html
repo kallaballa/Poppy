@@ -14,15 +14,15 @@ body {
 
 #upload {
 	position: fixed;
-	top: calc(100% - 4vh);
-	left: 1em;
-	width: 75em;
+	top: 1em;
+	left: calc(100% - 29vw);
+	width: 25em;
 	margin: auto;
 	color: rgba(255, 255, 255, 0.8);
 	max-height: 1.8em;
 	font-size: 1em;
 	padding: 0.1em;
-	visibility: hidden;
+/* 	visibility: hidden; */
 }
 
 #content {
@@ -100,20 +100,32 @@ body {
 				let result2 = reader2.result;
 				const uint8_view2 = new Uint8Array(result2);
 				let tolerance  = document.getElementById('tolerance').value;
-
+				let face  = false;
 				FS.writeFile('temp1.png', uint8_view1)
 				FS.writeFile('temp2.png', uint8_view2)
 
-				Module.ccall('load_images', 'number', [ 'string', 'string', 'number' ], [
-						'temp1.png', 'temp2.png', tolerance ])
+				Module.ccall('load_images', 'number', [ 'string', 'string', 'number', 'boolean' ], [
+						'temp1.png', 'temp2.png', tolerance, face ])
 			}
 		</script>
                 <div id="upload">
+						<table><tr><td>
                         <label for="imageload1">First image: </label><input type="file" id="imageload1" accept="image/png, image/jpeg"/>
+                        </td></tr>
+                        <tr><td>
                         <label for="imageload2">Second image: </label><input type="file" id="imageload2"
                         accept="image/png, image/jpeg"/>
-                        <label for="tolerance">Tolerance: </label><input type="range" min="1" max="16" value="4" id="tolerance">
+                        </td></tr>
+                        <tr><td>
+                        <label for="tolerance">Tolerance: </label><input type="range" min="1" max="16" value="4" id="tolerance"/>
+                        </td></tr>
+<!--                         <tr><td> -->
+<!--                         <label for="face">Are both images faces? </label><input type="checkbox" id="face" checked/> -->
+<!--                         </td></tr> -->
+                        <tr><td>
                         <button id="startbtn" onclick="load_files()">Start</button>
+                        </td></tr>
+                        </table>
                 </div>
 
 		<script src="./get.php?res=poppy.js"></script>

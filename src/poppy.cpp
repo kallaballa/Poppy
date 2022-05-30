@@ -68,7 +68,6 @@ struct SDLWriter {
 				p[2] = srcPix[0];
 			}
 		}
-		std::cerr << "draw" << std::endl;
 		canvas->draw((image_t const&)sdl_img->pixels);
 		SDL_FreeSurface(sdl_img);
 	}
@@ -164,8 +163,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 
 #ifndef _WASM
-	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), 30,
-			Size(szUnion.width, szUnion.height));
+	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), poppy::Settings::instance().frame_rate, Size(szUnion.width, szUnion.height));
 #else
 	if(canvas == nullptr)
 		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
@@ -217,6 +215,7 @@ int main(int argc, char **argv) {
 #ifndef _WASM
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+	double frameRate = poppy::Settings::instance().frame_rate;
 	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
@@ -238,6 +237,7 @@ int main(int argc, char **argv) {
 	("denoise,d", "Denoise images before morphing.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
+	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
@@ -312,7 +312,7 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
 	run(imageFiles, outputFile, phase);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
@@ -325,24 +325,24 @@ int main(int argc, char **argv) {
 
 extern "C" {
 
-int load_images(char *file_path1, char *file_path2, double tolerance) {
+int load_images(char *file_path1, char *file_path2, double tolerance, bool face) {
 	try {
 		std::vector<string> imageFiles;
 		bool showGui = poppy::Settings::instance().show_gui;
 		size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+		double frameRate = poppy::Settings::instance().frame_rate;
 		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 		bool autoAlign = poppy::Settings::instance().enable_auto_align;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
-		bool face = poppy::Settings::instance().enable_face_detection;
 		bool srcScaling = true;
 		bool denoise = false;
 		string outputFile = "output.mkv";
 
 		imageFiles.push_back(string(file_path1));
 		imageFiles.push_back(string(file_path2));
-		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling);
+		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
 		std::thread t([=](){
 				running = true;
 				run(imageFiles, outputFile, -1);

@@ -16,9 +16,10 @@ namespace poppy {
 double ease_in_out_cubic(double x) {
 	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
 }
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
+	Settings::instance().frame_rate = frameRate;
 	Settings::instance().match_tolerance = matchTolerance;
 	Settings::instance().max_keypoints = maxKeypoints;
 	Settings::instance().contour_sensitivity = contourSensitivity;
@@ -92,6 +93,9 @@ void morph(Mat &image1, Mat &image2, double phase, Twriter &output) {
 		}
 #endif
 		std::cerr << int((j / double(Settings::instance().number_of_frames)) * 100.0) << "%\r";
+#ifdef WASM
+		std::cerr << std::endl;
+#endif
 	}
 	morphed.release();
 	srcPoints1.clear();

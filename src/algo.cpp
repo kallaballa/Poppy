@@ -744,7 +744,7 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 //	}
 //	cerr << endl;
 }
-FaceDetector face("assets/lbpcascade_frontalface.xml", 1.4);
+FaceDetector face("../assets/lbpcascade_frontalface.xml", 1.4);
 void scale_points(vector<Point2f>& pts, double coef) {
 	for(auto& pt : pts) {
 		pt.x *= coef;
