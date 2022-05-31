@@ -57,7 +57,7 @@ detrimental effect, which makes it virtually obsolete
 and it will be removed in the near future.
 The key point limit (--maxkey) is useful for large
 images with lots of features which could easily yield
-two many keypoints for a particular machine. e.g. 
+too many keypoints for a particular machine. e.g. 
 embedded systems. Please note that the feature extractor
 generates a larger number of key points than defined
 by this limit and only decides to retain that number
@@ -77,16 +77,18 @@ Options:
   -a [ --autoalign ]                  Try to automatically align (rotate and 
                                       translate) the source material to match.
   -d [ --denoise ]                    Denoise images before morphing.
+  -n [ --distance ]                   Calculate the morph distance and return.
   -s [ --scaling ]                    Instead of extending the source images, 
                                       to match in size, use scaling.
   -m [ --maxkey ] arg (=-1)           Manual override for the number of 
                                       keypoints to retain during detection. The
                                       default is automatic determination of 
                                       that number.
+  -b [ --rate ] arg (=30)             The frame rate of the output video.
   -f [ --frames ] arg (=60)           The number of frames to generate.
-  -p [ --phase ] arg (=1)             A value from 0 to 1 telling poppy how far
+  -p [ --phase ] arg (=-1)            A value from 0 to 1 telling poppy how far
                                       into the morph to start from.
-  -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
+  -t [ --tolerance ] arg (=5)         How tolerant poppy is when matching 
                                       keypoints.
   -c [ --contour ] arg (=1)           How sensitive poppy is to contours.
   -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to.
