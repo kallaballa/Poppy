@@ -55,11 +55,9 @@ class FaceDetector {
 	    Conf(double d){
 	        scaleFactor = d;
 #ifndef _WASM
-	        try {
 	        	face_detector.load("src/assets/lbpcascade_frontalface.xml");
-	        } catch (...) {
-	        	face_detector.load("../src/assets/lbpcascade_frontalface.xml");
-	        }
+	        	if(face_detector.empty())
+	        		face_detector.load("../src/assets/lbpcascade_frontalface.xml");
 #else
         	face_detector.load("assets/lbpcascade_frontalface.xml");
 #endif
