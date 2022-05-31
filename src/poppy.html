@@ -43,6 +43,33 @@ body {
 }
 </style>
 <script>
+	function Uint8ToBase64(u8Arr){
+		var CHUNK_SIZE = 0x8000; //arbitrary number
+		var index = 0;
+		var length = u8Arr.length;
+		var result = '';
+		var slice;
+		while (index < length) {
+			slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length));
+			result += String.fromCharCode.apply(null, slice);
+			index += CHUNK_SIZE;
+		}
+		return btoa(result);
+	}
+	function download(filename, data) {
+		alert(typeof(data));
+		var element = document.createElement('a');
+		element.setAttribute('href', 'data:image/gif;base64,' + Uint8ToBase64(data));
+		element.setAttribute('download', filename);
+
+		element.style.display = 'none';
+		document.body.appendChild(element);
+
+		element.click();
+
+		document.body.removeChild(element);
+	}
+
 	function resize_canvas() {
 		var canvas = document.getElementById('canvas');
 		var container = document.getElementById("content");
@@ -61,7 +88,6 @@ body {
 
 			var Module = {
 				onRuntimeInitialized: function() {
-                                        alert("runtime");
 					document.getElementById("upload").style.visibility = "visible";
                                         document.getElementById("loading").style.visibility = "hidden";
 // 					canvas.style.width = container.clientWidth + "px";
@@ -74,6 +100,9 @@ body {
 				})(),
 				printErr : function(message) {
 					console.error(message);
+					if(message === "done") {
+						download("poppy.gif", FS.readFile("current.gif"));
+					}
 				},
 				canvas : (function() {
 					return document.getElementById('canvas');

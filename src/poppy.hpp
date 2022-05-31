@@ -108,9 +108,11 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 			}
 		}
 #endif
-		std::cerr << int((j / double(Settings::instance().number_of_frames)) * 100.0) << "%\r";
-#ifdef WASM
+		std::cerr << int((j / double(Settings::instance().number_of_frames - 1)) * 100.0) << "%";
+#ifdef _WASM
 		std::cerr << std::endl;
+#else
+		std::cerr << '\r';
 #endif
 	}
 	morphed.release();

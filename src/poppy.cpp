@@ -20,6 +20,10 @@
 #ifndef _WASM
 #include <boost/program_options.hpp>
 #else
+#include <gif.h>
+
+GifWriter gif_encoder;
+
 #include <emscripten.h>
 #endif
 
@@ -28,21 +32,9 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+
 #ifndef _WASM
 namespace po = boost::program_options;
-#else
-//#include <emscripten/bind.h>
-//#include <emscripten/val.h>
-//using namespace emscripten;
-//
-//class WebmEncoder {
-//  public:
-//    WebmEncoder(int timebase_num, int timebase_den, unsigned int width, unsigned int height, unsigned int bitrate, bool realtime, val cb);
-//    bool addRGBAFrame(std::string rgba);
-//    bool finalize();
-//    std::string lastError();
-//};
-//WebmEncoder* encoder = nullptr;
 #endif
 
 using namespace std;
@@ -51,7 +43,6 @@ using namespace cv;
 volatile poppy::Canvas* canvas = nullptr;
 volatile bool running = false;
 
-
 std::mutex frameBufferMtx;
 cv::Mat frameBuffer;
 
@@ -59,6 +50,7 @@ struct ChannelWriter {
 	void write(Mat& mat) {
 		std::unique_lock lock(frameBufferMtx);
 		frameBuffer = mat.clone();
+
 	}
 };
 
@@ -68,6 +60,7 @@ struct SDLWriter {
 		if(mat.empty())
 			return;
 		cvtColor(mat, mat, COLOR_RGB2RGBA);
+		GifWriteFrame(&gif_encoder, mat.data, mat.size().width, mat.size().height, 1000.0/poppy::Settings::instance().frame_rate);
 		SDL_Surface *sdl_img = SDL_CreateRGBSurface(0,
 		            mat.size().width, mat.size().height,
 		        24,
@@ -83,10 +76,6 @@ struct SDLWriter {
 			}
 		}
 		canvas->draw((image_t const&)sdl_img->pixels);
-//#ifdef _WASM
-//		if(encoder)
-//			encoder->addRGBAFrame(string((const char *)sdl_img->pixels));
-//#endif
 		SDL_FreeSurface(sdl_img);
 	}
 };
@@ -184,11 +173,11 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 
 #ifndef _WASM
 	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), poppy::Settings::instance().frame_rate, Size(szUnion.width, szUnion.height));
+
 #else
 	if(canvas == nullptr)
 		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
-//	if(encoder == nullptr)
-//		encoder = new WebmEncoder(poppy::Settings::instance().frame_rate, 1, szUnion.width, szUnion.height, 80000, false, val("none"));
+	GifBegin(&gif_encoder, "current.gif", szUnion.width, szUnion.height, 1000.0/poppy::Settings::instance().frame_rate);
 
 	ChannelWriter output;
 #endif
@@ -230,6 +219,13 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		poppy::morph(image1, image2, phase, distance, output);
 		image1 = image2.clone();
 	}
+	cerr << "gif flush" << endl;
+	try {
+		cerr << "result:" << GifEnd(&gif_encoder) << endl;
+	} catch(...) {
+		cerr << "gif end failed" << endl;
+	}
+	cerr << "done" << endl << flush;
 }
 
 int main(int argc, char **argv) {
