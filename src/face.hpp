@@ -54,15 +54,7 @@ class FaceDetector {
 	    double scaleFactor;
 	    Conf(double d){
 	        scaleFactor = d;
-#ifndef _WASM
-	        	face_detector.load("src/assets/lbpcascade_frontalface.xml");
-	        	if(face_detector.empty())
-	        		face_detector.load("../src/assets/lbpcascade_frontalface.xml");
-#else
-        	face_detector.load("assets/lbpcascade_frontalface.xml");
-#endif
 	    };
-	    CascadeClassifier face_detector;
 	};
 public:
     explicit FaceDetector(double scale);
@@ -70,6 +62,8 @@ public:
 private:
     Conf cfg;
     Ptr<Facemark> facemark;
+    CascadeClassifier face_detector;
+
 };
 
 } /* namespace poppy */

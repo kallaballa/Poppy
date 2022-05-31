@@ -12,8 +12,15 @@
 namespace poppy {
 
 FaceDetector::FaceDetector(double scale) : cfg(scale) {
-	facemark = FacemarkLBF::create();
+#ifndef _WASM
+	face_detector.load("src/assets/lbpcascade_frontalface.xml");
+	if(face_detector.empty())
+		face_detector.load("../src/assets/lbpcascade_frontalface.xml");
+#else
+	face_detector.load("assets/lbpcascade_frontalface.xml");
+#endif
 
+	facemark = FacemarkLBF::create();
 #ifndef _WASM
 	try {
 		facemark->loadModel("src/assets/lbfmodel.yaml");
@@ -38,7 +45,7 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	cfg.face_detector.detectMultiScale( gray, faces, 1.1, 2, 0, Size(30, 30) );
+	face_detector.detectMultiScale( gray, faces, 1.1, 2, 0, Size(30, 30) );
 
 	cerr << "Number of faces detected: " << faces.size() << endl;
 	if (faces.empty())
