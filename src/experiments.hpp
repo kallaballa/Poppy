@@ -120,16 +120,6 @@ void symmetryTest(
 	}
 }
 
-double morph_distance(const vector<Point2f> &srcPts1, const vector<Point2f> &srcPts2) {
-	assert(srcPts1.size() == srcPts2.size());
-	int numPts = srcPts1.size();
-	double totalDistance = 0;
-	for (int i = 0; i < numPts; i++) {
-		totalDistance += hypot(srcPts2[i].x - srcPts1[i].x, srcPts2[i].y - srcPts1[i].y);
-	}
-	return (totalDistance / numPts);
-}
-
 double cheap_morph_distance(const Mat &src1, const Mat &src2) {
 	Mat tmp1, tmp2;
 	if(src1.type() != CV_8UC1) {
@@ -169,6 +159,7 @@ double cheap_morph_distance(const Mat &src1, const Mat &src2) {
 	return total / (corners1.size() * corners2.size());
 }
 
+/*
 double morph_distance(const Mat &src1, const Mat &src2) {
 	Mat tmp1, tmp2;
 	if(src1.type() != CV_8UC1) {
@@ -205,7 +196,7 @@ double morph_distance(const Mat &src1, const Mat &src2) {
 
 	return morph_distance(corners1, corners2);
 }
-
+*/
 void fft_shift(const Mat &input_img, Mat &output_img)
 {
 	output_img = input_img.clone();

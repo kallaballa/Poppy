@@ -3,13 +3,12 @@ TARGET := poppy.js
 else
 TARGET := poppy
 endif
-SRCS    := poppy.cpp draw.cpp util.cpp algo.cpp settings.cpp face.cpp canvas.cpp
+SRCS    := draw.cpp util.cpp algo.cpp settings.cpp face.cpp canvas.cpp poppy.cpp
 
 #precompiled headers
 HEADERS := 
 OBJS    := ${SRCS:.cpp=.o} 
 DEPS    := ${SRCS:.cpp=.dep} 
-
 CXXFLAGS += -fpic -I../
 LDFLAGS += 
 .PHONY: all release debug clean distclean 

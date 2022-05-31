@@ -51,27 +51,27 @@ struct Features {
 
 class FaceDetector {
 	struct Conf {
-	    cv::String model_path;
 	    double scaleFactor;
-	    Conf(std::string s, double d){
-	        model_path = s;
+	    Conf(double d){
 	        scaleFactor = d;
-	#ifndef _NO_FACE_DETECT
-	        face_detector.load(model_path);
-	#endif
+#ifndef _WASM
+	        try {
+	        	face_detector.load("src/assets/lbpcascade_frontalface.xml");
+	        } catch (...) {
+	        	face_detector.load("../src/assets/lbpcascade_frontalface.xml");
+	        }
+#else
+        	face_detector.load("assets/lbpcascade_frontalface.xml");
+#endif
 	    };
-	#ifndef _NO_FACE_DETECT
 	    CascadeClassifier face_detector;
-	#endif
 	};
 public:
-    explicit FaceDetector(std::string cascade_model, double scale);
+    explicit FaceDetector(double scale);
     Features detect(const cv::Mat &frame);
 private:
     Conf cfg;
-#ifndef _NO_FACE_DETECT
     Ptr<Facemark> facemark;
-#endif
 };
 
 } /* namespace poppy */

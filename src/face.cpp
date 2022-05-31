@@ -11,14 +11,18 @@
 
 namespace poppy {
 
-FaceDetector::FaceDetector(std::string cascade_model, double scale) : cfg(cascade_model, scale) {
+FaceDetector::FaceDetector(double scale) : cfg(scale) {
 	facemark = FacemarkLBF::create();
 
+#ifndef _WASM
 	try {
-		facemark->loadModel("assets/lbfmodel.yaml");
+		facemark->loadModel("src/assets/lbfmodel.yaml");
 	}	catch(...) {
-		facemark->loadModel("../assets/lbfmodel.yaml");
+		facemark->loadModel("../src/assets/lbfmodel.yaml");
 	}
+#else
+	facemark->loadModel("assets/lbfmodel.yaml");
+#endif
 }
 
 Features FaceDetector::detect(const cv::Mat &frame) {

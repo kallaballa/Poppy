@@ -30,6 +30,19 @@
 
 #ifndef _WASM
 namespace po = boost::program_options;
+#else
+//#include <emscripten/bind.h>
+//#include <emscripten/val.h>
+//using namespace emscripten;
+//
+//class WebmEncoder {
+//  public:
+//    WebmEncoder(int timebase_num, int timebase_den, unsigned int width, unsigned int height, unsigned int bitrate, bool realtime, val cb);
+//    bool addRGBAFrame(std::string rgba);
+//    bool finalize();
+//    std::string lastError();
+//};
+//WebmEncoder* encoder = nullptr;
 #endif
 
 using namespace std;
@@ -37,6 +50,7 @@ using namespace cv;
 
 volatile poppy::Canvas* canvas = nullptr;
 volatile bool running = false;
+
 
 std::mutex frameBufferMtx;
 cv::Mat frameBuffer;
@@ -69,11 +83,17 @@ struct SDLWriter {
 			}
 		}
 		canvas->draw((image_t const&)sdl_img->pixels);
+//#ifdef _WASM
+//		if(encoder)
+//			encoder->addRGBAFrame(string((const char *)sdl_img->pixels));
+//#endif
 		SDL_FreeSurface(sdl_img);
 	}
 };
 
 SDLWriter sdl_writer;
+
+
 void loop() {
 	try {
 		if(canvas != nullptr && running) {
@@ -116,7 +136,7 @@ Mat read_image(const string &path) {
 	return result;
 }
 
-void run(const std::vector<string> &imageFiles, const string &outputFile, double phase) {
+void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -167,6 +187,9 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 #else
 	if(canvas == nullptr)
 		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
+//	if(encoder == nullptr)
+//		encoder = new WebmEncoder(poppy::Settings::instance().frame_rate, 1, szUnion.width, szUnion.height, 80000, false, val("none"));
+
 	ChannelWriter output;
 #endif
 
@@ -204,7 +227,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			exit(2);
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
-		poppy::morph(image1, image2, phase, output);
+		poppy::morph(image1, image2, phase, distance, output);
 		image1 = image2.clone();
 	}
 }
@@ -225,6 +248,7 @@ int main(int argc, char **argv) {
 	bool face = poppy::Settings::instance().enable_face_detection;
 	bool srcScaling = true;
 	bool denoise = poppy::Settings::instance().enable_denoise;
+	bool distance = false;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -235,6 +259,7 @@ int main(int argc, char **argv) {
 	("radial,r", "Use a radial mask to emphasize features in the center.")
 	("autoalign,a", "Try to automatically align (rotate and translate) the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
+	("distance,n", "Calculate the morph distance and return.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
@@ -308,12 +333,12 @@ int main(int argc, char **argv) {
 	denoise = vm.count("denoise");
 	radial = vm.count("radial");
 	face = vm.count("face");
-	std::cerr << face << std::endl;
+	distance = vm.count("distance");
 #endif
 
 #ifndef _WASM
 	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
-	run(imageFiles, outputFile, phase);
+	run(imageFiles, outputFile, phase, distance);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
 	std::cerr << "loaded" << std::endl;
@@ -345,7 +370,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face)
 		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
 		std::thread t([=](){
 				running = true;
-				run(imageFiles, outputFile, -1);
+				run(imageFiles, outputFile, -1, false);
 				running = false;
 		});
 		t.detach();

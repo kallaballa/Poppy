@@ -744,7 +744,7 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 //	}
 //	cerr << endl;
 }
-FaceDetector face("../assets/lbpcascade_frontalface.xml", 1.4);
+FaceDetector face(1.4);
 void scale_points(vector<Point2f>& pts, double coef) {
 	for(auto& pt : pts) {
 		pt.x *= coef;
@@ -764,7 +764,7 @@ void scale_features(Features& ft, double coef) {
 	scale_points(ft.inside_lips_, coef);
 }
 
-void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
+void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	vector<vector<vector<Point>>> collected1;
 	vector<vector<vector<Point>>> collected2;
 	vector<Mat> contourLayers1;
@@ -781,6 +781,7 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 	}
 
 	if(ft1.empty() || ft2.empty()) {
+		Settings::instance().enable_face_detection = false;
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 
@@ -873,6 +874,8 @@ void find_matches(Mat &orig1, Mat &orig2, Mat &corrected1, Mat &corrected2, vect
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 }
+
+
 
 tuple<double, double, double> calculate_sum_mean_and_sd(multimap<double, pair<Point2f, Point2f>> distanceMap) {
 	size_t s = distanceMap.size();

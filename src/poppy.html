@@ -22,7 +22,7 @@ body {
 	max-height: 1.8em;
 	font-size: 1em;
 	padding: 0.1em;
-/* 	visibility: hidden; */
+ 	visibility: hidden; 
 }
 
 #content {
@@ -36,6 +36,11 @@ body {
 	left: 0;
 	/*cursor: none;*/
 }
+
+#loading {
+	color: white;
+	font-size: 3em;
+}
 </style>
 <script>
 	function resize_canvas() {
@@ -48,6 +53,7 @@ body {
 </head>
 <body style="background-color: #000000;">
 	<div id="content">
+		<span id="loading">Loading...</span>
 		<canvas id="canvas"></canvas>
 		<script>
 			var canvas = document.getElementById('canvas');
@@ -55,7 +61,9 @@ body {
 
 			var Module = {
 				onRuntimeInitialized: function() {
+                                        alert("runtime");
 					document.getElementById("upload").style.visibility = "visible";
+                                        document.getElementById("loading").style.visibility = "hidden";
 // 					canvas.style.width = container.clientWidth + "px";
 // 					canvas.style.height = container.clientHeight + "px";
 				},
@@ -100,7 +108,7 @@ body {
 				let result2 = reader2.result;
 				const uint8_view2 = new Uint8Array(result2);
 				let tolerance  = document.getElementById('tolerance').value;
-				let face  = false;
+				let face  = true;
 				FS.writeFile('temp1.png', uint8_view1)
 				FS.writeFile('temp2.png', uint8_view2)
 
@@ -127,9 +135,8 @@ body {
                         </td></tr>
                         </table>
                 </div>
-
 		<script src="./get.php?res=poppy.js"></script>
-
+		<script src="./get.php?res=webm-wasm.js">
 	</div>
 </body>
 </html>
