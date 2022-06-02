@@ -14,11 +14,7 @@ Canvas::Canvas(const fd_dim_t& width, const fd_dim_t& height, const bool& offscr
 		atexit(SDL_Quit);
 
 		if (!offscreen) {
-#ifndef _AMIGA
-			screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE);
-#else
-			screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE | SDL_FULLSCREEN);
-#endif
+			screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE | SDL_RESIZABLE);
 		} else
 			screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, BYTES_PER_PIXEL * 8, 0, 0, 0, 0);
 
@@ -29,6 +25,16 @@ Canvas::Canvas(const fd_dim_t& width, const fd_dim_t& height, const bool& offscr
 	}
 }
 
+void Canvas::resize(size_t width, size_t height) volatile {
+	screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE | SDL_RESIZABLE);
+	width_ = width;
+	height_ = height;
+
+}
+
+std::pair<fd_dim_t, fd_dim_t> Canvas::getSize() volatile {
+	return {width_, height_};
+}
 void Canvas::flip() volatile {
 	if (!offscreen_) {
 		SDL_Flip(screen_);

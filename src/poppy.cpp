@@ -20,12 +20,11 @@
 #ifndef _WASM
 #include <boost/program_options.hpp>
 #else
+#include <emscripten.h>
+#endif
 #include <gif.h>
 
 GifWriter gif_encoder;
-
-#include <emscripten.h>
-#endif
 
 #include <opencv2/photo/photo.hpp>
 #include <opencv2/videoio.hpp>
@@ -50,7 +49,6 @@ struct ChannelWriter {
 	void write(Mat& mat) {
 		std::unique_lock lock(frameBufferMtx);
 		frameBuffer = mat.clone();
-
 	}
 };
 
@@ -59,24 +57,13 @@ struct SDLWriter {
 		std::unique_lock lock(frameBufferMtx);
 		if(mat.empty())
 			return;
-		cvtColor(mat, mat, COLOR_RGB2RGBA);
-		GifWriteFrame(&gif_encoder, mat.data, mat.size().width, mat.size().height, 1000.0/poppy::Settings::instance().frame_rate);
-		SDL_Surface *sdl_img = SDL_CreateRGBSurface(0,
-		            mat.size().width, mat.size().height,
-		        24,
-		            mat.step, 0xff0000, 0x00ff00, 0x0000ff);
-		int bpp = sdl_img->format->BytesPerPixel;
-		for(int i = 0; i < mat.cols; i++) {
-			for(int j = 0; j < mat.rows; j++) {
-				Uint8 *p = (((Uint8 *) sdl_img->pixels) + (j * sdl_img->pitch + i * bpp));
-				Uint8 *srcPix = (Uint8 *)&mat.at<Uint32>(j,i);
-				p[0] = srcPix[2];
-				p[1] = srcPix[1];
-				p[2] = srcPix[0];
-			}
-		}
-		canvas->draw((image_t const&)sdl_img->pixels);
-		SDL_FreeSurface(sdl_img);
+		Mat bgra;
+		cvtColor(mat, bgra, COLOR_RGB2BGRA);
+		GifWriteFrame(&gif_encoder, bgra.data, bgra.size().width, bgra.size().height, 100.0/poppy::Settings::instance().frame_rate);
+		Mat scaled;
+		auto size = canvas->getSize();
+		resize(bgra, scaled, Size(size.first, size.second), 0, 0, INTER_CUBIC);
+		canvas->draw((image_t const&)scaled.data);
 	}
 };
 
@@ -84,13 +71,30 @@ SDLWriter sdl_writer;
 
 
 void loop() {
+#ifdef _WASM
 	try {
 		if(canvas != nullptr && running) {
 			sdl_writer.write(frameBuffer);
 		}
+
+		if(!running) {
+			SDL_Event event;
+			SDL_PollEvent(&event);
+			switch (event.type)
+			{
+			case SDL_WINDOWEVENT:
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+					canvas->resize(event.window.data1, event.window.data2);
+				}
+				break;
+			default:
+				break;
+			}
+		}
 	} catch (std::exception& ex) {
-		std::cerr << "Main loop exception: " << ex.what() << std::endl;
+	std::cerr << "Main loop exception: " << ex.what() << std::endl;
 	}
+#endif
 }
 
 Mat read_image(const string &path) {
@@ -177,7 +181,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 #else
 	if(canvas == nullptr)
 		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
-	GifBegin(&gif_encoder, "current.gif", szUnion.width, szUnion.height, 1000.0/poppy::Settings::instance().frame_rate);
+	GifBegin(&gif_encoder, "current.gif", szUnion.width, szUnion.height, 100.0/poppy::Settings::instance().frame_rate);
 
 	ChannelWriter output;
 #endif

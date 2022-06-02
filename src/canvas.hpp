@@ -25,6 +25,8 @@ public:
 	Canvas(const fd_dim_t& width, const fd_dim_t& height, const bool& offscreen = false);
 	virtual ~Canvas() {
 	}
+	void resize(size_t width, size_t height) volatile;
+	std::pair<fd_dim_t, fd_dim_t> getSize() volatile;
 	void flip() volatile;
 	void draw(image_t const& image) volatile;
 };
