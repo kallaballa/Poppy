@@ -6,7 +6,7 @@ LOW=`mktemp --suffix=.mp4`
 mkdir -p ../videos/
 rm -f ../videos/*mkv
 
-OPTS="-f240 $@"
+OPTS="-f120 $@"
 ../src/poppy -e $OPTS -o ../videos/faces.mkv some1.png some2.png some3.png
 mencoder -vf scale=250:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/faces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/faces.gif
@@ -31,7 +31,7 @@ ffmpeg -y -i "$LOW" ../demo/squarecircle.gif
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/numbers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/numbers.gif
 
-../src/poppy $OPTS -o ../videos/flowers.mkv flower1.png flower2.png flower1.png
+../src/poppy -t16 $OPTS -o ../videos/flowers.mkv flower1.png flower2.png flower1.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/flowers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/flowers.gif
 
