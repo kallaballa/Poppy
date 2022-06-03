@@ -28,6 +28,15 @@ textarea {
 	padding: 0.8em;
 }
 
+.crop-container {
+	width: 120;
+	height: 160;
+}
+
+input[type=file] {
+	width: 1em;
+}
+
 #stderr {
 	position: fixed;
 	top: 19.5em;
@@ -154,32 +163,32 @@ td {
 	<canvas id="canvas"></canvas>
 	<table id="content">
 	<tbody>
-	<tr><td colspan=2>
+	<tr><td colspan=3>
 		<img width=120 height=120 src="./get.php?res=img/header-poppy.png"/>
 	</td></tr>
-	<tr><td colspan=2>
+	<tr><td colspan=3>
 		<p>Welcome to Poppy!<br/>Morph any two images you like by klicking the boxes below.</p>
 	</td></tr>
-	<tr><td>
-		<div>
-			<img id="image1"/>
-		</div>
-		<div>
-			<img id="image2"/>
+	<tr><td class="crop-container">
+		<div class="crop-container">
+			<img id="image1" width=120 height=160/>
 		</div>
 		<label for="imageload1">First image: </label><input onchange="crop(document.getElementById('imageload1').files[0], document.getElementById('image1'))" type="file" id="imageload1" accept="image/png, image/jpeg"/><br/>
+	</td><td class="crop-container">
+		<div class="crop-container">
+			<img id="image2" width=120 height=160/>
+		</div>
 		<label for="imageload2">Second image: </label><input onchange="crop(document.getElementById('imageload2').files[0], document.getElementById('image2'))" type="file" id="imageload2"
 			accept="image/png, image/jpeg"/>
 	</td><td>
 		<label for="tolerance">Tolerance: </label><input type="range" min="1" max="16" value="4" id="tolerance"/><br/>
-		<label for="face">Are both images faces? </label><input type="checkbox" id="face" checked/>
-		<button id="startbtn" onclick="load_files()">Start</button>
+		<label for="face">Are both images faces? </label><input type="checkbox" id="face"/>
+		<button id="startbtn" onclick="load_files()" disabled>Start</button>
 	</td></tr>
 	</tbody>
 	</table>
 	<script src="./get.php?res=poppy-custom.js"></script>
 	<script src="./get.php?res=poppy.js"></script>
-	<script src="./get.php?res=webm-wasm.js"></script>
 	</div>
 </body>
 </html>

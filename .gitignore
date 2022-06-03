@@ -1,11 +1,14 @@
 *.png
 *.jpg
 *.jpeg
-*.mkv
-*.mp4
+./images/*.png
+./images/*.jpg
+./images/*.jpeg
+./*.mkv
+./*.mp4
 *.o
 *.dep
-*.gif
+./*.gif
 videos
 src/poppy
 src/poppy.html

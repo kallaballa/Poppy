@@ -1,13 +1,22 @@
+	var croppers = {};
+
 	function crop(fileBlob, imgElem) {
+		if(document.getElementById('imageload1').value !== "" && document.getElementById('imageload2').value != "") {
+			document.getElementById('startbtn').disabled = false;
+		}
 		reader = new FileReader();
 		reader.readAsArrayBuffer(fileBlob);
 		reader.addEventListener('loadend', function(e) {
 			let result = reader.result;
 			const uint8_view = new Uint8Array(result);
 			imgElem.src = 'data:image/png;base64,' + Uint8ToBase64(uint8_view);
-			var myCropper = new Cropper(imgElem, {
+			if(croppers[imgElem.id] !== undefined) {
+				croppers[imgElem.id].destroy();
+			}
+
+			croppers[imgElem.id] = new Cropper(imgElem, {
 					// The view mode of the cropper
-				viewMode: 0, // 0, 1, 2, 3
+				viewMode: 2, // 0, 1, 2, 3
 				// The dragging mode of the cropper
 				dragMode: 'crop', // 'crop', 'move' or 'none'
 				// The initial aspect ratio of the crop box
@@ -55,9 +64,9 @@
 				// Define zoom ratio when zoom the image by wheeling mouse
 				wheelZoomRatio: 0.1,
 				// Enable to move the crop box
-				cropBoxMovable: true,
+				cropBoxMovable: false,
 				// Enable to resize the crop box
-				cropBoxResizable: true,
+				cropBoxResizable: false,
 				// Toggle drag mode between "crop" and "move" when click twice on the cropper
 				toggleDragModeOnDblclick: true,
 				// Size limitation
@@ -136,6 +145,7 @@
 			console.error(message);
 			if(message === "done") {
 				download("poppy.gif", FS.readFile("current.gif"));
+				document.getElementById('startbtn').disabled = false;
 			}
 		},
 		canvas : (function() {
@@ -173,7 +183,6 @@
 			reader2.addEventListener('loadend', load_images);
 			reader2.readAsArrayBuffer(file2);
 		});
-
 	}
 
 	function load_images(e) {
@@ -182,10 +191,14 @@
 		let result2 = reader2.result;
 		const uint8_view2 = new Uint8Array(result2);
 		let tolerance  = document.getElementById('tolerance').value;
-		let face  = false;
+		let face  = document.getElementById('face').value === "on";
 		FS.writeFile('temp1.png', uint8_view1)
 		FS.writeFile('temp2.png', uint8_view2)
 
 		Module.ccall('load_images', 'number', [ 'string', 'string', 'number', 'boolean' ], [
 				'temp1.png', 'temp2.png', tolerance, face ])
+		for(var key in croppers) {
+			var c = croppers[key];
+			c.destroy();
+		}
 	}

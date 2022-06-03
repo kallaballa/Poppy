@@ -45,7 +45,7 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	face_detector.detectMultiScale( gray, faces, 1.1, 2, 0, Size(30, 30) );
+	face_detector.detectMultiScale( gray, faces, 1.1, 3, 0, Size(30, 30) );
 
 	cerr << "Number of faces detected: " << faces.size() << endl;
 	if (faces.empty())
