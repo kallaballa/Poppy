@@ -4,11 +4,11 @@
 ./images/*.png
 ./images/*.jpg
 ./images/*.jpeg
-./*.mkv
-./*.mp4
+*.mkv
+*.mp4
 *.o
 *.dep
-./*.gif
+*.gif
 videos
 src/poppy
 src/poppy.html
@@ -16,4 +16,6 @@ src/poppy.js
 src/poppy.wasm
 third/build_wasm/
 third/opencv-4.5.5.zip
-
+poppyweb.zip
+src/poppy.data
+src/poppy.worker.js
