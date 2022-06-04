@@ -21,13 +21,16 @@ The following demos are very low quality renderings of what Poppy can do. If you
 ## Dependencies
 * libboost-program-options
 * opencv4
+* SDL
+* SDL_Image
 
-## Build
+## Build instructions for Ubuntu 22.04
 
 ```bash
+    apt install git-core build-essential libsdl-image1.2-dev libsdl1.2-dev libopencv-dev
     git clone https://github.com/kallaballa/Poppy.git
     cd Poppy
-    make
+    make -j
 ```
 
 ## Usage
