@@ -1041,9 +1041,20 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			std::cerr << "anglePA:" << anglePA << std::endl;
 			double angle = anglePA;
 
+			auto mu2 = moments(prepared2);
+			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
+					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
+
+			vector<Point2f> Y_prime = proc.yPrimeAsVector();
+			auto muY = moments(Y_prime);
+			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
+                    static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
+
+			Point2f translation = mcY - mc2;
+
 			for (auto &pt : srcPoints2) {
-				pt.x += proc.translation.at<float>(0,0);
-				pt.y += proc.translation.at<float>(0,1);
+				pt.x += translation;
+				pt.y += translation;
 			}
 
 			rotate_points(srcPoints2, center, angle);
@@ -1058,17 +1069,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				}
 			}
 			Mat img = orig1.clone();
-
-			auto mu2 = moments(prepared2);
-			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
-					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
-
-			vector<Point2f> Y_prime = proc.yPrimeAsVector();
-			auto muY = moments(Y_prime);
-			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
-                    static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
-
-			Point2f translation = mcY - mc2;
 
 				/* Plot X */
 			plot( img, prepared1, Scalar(0, 200, 0));
