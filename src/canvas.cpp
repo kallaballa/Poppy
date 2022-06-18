@@ -1,6 +1,9 @@
 #include <cassert>
 #include <iostream>
 #include "canvas.hpp"
+#ifdef _WASM
+#include <emscripten.h>
+#endif
 
 namespace poppy {
 Canvas::Canvas(const fd_dim_t& width, const fd_dim_t& height, const bool& offscreen) :
@@ -12,6 +15,10 @@ Canvas::Canvas(const fd_dim_t& width, const fd_dim_t& height, const bool& offscr
 			exit(1);
 		}
 		atexit(SDL_Quit);
+
+//#ifdef _WASM
+//	EM_ASM("SDL.defaults.copyOnLock = false; SDL.defaults.discardOnLock = true; SDL.defaults.opaqueFrontBuffer = false;");
+//#endif
 
 		if (!offscreen) {
 			screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE | SDL_RESIZABLE);
@@ -29,7 +36,6 @@ void Canvas::resize(size_t width, size_t height) volatile {
 	screen_ = SDL_SetVideoMode(width, height, BYTES_PER_PIXEL * 8, SDL_SWSURFACE | SDL_RESIZABLE);
 	width_ = width;
 	height_ = height;
-
 }
 
 std::pair<fd_dim_t, fd_dim_t> Canvas::getSize() volatile {

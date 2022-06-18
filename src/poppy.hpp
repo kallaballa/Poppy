@@ -51,7 +51,9 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 	Mat corrected1, corrected2;
 	Mat allContours1, allContours2;
+	std::cerr << "usage2: " << (uintptr_t) sbrk(0) << std::endl;
 	find_matches(image1, image2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
+	std::cerr << "usage2a: " << (uintptr_t) sbrk(0) << std::endl;
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -64,7 +66,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		}
 		return;
 	}
-
+	std::cerr << "usage2b: " << (uintptr_t) sbrk(0) << std::endl;
 	if(!Settings::instance().enable_face_detection) {
 		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
 	} else {
@@ -87,9 +89,12 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		morphedPoints.clear();
 
 		if(phase != -1)
-			linear = j * step * phase;
+			linear = j * step * 0.6 * phase;
 		else
-			linear = j * step;
+			linear = j * step * 0.6;
+
+		if(linear > 1.0)
+			linear = 1.0;
 
 		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, linear, linear);
 		image1 = morphed.clone();

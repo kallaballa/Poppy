@@ -61,9 +61,10 @@ public:
     Features detect(const cv::Mat &frame);
 private:
     Conf cfg;
+#ifndef _NO_FACE_DETECT
     Ptr<Facemark> facemark;
     CascadeClassifier face_detector;
-
+#endif
 };
 
 } /* namespace poppy */

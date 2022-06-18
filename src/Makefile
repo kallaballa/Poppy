@@ -3,7 +3,7 @@ TARGET := poppy.js
 else
 TARGET := poppy
 endif
-SRCS    := draw.cpp util.cpp algo.cpp settings.cpp face.cpp canvas.cpp poppy.cpp
+SRCS    := draw.cpp util.cpp algo.cpp settings.cpp face.cpp canvas.cpp poppy.cpp procrustes.cpp
 
 #precompiled headers
 HEADERS := 

@@ -4,6 +4,7 @@
 #include "blend.hpp"
 #include "settings.hpp"
 #include "face.hpp"
+#include "procrustes.hpp"
 #include <iostream>
 #include <random>
 #include <string>
@@ -27,6 +28,35 @@ using namespace cv;
 
 namespace poppy {
 
+constexpr double RADIANS_TO_DEGREES = 57.2958;
+
+std::vector<std::vector<Point2f>> convertContourTo2f(const std::vector<std::vector<Point>>& contours1) {
+	std::vector<std::vector<Point2f>> tmp;
+	for(auto& vec: contours1) {
+		std::vector<Point2f> row;
+		for(auto& pt: vec) {
+			row.push_back(Point2f(pt.x, pt.y));
+		}
+		if(!row.empty())
+			tmp.push_back(row);
+	}
+	return tmp;
+}
+
+std::vector<std::vector<Point>> convertContourFrom2f(const std::vector<std::vector<Point2f>>& contours1) {
+	std::vector<std::vector<Point>> tmp;
+	for(auto& vec: contours1) {
+		std::vector<Point> row;
+		for(auto& pt: vec) {
+			row.push_back(Point(pt.x, pt.y));
+		}
+		if(!row.empty())
+			tmp.push_back(row);
+	}
+	return tmp;
+}
+
+
 void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 	detected_edges = src.clone();
 	Canny(detected_edges, detected_edges, thresh, thresh * 2);
@@ -35,14 +65,14 @@ void canny_threshold(const Mat &src, Mat &detected_edges, double thresh) {
 void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, vector<Point2f> &dstPoints) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
-	vector<Point> pt(3);
+	vector<Point2f> pt(3);
 	Rect rect(0, 0, size.width, size.height);
 
 	for (size_t i = 0; i < triangleList.size(); i++) {
 		Vec6f t = triangleList[i];
-		pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
-		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
-		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
+		pt[0] = Point2f(cvRound(t[0]), cvRound(t[1]));
+		pt[1] = Point2f(cvRound(t[2]), cvRound(t[3]));
+		pt[2] = Point2f(cvRound(t[4]), cvRound(t[5]));
 
 		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
 			dstPoints.push_back(pt[0]);
@@ -99,7 +129,7 @@ pair<vector<Point2f>, vector<Point2f>> find_keypoints(const Mat &grey1, const Ma
 	return {points1,points2};
 }
 
-Mat points_to_homogenous_mat(const vector<Point2f> &pts) {
+Mat points_to_homogenous_mat(const vector<Point> &pts) {
 	int numPts = pts.size();
 	Mat homMat(3, numPts, CV_32FC1);
 	for (int i = 0; i < numPts; i++) {
@@ -145,19 +175,19 @@ void get_triangle_indices(const Subdiv2D &subDiv, const vector<Point2f> &points,
 	}
 }
 
-void make_triangler_points(const vector<Vec3i> &triangleVertices, const vector<Point2f> &points, vector<vector<Point2f>> &trianglerPts) {
+void make_triangler_points(const vector<Vec3i> &triangleVertices, const vector<Point2f> &points, vector<vector<Point>> &trianglerPts) {
 	int numTriangles = triangleVertices.size();
 	trianglerPts.resize(numTriangles);
 	for (int i = 0; i < numTriangles; i++) {
-		vector<Point2f> triangle;
+		vector<Point> triangle;
 		for (int j = 0; j < 3; j++) {
-			triangle.push_back(points[triangleVertices[i][j]]);
+			triangle.push_back(Point(points[triangleVertices[i][j]].x, points[triangleVertices[i][j]].y));
 		}
 		trianglerPts[i] = triangle;
 	}
 }
 
-void paint_triangles(Mat &img, const vector<vector<Point2f>> &triangles) {
+void paint_triangles(Mat &img, const vector<vector<Point>> &triangles) {
 	int numTriangles = triangles.size();
 
 	for (int i = 0; i < numTriangles; i++) {
@@ -170,13 +200,13 @@ void paint_triangles(Mat &img, const vector<vector<Point2f>> &triangles) {
 	}
 }
 
-void solve_homography(const vector<Point2f> &srcPts1, const vector<Point2f> &srcPts2, Mat &homography) {
+void solve_homography(const vector<Point> &srcPts1, const vector<Point> &srcPts2, Mat &homography) {
 	assert(srcPts1.size() == srcPts2.size());
 	homography = points_to_homogenous_mat(srcPts2) * points_to_homogenous_mat(srcPts1).inv();
 }
 
-void solve_homography(const vector<vector<Point2f>> &srcPts1,
-		const vector<vector<Point2f>> &srcPts2,
+void solve_homography(const vector<vector<Point>> &srcPts1,
+		const vector<vector<Point>> &srcPts2,
 		vector<Mat> &hmats) {
 	assert(srcPts1.size() == srcPts2.size());
 
@@ -240,7 +270,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-void draw_contour_map(vector<vector<vector<Point>>> &collected, vector<Vec4i> &hierarchy, Mat &dst, int cols, int rows, int type) {
+void draw_contour_map(vector<vector<vector<Point2f>>> &collected, vector<Vec4i> &hierarchy, Mat &dst, int cols, int rows, int type) {
 	dst = Mat::zeros(rows, cols, type);
 	size_t cnt = 0;
 	for (size_t i = 0; i < collected.size(); ++i) {
@@ -249,9 +279,11 @@ void draw_contour_map(vector<vector<vector<Point>>> &collected, vector<Vec4i> &h
 
 		cnt += contours.size();
 		cerr << i << "/" << (collected.size() - 1) << '\r';
-		for (size_t j = 0; j < contours.size(); ++j) {
-			shade = 32.0 + 223.0 * (double(j) / contours.size());
-			drawContours(dst, contours, j, { shade, shade, shade }, 1.0, LINE_4, hierarchy, 0);
+		vector<vector<Point>> tmp = convertContourFrom2f(contours);
+
+		for (size_t j = 0; j < tmp.size(); ++j) {
+			shade = 32.0 + 223.0 * (double(j) / tmp.size());
+			drawContours(dst, tmp, j, { shade, shade, shade }, 1.0, LINE_4, hierarchy, 0);
 		}
 	}
 	cerr << endl;
@@ -327,6 +359,28 @@ void decimate_features(const Mat &img1, const Mat &img2, Mat &decimated1, Mat &d
 //		cerr << "decimate features 2: " << cnz2 << endl;
 //	}
 
+	int i = 0;
+	while (cnz1 > 0.0001) {
+		Mat blurred1;
+		GaussianBlur(decimated1, blurred1, {i * 2 + 1,i * 2 + 1}, i);
+		decimated1 = blurred1.clone();
+		cvtColor(decimated1, grey1, COLOR_RGB2GRAY);
+		cnz1 = feature_metric(grey1);
+		cerr << "redecimate features 1: " << cnz1 << "\r";
+		++i;
+	}
+
+	i = 0;
+	while (cnz2 > 0.0001) {
+		Mat blurred2;
+		GaussianBlur(decimated2, blurred2, {i * 2 + 1,i * 2 + 1}, i);
+		decimated2 = blurred2.clone();
+		cvtColor(decimated2, grey2, COLOR_RGB2GRAY);
+		cnz2 = feature_metric(grey2);
+		cerr << "redecimate features 2: " << cnz2 << "\r";
+		++i;
+	}
+
 	if(cnz2 < (cnz1 * 0.9)) {
 		int i = 0;
 		while (cnz2 < (cnz1 * 0.9)) {
@@ -374,10 +428,14 @@ void extract_foreground_mask(const Mat &grey, Mat &fgMask) {
 		GaussianBlur(fgMask, fgMaskBlur, { 23, 23 }, 1);
 		fgMask = fgMaskBlur.clone();
 		last = med.clone();
+		med.release();
+		flow.release();
+		fgMaskBlur.release();
 	}
+	last.release();
 }
 
-void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
+void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point2f>>> &collected1, vector<vector<vector<Point2f>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
 	Mat grey1, grey2;
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, COLOR_RGB2GRAY);
@@ -388,7 +446,6 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	double highLimit = countNonZero(grey1) * 0.75;
 	Mat thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
-	vector<vector<Point>> contours1;
 	size_t numContours = 0;
 	threshold(grey1, thresh1, t1, t2, 0);
 	size_t cnt = 0;
@@ -415,10 +472,12 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 		t1 = max(0, min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
 		t2 = max(0, min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
 		threshold(grey1, thresh1, t1, t2, 0);
+		vector<vector<Point>> contours1;
 		findContours(thresh1, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
-		collected1.push_back(contours1);
-		numContours += contours1.size();
-		contours1.clear();
+		std::vector<std::vector<Point2f>> tmp = convertContourTo2f(contours1);
+		if(!tmp.empty())
+			collected1.push_back(tmp);
+		numContours += tmp.size();
 	}
 	cerr << endl;
 
@@ -428,17 +487,21 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	draw_contour_map(collected1, hierarchy1, cmap1, grey1.cols, grey1.rows, grey1.type());
 
 	cerr << "thresholding 2" << endl;
-	vector<vector<Point>> contours2;
+	vector<vector<Point2f>> contours2;
 	vector<Vec4i> hierarchy2;
 	for (off_t j = 0; j < 16; ++j) {
 		cerr << j << "/15" << '\r';
 		t1 = min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
 		t2 = min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
 		threshold(grey2, thresh2, t1, t2, 0);
+		vector<vector<Point>> contours2;
 		findContours(thresh2, contours2, hierarchy2, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
-		collected2.push_back(contours2);
-		numContours += contours2.size();
-		contours2.clear();
+
+		std::vector<std::vector<Point2f>> tmp = convertContourTo2f(contours2);
+
+		if(!tmp.empty())
+			collected2.push_back(tmp);
+		numContours += tmp.size();
 	}
 	cerr << endl;
 
@@ -463,15 +526,17 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 		Mat &cont2 = contourLayers2[i];
 		cont1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
 		cont2 = Mat::zeros(grey2.rows, grey2.cols, grey2.type());
-		contours1 = collected1[i];
-		contours2 = collected2[i];
+		std::vector<std::vector<Point2f>>& contours1 = collected1[i];
+		std::vector<std::vector<Point2f>>& contours2 = collected2[i];
+		auto tmp1 = convertContourFrom2f(contours1);
+		auto tmp2 = convertContourFrom2f(contours2);
 
-		for (size_t j = 0; j < contours1.size(); ++j) {
-			cv::drawContours(cont1, contours1, j, { 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
+		for (size_t j = 0; j < tmp1.size(); ++j) {
+			cv::drawContours(cont1, tmp1, j, { 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
 		}
 
-		for (size_t j = 0; j < contours2.size(); ++j) {
-			cv::drawContours(cont2, contours2, j, { 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
+		for (size_t j = 0; j < tmp2.size(); ++j) {
+			cv::drawContours(cont2, tmp2, j, { 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
 		}
 
 //		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
@@ -488,24 +553,33 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 
 	Mat fgMask1;
 	Mat fgMask2;
+	std::cerr << "usage2_a_a: " << (uintptr_t) sbrk(0) << std::endl;
 	//extract areas of interest (aka. foreground)
 	extract_foreground_mask(grey1, fgMask1);
 	extract_foreground_mask(grey2, fgMask2);
-
+	std::cerr << "usage2_a_b: " << (uintptr_t) sbrk(0) << std::endl;
 	Mat radialMaskFloat;
 	if(Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
 		Mat radial = Mat::ones(grey1.rows, grey1.cols, CV_32F);
 		draw_radial_gradiant(radial);
 		radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
+		radial.release();
 	}
-
+	std::cerr << "usage2_a_c: " << (uintptr_t) sbrk(0) << std::endl;
 	//convert the images and masks to floating point for the subsequent multiplication
 	Mat grey1Float, grey2Float, fgMask1Float, fgMask2Float;
 	grey1.convertTo(grey1Float, CV_32F, 1.0 / 255.0);
 	grey2.convertTo(grey2Float, CV_32F, 1.0 / 255.0);
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
+
+	grey1.release();
+	grey2.release();
+	fgMask1.release();
+	fgMask2.release();
+
+	std::cerr << "usage2_a_d: " << (uintptr_t) sbrk(0) << std::endl;
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
@@ -516,6 +590,12 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 		fgMask1Float.copyTo(finalMask1Float);
 		fgMask2Float.copyTo(finalMask2Float);
 	}
+
+	radialMaskFloat.release();
+	fgMask1Float.release();
+	fgMask2Float.release();
+
+	std::cerr << "usage2_a_e: " << (uintptr_t) sbrk(0) << std::endl;
 	show_image("mask1", finalMask1Float);
 	show_image("mask2", finalMask2Float);
 	/*
@@ -526,16 +606,31 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	 */
 	Mat masked1, masked2;
 	Mat blurred1Float, blurredMask1Float, maskedSharp1Float;
+
 	GaussianBlur(grey1Float, blurred1Float, Size(23, 23), 3);
 	GaussianBlur(finalMask1Float, blurredMask1Float, Size(23, 23), 3);
 	maskedSharp1Float = blurred1Float / blurredMask1Float;
 	addWeighted(grey1Float, 1.1, maskedSharp1Float, -0.1, 0, masked1);
+	blurred1Float.release();
+	blurredMask1Float.release();
+	maskedSharp1Float.release();
+	grey1Float.release();
+	fgMask1Float.release();
+	finalMask1Float.release();
+	std::cerr << "usage2_a_f: " << (uintptr_t) sbrk(0) << std::endl;
 
 	Mat blurred2Float, blurredMask2Float, maskedBlur2Float;
 	GaussianBlur(grey2Float, blurred2Float, Size(23, 23), 3);
 	GaussianBlur(finalMask2Float, blurredMask2Float, Size(23, 23), 3);
 	maskedBlur2Float = blurred2Float / blurredMask2Float;
 	addWeighted(grey2Float, 1.1, maskedBlur2Float, -0.1, 0, masked2);
+	grey2Float.release();
+	fgMask2Float.release();
+	blurred2Float.release();
+	blurredMask2Float.release();
+	maskedBlur2Float.release();
+	finalMask2Float.release();
+	std::cerr << "usage2_a_g: " << (uintptr_t) sbrk(0) << std::endl;
 
 	//convert back to 8-bit grey scale
 	masked1.convertTo(masked1, CV_8U, 255.0);
@@ -544,12 +639,14 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	//adjust contrast and brightness
 	adjust_contrast_and_brightness(masked1, foreground1, 2, 5);
 	adjust_contrast_and_brightness(masked2, foreground2, 2, 5);
+	masked1.release();
+	masked2.release();
 
 	show_image("fg1", foreground1);
 	show_image("fg2", foreground2);
 }
 
-pair<double, Point2f> get_orientation(const vector<Point> &pts)
+pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
 		{
 	//Construct a buffer used by the pca analysis
 	int sz = static_cast<int>(pts.size());
@@ -562,7 +659,7 @@ pair<double, Point2f> get_orientation(const vector<Point> &pts)
 	//Perform PCA analysis
 	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW);
 	//Store the center of the object
-	Point cntr = Point(static_cast<int>(pca_analysis.mean.at<double>(0, 0)), static_cast<int>(pca_analysis.mean.at<double>(0, 1)));
+	Point2f cntr = Point2f(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
 	//Store the eigenvalues and eigenvectors
 	vector<Point2d> eigen_vecs(2);
 	vector<double> eigen_val(2);
@@ -574,10 +671,10 @@ pair<double, Point2f> get_orientation(const vector<Point> &pts)
 	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x), cntr};
 }
 
-void translate(const Mat& src, Mat& dst, int x, int y) {
-	float warpValues[] = { 1.0, 0.0, float(x), 0.0, 1.0, float(y) };
+void translate(const Mat& src, Mat& dst, float x, float y) {
+	float warpValues[] = { 1.0, 0.0, x, 0.0, 1.0, y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
-	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(255, 255, 255));
+	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 }
 
 void rotate(const Mat& src, Mat& dst, Point2f center, double angle) {
@@ -603,13 +700,13 @@ void rotate_points(vector<Point2f>& pts, const Point2f& center, const double& an
 	}
 }
 
-void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point>>> &collected1, vector<vector<vector<Point>>> &collected2) {
+void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, vector<vector<vector<Point2f>>> &collected1, vector<vector<vector<Point2f>>> &collected2) {
 	cerr << "correcting alignment" << endl;
 	assert(!collected1.empty() && !collected1[0].empty()
 			&& !collected2.empty() && !collected2[0].empty());
 
-	vector<Point> flat1;
-	vector<Point> flat2;
+	vector<Point2f> flat1;
+	vector<Point2f> flat2;
 	for (auto &c : collected1) {
 		for (auto &v : c) {
 			if (c.size() > 1) {
@@ -764,9 +861,103 @@ void scale_features(Features& ft, double coef) {
 	scale_points(ft.inside_lips_, coef);
 }
 
+Mat arctan2(const Mat& y, const Mat& x) {
+	assert(y.rows == x.rows);
+    cv::Mat at2(y.rows, 1, CV_64FC1);
+	for(size_t i = 0; i < y.rows; ++i) {
+		at2.at<double>(i,0) = atan2(y.at<double>(i,0), x.at<double>(i,0));
+	}
+
+	return at2;
+}
+
+Mat cosine(const Mat& x) {
+    cv::Mat c(x.rows, 1, CV_64FC1);
+	for(size_t i = 0; i < x.rows; ++i) {
+		c.at<double>(i,0) = cos(x.at<double>(i,0));
+	}
+
+	return c;
+}
+
+Mat sine(const Mat& x) {
+    cv::Mat c(x.rows, 1, CV_64FC1);
+	for(size_t i = 0; i < x.rows; ++i) {
+		c.at<double>(i,0) = sin(x.at<double>(i,0));
+	}
+
+	return c;
+}
+
+void align(const cv::Mat& points, const cv::Mat& pointsRef, cv::Mat& res, cv::Mat& ops) {
+    Mat pts(points.rows, points.cols, CV_64FC1);
+    Mat ptsRef(points.rows, points.cols, CV_64FC1);
+    assert(pts.rows >= 2);
+    assert(ptsRef.rows >= 2);
+    res = Mat(pts.rows, 2, CV_64FC1);
+    ops = Mat(4, 1, CV_64FC1);
+    points.copyTo(pts);
+    pointsRef.copyTo(ptsRef);
+
+    Mat avgs;
+    reduce(pts, avgs, 0, REDUCE_AVG, CV_64FC1);
+    for(int i = 0; i < avgs.cols; i++) {
+    	pts.col(i) -= avgs.col(i).at<double>(0,0);
+    }
+
+    cv::Mat avgsR;
+    reduce(ptsRef,avgsR, 0, REDUCE_AVG, CV_64FC1);
+    for(int i = 0; i < avgsR.cols; i++) {
+        ptsRef.col(i) -= avgsR.col(i).at<double>(0,0);
+    }
+
+    cv::Mat x2;
+    cv::Mat y2;
+    cv::Mat x2R;
+    cv::Mat y2R;
+    cv::pow(pts.col(0), 2, x2);
+    cv::pow(pts.col(1), 2, y2);
+    cv::pow(ptsRef.col(0), 2, x2R);
+    cv::pow(ptsRef.col(1), 2, y2R);
+    cv::Mat sqrootP;
+    cv::Mat sqrootPR;
+    cv::sqrt(x2 + y2, sqrootP);
+    cv::sqrt(x2R + y2R, sqrootPR);
+
+    double offsetS = (cv::mean(sqrootPR) / cv::mean(sqrootP))[0];
+    pts *= offsetS;
+
+    Mat rot = arctan2(pts.col(1), pts.col(0));
+    Mat rotR = arctan2(ptsRef.col(1), ptsRef.col(0));
+    double offsetR = -cv::mean((rot - rotR))[0];
+    cv::Mat angRot;
+//    angRot = rot + offsetR;
+//    cv::Mat dist(pts.rows, 1, CV_64FC1);
+//
+//    sqrootP.mul(cosine(angRot)).col(0).operator Mat().copyTo(res.col(0));
+//    sqrootP.mul(sine(angRot)).col(0).operator Mat().copyTo(res.col(1));
+
+    std::cerr << "offsetS: " << offsetS << std::endl;
+    std::cerr << "offsetR: " << offsetR << std::endl;
+    ops.at<double>(0, 0) = avgs.at<double>(0, 0);
+    ops.at<double>(0, 1) = avgs.at<double>(0, 1);
+    ops.at<double>(0, 2) = offsetS * cos(offsetR);
+    ops.at<double>(0, 3) = offsetS * sin(offsetR);
+
+}
+
+/**
+ * A simple helper class to plot the points
+ **/
+void plot(Mat& img, vector<Point2f> points, Scalar color ) {
+
+    for( Point2f p: points )
+        circle( img, p, 2, color, 2 );
+}
+
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
-	vector<vector<vector<Point>>> collected1;
-	vector<vector<vector<Point>>> collected2;
+	vector<vector<vector<Point2f>>> collected1;
+	vector<vector<vector<Point2f>>> collected2;
 	vector<Mat> contourLayers1;
 	vector<Mat> contourLayers2;
 	Mat decimated1;
@@ -784,21 +975,11 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		Settings::instance().enable_face_detection = false;
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
-
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
 		decimate_features(orig1, orig2, decimated1, decimated2);
 		extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
-		if (Settings::instance().enable_auto_align) {
-			correct_alignment(orig1, orig2, corrected1, corrected2, collected1, collected2);
-			collected1.clear();
-			collected2.clear();
-			extract_foreground(corrected1, corrected2, goodFeatures1, goodFeatures2);
-			decimate_features(corrected1, corrected2, decimated1, decimated2);
-			extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
-		} else {
-			corrected1 = orig1.clone();
-			corrected2 = orig2.clone();
-		}
+		corrected1 = orig1.clone();
+		corrected2 = orig2.clone();
 
 		assert(!contourLayers1.empty() && !contourLayers2.empty());
 		assert(contourLayers1.size() == contourLayers2.size());
@@ -806,18 +987,126 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		show_image("gf1", goodFeatures1);
 		show_image("gf2", goodFeatures2);
 
-		Mat features1, features2;
-		cerr << "find matches" << endl;
-		for(size_t i = 0; i < contourLayers1.size(); ++i) {
-			if(contourLayers1[i].empty() || contourLayers2[i].empty())
-				continue;
+		if(Settings::instance().enable_auto_align) {
+			Mat features1 = goodFeatures1.clone();
+			Mat features2 = goodFeatures2.clone();
 
-			features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
-			features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
+			cerr << "auto aligning..." << endl;
+			for(size_t i = 0; i < contourLayers1.size(); ++i) {
+				if(contourLayers1[i].empty() || contourLayers2[i].empty())
+					continue;
 
-			auto matches = find_keypoints(features1, features2);
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+				features1 = features1 * (1.0 - (1.0/contourLayers1.size())) + contourLayers1[i] * (1.0/contourLayers1.size());
+				features2 = features2 * (1.0 - (1.0/contourLayers2.size())) + contourLayers2[i] * (1.0/contourLayers2.size());
+				off_t savedmkp = Settings::instance().max_keypoints;
+				Settings::instance().max_keypoints = 100;
+				auto matches = find_keypoints(features1, features2);
+				Settings::instance().max_keypoints = savedmkp;
+
+				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			}
+
+			auto prepared1 = srcPoints1;
+			auto prepared2 = srcPoints2;
+
+			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
+			srcPoints1.clear();
+			srcPoints2.clear();
+			features1 = goodFeatures1.clone();
+			features2 = goodFeatures2.clone();
+
+			for(size_t i = 0; i < contourLayers1.size(); ++i) {
+				if(contourLayers1[i].empty() || contourLayers2[i].empty())
+					continue;
+
+				features1 = features1 * (1.0 - (1.0/contourLayers1.size())) + contourLayers1[i] * (1.0/contourLayers1.size());
+				features2 = features2 * (1.0 - (1.0/contourLayers2.size())) + contourLayers2[i] * (1.0/contourLayers2.size());
+
+				auto matches = find_keypoints(features1, features2);
+
+				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			}
+
+			Procrustes proc(false,false);
+			proc.procrustes( prepared1, prepared2 );
+			std::cerr << "rot:" << endl << proc.rotation << std::endl;
+			std::cerr << "trans:" << endl << proc.translation << std::endl;
+			std::cerr << "error:" << proc.error << std::endl;
+			std::cerr << "scale:" << proc.scale << std::endl;
+
+			double anglePA = (atan2(proc.rotation.at<float>(0,1), proc.rotation.at<float>(0,0)) * RADIANS_TO_DEGREES);
+			Point2f center = {orig1.cols / 2.0f, orig1.rows  / 2.0f};
+			std::cerr << "anglePA:" << anglePA << std::endl;
+			double angle = anglePA;
+
+			for (auto &pt : srcPoints2) {
+				pt.x += proc.translation.at<float>(0,0);
+				pt.y += proc.translation.at<float>(0,1);
+			}
+
+			rotate_points(srcPoints2, center, angle);
+
+			//delete exceeding points from both src points vectors
+			for (size_t i = 0; i < srcPoints2.size(); ++i) {
+				Point2f& pt = srcPoints2[i];
+				if(pt.x < 0 || pt.x >= orig1.cols || pt.y < 0 || pt.y >= orig1.rows) {
+					srcPoints1.erase(srcPoints1.begin()+i);
+					srcPoints2.erase(srcPoints2.begin()+i);
+					--i;
+				}
+			}
+			Mat img = orig1.clone();
+
+			auto mu2 = moments(prepared2);
+			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
+					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
+
+			vector<Point2f> Y_prime = proc.yPrimeAsVector();
+			auto muY = moments(Y_prime);
+			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
+                    static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
+
+			Point2f translation = mcY - mc2;
+
+				/* Plot X */
+			plot( img, prepared1, Scalar(0, 200, 0));
+
+				/* Plot Y */
+			plot( img, prepared2, Scalar(200, 0, 0));
+
+			show_image( "plot", img );
+//			waitKey(0);
+
+			plot( img, Y_prime, Scalar(0, 0, 255));
+
+			show_image("proc", img);
+//			waitKey(0);
+
+			rotate(corrected2, corrected2, center, -angle);
+			rotate(contourMap2, contourMap2, center,-angle);
+			translate(corrected2, corrected2, translation.x, translation.y);
+			translate(contourMap2, contourMap2, translation.x, translation.y);
+		} else {
+			Mat features1, features2;
+			cerr << "find matches" << endl;
+
+			srcPoints1.clear();
+			srcPoints2.clear();
+
+			for(size_t i = 0; i < contourLayers1.size(); ++i) {
+				if(contourLayers1[i].empty() || contourLayers2[i].empty())
+					continue;
+
+				features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
+				features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
+
+				auto matches = find_keypoints(features1, features2);
+
+				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			}
 		}
 	} else {
 		cerr << "face algorithm..." << endl;
@@ -956,6 +1245,45 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 	} while(srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
 }
 
+void match_points_by_proximity2(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
+	multimap<double, pair<Point2f, Point2f>> distanceMap;
+	std::shuffle(srcPoints1.begin(), srcPoints1.end(),g);
+	Point2f nopoint(-1, -1);
+	for (auto &pt1 : srcPoints1) {
+		double dist = 0;
+		double currentMinDist = numeric_limits<double>::max();
+
+		Point2f *closest = &nopoint;
+		for (auto &pt2 : srcPoints2) {
+			if (pt2.x == -1 && pt2.y == -1)
+				continue;
+
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+
+			if (dist < currentMinDist) {
+				currentMinDist = dist;
+				closest = &pt2;
+			}
+		}
+
+		if (closest->x == -1 && closest->y == -1)
+			continue;
+
+		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
+		distanceMap.insert( { dist, { pt1, *closest } });
+		closest->x = -1;
+		closest->y = -1;
+	}
+
+	srcPoints1.clear();
+	srcPoints2.clear();
+	for(const auto& v : distanceMap) {
+		srcPoints1.push_back(v.second.first);
+		srcPoints2.push_back(v.second.second);
+	}
+
+}
+
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, MatSize sz) {
 	float w = sz().width - 1;
 	float h = sz().height - 1;
@@ -988,6 +1316,27 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 		srcPoints2.resize(srcPoints1.size());
 
 	add_corners(srcPoints1, srcPoints2, src1.size);
+}
+
+void prepare_matches2(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+	//edit matches
+	cerr << "prepare: " << srcPoints1.size() << endl;
+	match_points_by_proximity2(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	cerr << "match: " << srcPoints1.size() << endl;
+
+	Mat matMatches;
+	Mat grey1, grey2;
+	cvtColor(src1, grey1, COLOR_RGB2GRAY);
+	cvtColor(src2, grey2, COLOR_RGB2GRAY);
+	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
+	show_image("matches reduced", matMatches);
+
+	if (srcPoints1.size() > srcPoints2.size())
+		srcPoints1.resize(srcPoints2.size());
+	else
+		srcPoints2.resize(srcPoints1.size());
+
+//	add_corners(srcPoints1, srcPoints2, src1.size);
 }
 
 double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
@@ -1029,7 +1378,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	get_triangle_indices(subDivMorph, morphedPoints, triangleIndices);
 
 	// Get coordinates of Delaunay corners from ID list
-	vector<vector<Point2f>> triangleSrc1, triangleSrc2, triangleMorph;
+	vector<vector<Point>> triangleSrc1, triangleSrc2, triangleMorph;
 	make_triangler_points(triangleIndices, srcPoints1, triangleSrc1);
 	make_triangler_points(triangleIndices, srcPoints2, triangleSrc2);
 	make_triangler_points(triangleIndices, morphedPoints, triangleMorph);
@@ -1052,6 +1401,11 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat trMapX2, trMapY2;
 	create_map(triMap, morphHom2, trMapX2, trMapY2);
 	remap(origImg2, trImg2, trMapX2, trMapY2, INTER_LINEAR);
+
+	homographyMats.clear();
+	morphHom1.clear();
+	morphHom2.clear();
+	triMap.release();
 
 	Mat_<Vec3f> l;
 	Mat_<Vec3f> r;
@@ -1089,7 +1443,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	GaussianBlur(m, mask, Size(kx, ky), 12);
 
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
-	Mat_<Vec3f> lapBlend = lb.blend().clone();
+	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();

@@ -12,6 +12,7 @@
 namespace poppy {
 
 FaceDetector::FaceDetector(double scale) : cfg(scale) {
+#ifndef _NO_FACE_DETECT
 #ifndef _WASM
 	face_detector.load("src/assets/lbpcascade_frontalface.xml");
 	if(face_detector.empty())
@@ -29,6 +30,7 @@ FaceDetector::FaceDetector(double scale) : cfg(scale) {
 	}
 #else
 	facemark->loadModel("assets/lbfmodel.yaml");
+#endif
 #endif
 }
 

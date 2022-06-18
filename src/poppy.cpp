@@ -24,7 +24,7 @@
 #endif
 #include <gif.h>
 
-GifWriter gif_encoder;
+GifWriter* gif_encoder = nullptr;
 
 #include <opencv2/photo/photo.hpp>
 #include <opencv2/videoio.hpp>
@@ -54,15 +54,28 @@ struct ChannelWriter {
 
 struct SDLWriter {
 	void write(Mat& mat) {
-		std::unique_lock lock(frameBufferMtx);
-		if(mat.empty())
+		if(mat.empty() || gif_encoder == nullptr || canvas == nullptr)
 			return;
 		Mat bgra;
 		cvtColor(mat, bgra, COLOR_RGB2BGRA);
-		GifWriteFrame(&gif_encoder, bgra.data, bgra.size().width, bgra.size().height, 100.0/poppy::Settings::instance().frame_rate);
+		if(gif_encoder != nullptr)
+			GifWriteFrame(gif_encoder, bgra.data, bgra.size().width, bgra.size().height, 100.0/poppy::Settings::instance().frame_rate);
 		Mat scaled;
 		auto size = canvas->getSize();
-		resize(bgra, scaled, Size(size.first, size.second), 0, 0, INTER_CUBIC);
+		double w = size.first;
+		double h = size.second;
+		double sx = w / bgra.size().width;
+		double sy = h / bgra.size().height;
+		double factor = std::min(sx, sy);
+		resize(bgra, scaled, Size(0, 0), factor, factor, INTER_CUBIC);
+		if(factor < 1.0) {
+			Mat background(h, w, CV_8UC4, Scalar(0,0,0,0));
+			double borderX = (w - scaled.size().width) / 2.0;
+			double borderY = (h - scaled.size().height) / 2.0;
+			scaled.copyTo(background(Rect(borderX, borderY, scaled.size().width, scaled.size().height)));
+			scaled = background.clone();
+		}
+
 		canvas->draw((image_t const&)scaled.data);
 	}
 };
@@ -74,6 +87,7 @@ void loop() {
 #ifdef _WASM
 	try {
 		if(canvas != nullptr && running) {
+			std::unique_lock lock(frameBufferMtx);
 			sdl_writer.write(frameBuffer);
 		}
 
@@ -93,6 +107,8 @@ void loop() {
 		}
 	} catch (std::exception& ex) {
 	std::cerr << "Main loop exception: " << ex.what() << std::endl;
+	} catch (...) {
+		std::cerr << "Main loop exception" << std::endl;
 	}
 #endif
 }
@@ -130,6 +146,8 @@ Mat read_image(const string &path) {
 }
 
 void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
+	std::cerr << "usage0: " << (uintptr_t) sbrk(0) << std::endl;
+
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -165,7 +183,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		}
 	}
 	cerr << "union: " << szUnion << endl;
-	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 255, 255, 255 });
+	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 0, 0, 0 });
 	if (poppy::Settings::instance().enable_src_scaling) {
 		Mat clone = image1.clone();
 		resize(clone, image1, szUnion, INTER_CUBIC);
@@ -179,10 +197,19 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), poppy::Settings::instance().frame_rate, Size(szUnion.width, szUnion.height));
 
 #else
-	if(canvas == nullptr)
-		canvas = new poppy::Canvas(szUnion.width, szUnion.height, false);
-	GifBegin(&gif_encoder, "current.gif", szUnion.width, szUnion.height, 100.0/poppy::Settings::instance().frame_rate);
 
+	{
+	std::unique_lock lock(frameBufferMtx);
+		if(gif_encoder != nullptr)
+			delete gif_encoder;
+
+		if(canvas != nullptr)
+			delete canvas;
+
+		canvas = new poppy::Canvas(160, 160, false);
+		gif_encoder = new GifWriter();
+		GifBegin(gif_encoder, "current.gif", szUnion.width, szUnion.height, 100.0/poppy::Settings::instance().frame_rate);
+	}
 	ChannelWriter output;
 #endif
 
@@ -220,15 +247,23 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			exit(2);
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
+		std::cerr << "usage1: " << (uintptr_t) sbrk(0) << std::endl;
+
 		poppy::morph(image1, image2, phase, distance, output);
 		image1 = image2.clone();
 	}
+#ifdef _WASM
 	cerr << "gif flush" << endl;
 	try {
-		cerr << "result:" << GifEnd(&gif_encoder) << endl;
+		{
+			std::unique_lock lock(frameBufferMtx);
+			cerr << "gif result:" << GifEnd(gif_encoder) << endl;
+			frameBuffer = Mat();
+		}
 	} catch(...) {
 		cerr << "gif end failed" << endl;
 	}
+#endif
 	cerr << "done" << endl << flush;
 }
 
@@ -350,18 +385,17 @@ int main(int argc, char **argv) {
 
 extern "C" {
 
-int load_images(char *file_path1, char *file_path2, double tolerance, bool face) {
+int load_images(char *file_path1, char *file_path2, double tolerance, bool face, bool autoscale, double numberOfFrames, bool autoalign) {
 	try {
 		std::vector<string> imageFiles;
 		bool showGui = poppy::Settings::instance().show_gui;
-		size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
 		double frameRate = poppy::Settings::instance().frame_rate;
 		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
-		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
-		bool autoAlign = poppy::Settings::instance().enable_auto_align;
+		off_t maxKeypoints = 200;
+		bool autoAlign = autoalign;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
-		bool srcScaling = true;
+		bool srcScaling = autoscale;
 		bool denoise = false;
 		string outputFile = "output.mkv";
 
@@ -369,9 +403,16 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face)
 		imageFiles.push_back(string(file_path2));
 		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
 		std::thread t([=](){
+				try {
 				running = true;
 				run(imageFiles, outputFile, -1, false);
 				running = false;
+				} catch (std::exception& ex) {
+					std::cerr << "thread caught: " << ex.what() << std::endl;
+					throw ex;
+				} catch (...) {
+					std::cerr << "thread caught" << std::endl;
+				}
 		});
 		t.detach();
 	} catch(...) {

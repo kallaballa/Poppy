@@ -12,7 +12,11 @@ private:
 public:
 	bool show_gui = false;
 	double number_of_frames = 60;
+//#ifndef _WASM
 	double frame_rate = 30;
+//#else
+//	double frame_rate = 15;
+//#endif
 	double contour_sensitivity = 1;
 	double match_tolerance = 5;
 	off_t max_keypoints = -1;

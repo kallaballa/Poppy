@@ -2,21 +2,24 @@
 <html>
 
 <head>
-<title>Poppy - Free Image Morping!</title>
+<title>Poppy - Free And Open Source Online Image Morping!</title>
 <meta name="author" content="amir@viel-zu.org">
-<meta name="viewport" content="width=768">
+<meta name="viewport" content="width=512">
+<link rel="shortcut icon" href="./favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap" rel="stylesheet">
 <link href="cropper.min.css" rel="stylesheet">
+<meta name="description" content="A free and open source online image morphing service.">
+<meta name="keywords" content="free, online, image, morphing, open source">
 <script src="./get.php?res=cropper.min.js"></script>
+
 <style>
 
 html, body {
-	width: 100%;
-	height: 100%;
 	font-family: 'Inter', sans-serif;
 	color: white;
+	max-height: calc(var(--vh, 1vh) * 98);
 }
 
 textarea {
@@ -28,77 +31,71 @@ textarea {
 	padding: 0.8em;
 }
 
-.crop-container {
-	width: 120;
-	height: 160;
+button {
+	color: white;
+	font-size: 0.8em;
+	font-weight: bold;
+	background-color: red;
+	padding: 10px 30px 10px 30px;
+	border: 0px;
 }
+
+button[disabled=disabled], button:disabled {
+		background-color: grey;
+}
+
+a {
+	color: white;
+	font-size: 0.8em;
+}
+
+a:visited {
+	color: white;
+	font-size: 0.8em;
+}
+
 
 input[type=file] {
-	width: 1em;
+	opacity: 0.0;
+	position: relative;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	border: 1px white solid;
+	z-index: 999;
+	line-height: 0;
+	cursor: pointer;
+	width: 100%;
+	height: 100%;
 }
 
-#stderr {
-	position: fixed;
-	top: 19.5em;
+#footer1 {
+	display: none;
+	font-size: 0.8em;
+	text-align: left;
+}
+
+#footer2 {
 	display: block;
-	height: 9em;
-	width: 22em;pre
-	font-size: 1.2em;
-	background-color: black;
-	color: red;
-	overflow: scroll;
-	visibility: hidden;
-	border: 0.2em solid rgba(255,255,255,0.3);
-	border-radius: 0.5em;
-	margin: 0.5em;
-}
-
-#stdout {
-	position: fixed;
-	top: 7.5em;
-	display: block;
-	height: 9em;
-	width: 22em;
-	background-color: black;
-	color: white;
-	visibility: hidden;
-	border: 0.2em solid rgba(255,255,255,0.3);
-	font-size: 1.2em;
-	border-radius: 0.5em;
-	margin: 0.5em;
-}
-
-#debugBtn {
-	position: fixed;
-	top: calc(100% - 6em);
-	left: calc(100% - 6em);
-	color: #222222;
-	width: 6em;
-	height: 6em;
-	background: none!important;
-	border: none;
-	padding: 0!important;
+	font-size: 0.8em;
+	text-align: left;
 }
 
 #content {
 /*	display: table-cell;*/
 	margin: auto;
+	margin-top: 5px;
 	padding: 0;
 	text-align: center;
 	vertical-align: middle;
- 	visibility: hidden;
-	width: 50vw;
+	visibility: hidden;
+	height: 98vh;
 }
 
 #upload {
 	width: 100%;
-	height: 98vh;
 	margin:auto
-}
-
-td {
-	width: 100%;
-	height: 100%;
 }
 
 #loading {
@@ -109,86 +106,335 @@ td {
 	text-align: center;
 	color: white;
 	font-size: 3em;
-/* 	visibility: hidden; */
 }
 
 #canvas {
+	width: 350px;
+	height: 350px;
+	border: 3px #888 solid;
+}
+
+#credits {
+	text-align: right;
+	vertical-align: middle;
+}
+
+#crop-bg {
+	z-index: 999;
+	position: fixed;
+	background-color: #00000;
+	display: none;
+	margin: 0;
 	position: absolute;
-	top: 0;
-	left: 0;
-	/*cursor: none;*/
+	top: 50%;
+	-ms-transform: translateY(-50%);
+	transform: translateY(-50%);
+	left: 8em;
+	width: calc(100vw - 16em);
+	height: calc(var(--vh, 1vh) * 100 - 5em);
+	text-align: center;
+	background-color: white;
 }
 
-@media only handheld, (orientation: portrait) and (max-width : 1280px) {
-	#stderr {
-		top: 19em;
-		font-size: 2.2em;
+#headerrow {
+	font-size: 0.9em;
+}
+
+#canvasrow {
+	display: none;
+	width: 100%;
+}
+
+#progress {
+/*	top: 0px;
+	left: 0px;
+	font-size: 1.5em;
+	color: white;
+	text-align: center;
+	z-index: 1000000;
+	position: fixed;
+	width: 100%;
+	height: 100%;*/
+}
+
+#fileDiv {
+	display: table-cell;
+}
+
+
+#controlDiv {
+	display: table-cell;
+}
+
+#frames {
+  width: 30px;
+  height: 20px;
+  line-height: 1;
+  float: left;
+  display: block;
+  padding: 0;
+  margin: 0;
+  margin-top: 2px;
+  padding-left: 20px;
+  border: 1px solid #eee;
+}
+#crophead {
+	background-color: red;
+	width: 100%;
+	height: 25px;
+	display: inline-block;
+}
+
+.crop-container {
+	display:none;
+	z-index: 1001;
+	position: absolute;
+	top: 50%;
+	-ms-transform: translateY(-50%);
+	transform: translateY(-50%);
+	left: 8em;
+	width: calc(100vw - 16em);
+	height: calc(var(--vh, 1vh) * 100 - 12em);
+	text-align: center;
+	background-color: white;
+}
+
+.crop-container * {
+	z-index: 1002;
+}
+
+.crop-container button {
+	margin-top: 15px;
+	margin-bottom: 15px;
+	padding: 7px 21px 7px 21px;
+}
+
+.fileContainer {
+	display: inline-block;
+	border: 3px #888 solid;
+	margin-right: 30px;
+/* 	position: relative; */
+	width: 160px;
+	height: 160px;
+ 	line-height: 30px;
+	text-align: center;
+}
+
+.fileContainer img {
+	position: absolute;
+	max-width: 160px;
+	max-height: 160px;
+}
+
+.controlContainer {
+	display: table-cell;
+	text-align: left;
+	font-size: 1.1em;
+	line-height: 1.5em;
+}
+
+.spacer {
+	width: 25px;
+	display: inline-block;
+}
+
+
+@media only handheld, (orientation: portrait) and (max-width : 768px) {
+	#headerrow {
+		font-size: 1.3em;
 	}
 
-	#stdout {
-		top: 8em;
-		font-size: 2.2em;
+	#fileDiv {
+		display: block;
 	}
 
-	#debugBtn {
-		font-size: 2.2em;
+	#controlDiv {
+		display: block;
+		width: 100%;
+		text-align: left;
+	}
+
+	#credits {
+		vertical-align: top;
+		padding-top: 25px;
+	}
+
+	#startbtn {
+		margin: 0 auto;
+		display: flex;
+		justify-content: center;
+	}
+
+	#crop-bg {
+		left: 3em;
+		width: calc(100vw - 6em);
+		height: calc(var(--vh, 1vh) * 50 - 1em);
+		text-align: center;
+		background-color: white;
+	}
+
+	#footer1 {
+		display: block;
+	}
+
+	#footer2 {
+		display: none;
+	}
+
+	.crop-container {
+		left: 4em;
+		width: calc(100vw - 8em);
+		height: calc(var(--vh, 1vh) * 50 - 6em);
+	}
+
+	.crop-container button {
+		font-size: 0.7em;
+		margin-top: 0.75em;
+		margin-bottom: 2px;
+		padding: 3px 9px 3px 9px;
+	}
+
+	.controlContainer {
+		display: inline-block;
+		font-size: 1.7em;
+		width: 100%;
+	}
+
+	.controlContainer input{
+		transform: scale(2);
+		position: relative;
+		top: 1em;
+		left: -1.5em;
+	}
+
+	.controlContainer input[type=range] {
+		left: -4.1em;
+	}
+
+	.controlContainer input[type=checkbox] {
+ 		left: 0.4em;
+	}
+
+	.fileContainer {
+		display: inline-flex;
+		margin-right: 0;
+	}
+
+	.fileContainer:first-of-type {
+		margin-right: 30px;
+	}
+
+	.sides {
+		width: 1em;
+	}
+
+	.spacer {
+		width: 5px;
 	}
 }
 
-@media only handheld, (orientation: landscape) and (max-width : 1280px) {
-	#stderr {
-		top: 19em;
-		font-size: 1em;
+@media only handheld, (orientation: landscape) and (max-width : 768px) {
+	#fileDiv {
+		display: block;
 	}
-
-	#stdout {
-		top: 8em;
-		font-size: 1em;
-	}
-
-	#debugBtn {
-		font-size: 1em;
+	#controlDiv {
+		display: block;
 	}
 }
+
 </style>
 </head>
 <body style="background-color: #000000;">
-	<textarea cols=26 rows=5 id="stdout" style="visibility: hidden;"></textarea>
-	<textarea cols=26 rows=5 id="stderr" style="visibility: hidden;"></textarea>
-    <button id="debugBtn">debug</button>
 	<span id="loading"><img width="240" height="360" src="./get.php?res=img/poppy-loading.gif"/>
 	<br/>
 	Loading...
 	</span>
-	<canvas id="canvas"></canvas>
+	<div id="crop-bg"><div id=crophead></div></div>
+
+	<div id="image1container" class="crop-container">
+		<img id="image1"/>
+		<button onclick="make_blob('image1', 'image1container', 'target1', 0);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image1container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image1'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image1'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image1'].scaleX(-1)">Flip X</button><button onclick="croppers['image1'].scaleY(-1)">Flip Y</button>
+	</div>
+	<div id="image2container" class="crop-container">
+		<img id="image2"/>
+		<button onclick="make_blob('image2', 'image2container', 'target2', 1);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image2container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image2'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image2'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].setData({x: 0,
+y: 0,
+width: 100%,
+height: 100%,
+rotate: 0,
+scaleX: 1,
+scaleY: 1})">100%</button>
+	</div>
 	<table id="content">
 	<tbody>
-	<tr><td colspan=3>
+	<tr id="canvasrow">
+	<td rowspan=5 class="sides">
+	</td>
+	<td>
+		<canvas id="canvas"></canvas>
+		<div id="progress">Initializing...</div>
+	</td>
+	<td rowspan=5 class="sides">
+	</td>
+	</tr>
+	<tr id="headerrow">
+	<td rowspan=5 class="sides">
+	</td>
+	<td>
 		<img width=120 height=120 src="./get.php?res=img/header-poppy.png"/>
-	</td></tr>
-	<tr><td colspan=3>
 		<p>Welcome to Poppy!<br/>Morph any two images you like by klicking the boxes below.</p>
+	</td>
+	<td rowspan=5 class="sides">
+	</td>
+	</tr>
+	<tr>
+	<td>
+	<div id="fileDiv">
+		<div class="fileContainer">
+			<img id="target1"/>
+			<input type="file" id="image1file" accept="image/png, image/jpeg"/>
+		</div>
+		<div class="fileContainer">
+			<img id="target2"/>
+			<input type="file" id="image2file" accept="image/png, image/jpeg"/>
+		</div>
+	</div>
+	<div id="footer1">
+		You can change one or both pictures by klicking again.
+	</div>
+	<div id="controlDiv">
+		<div class="controlContainer">
+			<label for="tolerance">Tolerance: </label>
+			<input style="float:right;" type="range" min="1" max="16" value="4" id="tolerance"/>
+			<br/>
+			<label for="autoalign">Auto-align images? </label>
+			<input style="float:right;" type="checkbox" id="autoalign" checked/>
+			<br/>
+			<label for="face">Auto-scale sources? </label>
+			<input style="float:right;" type="checkbox" id="autoscale" checked/>
+			<br/>
+			<label for="frames">Number of Frames: </label>
+			<input id="frames" style="float:right;" type="number" id="frames" name="frames" min="1" max="240" value="15"/>
+			<br/>
+			<br/>
+			<button id="startbtn" onclick="load_images()">get morphin</button>
+		</div>
+	</div>
 	</td></tr>
-	<tr><td class="crop-container">
-		<div class="crop-container">
-			<img id="image1" width=120 height=160/>
-		</div>
-		<label for="imageload1">First image: </label><input onchange="crop(document.getElementById('imageload1').files[0], document.getElementById('image1'))" type="file" id="imageload1" accept="image/png, image/jpeg"/><br/>
-	</td><td class="crop-container">
-		<div class="crop-container">
-			<img id="image2" width=120 height=160/>
-		</div>
-		<label for="imageload2">Second image: </label><input onchange="crop(document.getElementById('imageload2').files[0], document.getElementById('image2'))" type="file" id="imageload2"
-			accept="image/png, image/jpeg"/>
-	</td><td>
-		<label for="tolerance">Tolerance: </label><input type="range" min="1" max="16" value="4" id="tolerance"/><br/>
-		<label for="face">Are both images faces? </label><input type="checkbox" id="face"/>
-		<button id="startbtn" onclick="load_files()" disabled>Start</button>
+	<tr><td id="footer2">
+		You can change one or both pictures by klicking again.
+	</td></tr>
+	<tr><td height=100% id="credits">
+	<a href="https://viel-zu.org">@viel-zu.org</a>&nbsp;<a href="http://mumpitz.at">@mumpitz.at</a>
 	</td></tr>
 	</tbody>
 	</table>
 	<script src="./get.php?res=poppy-custom.js"></script>
+	<script>
+		init_poppy("image1container", "image2container", "image1file", "image2file", "image1", "image2");
+	</script>
 	<script src="./get.php?res=poppy.js"></script>
 	</div>
 </body>
 </html>
+-

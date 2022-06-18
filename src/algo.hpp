@@ -21,10 +21,10 @@ std::pair<std::vector<Point2f>, std::vector<Point2f>> find_keypoints(const Mat &
 cv::Mat points_to_homogenous_mat(const std::vector<cv::Point2f> &pts);
 void morph_points(std::vector<cv::Point2f> &srcPts1, std::vector<cv::Point2f> &srcPts2, std::vector<cv::Point2f> &dstPts, float s);
 void get_triangle_indices(const cv::Subdiv2D &subDiv, const std::vector<cv::Point2f> &points, std::vector<cv::Vec3i> &triangleVertices);
-void make_triangler_points(const std::vector<cv::Vec3i> &triangleVertices, const std::vector<cv::Point2f> &points, std::vector<std::vector<cv::Point2f>> &trianglerPts);
-void paint_triangles(cv::Mat &img, const std::vector<std::vector<cv::Point2f>> &triangles);
-void solve_homography(const std::vector<cv::Point2f>& srcPts1, const std::vector<cv::Point2f>& srcPts2, cv::Mat& homography);
-void solve_homography(const std::vector<std::vector<cv::Point2f>>& srcPts1,	const std::vector<std::vector<cv::Point2f>>& srcPts2, std::vector<cv::Mat>& hmats);
+void make_triangler_points(const std::vector<cv::Vec3i> &triangleVertices, const std::vector<cv::Point2f> &points, std::vector<std::vector<cv::Point>> &trianglerPts);
+void paint_triangles(cv::Mat &img, const std::vector<std::vector<cv::Point>> &triangles);
+void solve_homography(const std::vector<cv::Point>& srcPts1, const std::vector<cv::Point>& srcPts2, cv::Mat& homography);
+void solve_homography(const std::vector<std::vector<cv::Point>>& srcPts1,	const std::vector<std::vector<cv::Point>>& srcPts2, std::vector<cv::Mat>& hmats);
 void morph_homography(const cv::Mat& hom, cv::Mat& morphHom1, cv::Mat& morphHom2, float blend_ratio);
 void morph_homography(const std::vector<cv::Mat>& homs, std::vector<cv::Mat>& morphHoms1, std::vector<cv::Mat>& morphHoms2, float blend_ratio);
 void create_map(const cv::Mat& triangleMap, const std::vector<cv::Mat>& homMatrices, cv::Mat& mapx, cv::Mat& mapy);
@@ -36,6 +36,7 @@ std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<doubl
 void match_points_by_proximity(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, int cols, int rows);
 void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2, MatSize sz);
 void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2);
+void prepare_matches2(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2);
 double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio);
 }
 

@@ -27,17 +27,26 @@ ifdef NOTHREADS
 CXXFLAGS += -D_NO_THREADS
 endif
 
+ifdef AUTOVECTOR
+CXXFLAGS += -D_AUTOVECTOR
+endif
+
 ifndef WASM
-CXXFLAGS += -march=native `pkg-config --cflags opencv4 libpng` -I../third/gif-h/
+CXXFLAGS += `pkg-config --cflags opencv4 libpng` -I../third/gif-h/
+#-march=native
 LIBS += -lboost_program_options `pkg-config --libs opencv4 libpng sdl SDL_image`
 else
 CXX     := em++
-CXXFLAGS += -D_WASM -I../third/gif-h/ -I../third/opencv-4.5.5/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.5.5/modules/imgproc/include/ -I../third/opencv-4.5.5/modules/features2d/include/ -I../third/opencv-4.5.5/modules/flann/include/ -I../third/opencv-4.5.5/modules/videoio/include/ -I../third/opencv-4.5.5/modules/highgui/include/  -I../third/opencv-4.5.5/modules/calib3d/include/ -I../third/opencv-4.5.5/modules/video/include/ -I../third/opencv-4.5.5/modules/imgcodecs/include/ -I../third/opencv-4.5.5/include/ -I../third/opencv-4.5.5/modules/dnn/include/ -I../third/opencv-4.5.5/modules/photo/include/ -I../third/opencv-4.5.5/modules/objdetect/include -I../third/opencv_contrib-4.5.5/modules/face/include -I../third/opencv-4.5.5/modules/ml/include/ -I../third/opencv-4.5.5/modules/stitching/include
+CXXFLAGS += -D_WASM -D_NO_FACE_DETECT -I../third/gif-h/ -I../third/opencv-4.6.0/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.6.0/modules/imgproc/include/ -I../third/opencv-4.6.0/modules/features2d/include/ -I../third/opencv-4.6.0/modules/flann/include/ -I../third/opencv-4.6.0/modules/videoio/include/ -I../third/opencv-4.6.0/modules/highgui/include/  -I../third/opencv-4.6.0/modules/calib3d/include/ -I../third/opencv-4.6.0/modules/video/include/ -I../third/opencv-4.6.0/modules/imgcodecs/include/ -I../third/opencv-4.6.0/include/ -I../third/opencv-4.6.0/modules/dnn/include/ -I../third/opencv-4.6.0/modules/photo/include/ -I../third/opencv-4.6.0/modules/objdetect/include -I../third/opencv_contrib-4.x/modules/face/include -I../third/opencv-4.6.0/modules/ml/include/ -I../third/opencv-4.6.0/modules/stitching/include
 LDFLAGS += -L../third/build_wasm/lib/ -L../third/build_wasm/3rdparty/lib/
-EMCXXFLAGS += -flto -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s DISABLE_EXCEPTION_CATCHING=0
-EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s INITIAL_MEMORY=419430400 -s TOTAL_STACK=52428800 -s WASM_BIGINT -s MALLOC=emmalloc -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s DISABLE_EXCEPTION_CATCHING=0 -s ALLOW_MEMORY_GROWTH=1 -s LLD_REPORT_UNDEFINED=1 -s FORCE_FILESYSTEM=1 -s STB_IMAGE=1 --preload-file assets
+EMCXXFLAGS += -flto -s USE_PTHREADS=1 -s NO_DISABLE_EXCEPTION_CATCHING
+EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s LLD_REPORT_UNDEFINED=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -s PROXY_TO_PTHREAD=1 -s ALLOW_MEMORY_GROWTH=1 -s NO_DISABLE_EXCEPTION_CATCHING -s EXCEPTION_DEBUG=1
+#--preload-file assets
 LIBS += -lzlib -lopencv_calib3d -lopencv_core -lopencv_dnn -lopencv_features2d -lopencv_flann -lopencv_imgproc -lopencv_objdetect -lopencv_photo -lopencv_video -lopencv_objdetect -lopencv_face
 #EMCXXFLAGS += -msimd128 -msse2
+ifdef AUTOVECTOR
+EMCXXFLAGS += -msimd128
+endif
 CXXFLAGS += $(EMCXXFLAGS) -c
 LDFLAGS += $(EMLDFLAGS)
 endif
@@ -98,8 +107,8 @@ hardcore: LDFLAGS += -s
 hardcore: dirs
 
 ifdef WASM
-#asan: CXXFLAGS += -fsanitize=undefined
-asan: LDFLAGS += -s STACK_OVERFLOW_CHECK=2 -s ASSERTIONS=2 #-fsanitize=undefined
+#asan: CXXFLAGS += -fsanitize=address
+asan: LDFLAGS += -s STACK_OVERFLOW_CHECK=2 -s ASSERTIONS=2
 else
 asan: CXXFLAGS += -rdynamic -fsanitize=address
 asan: LDFLAGS += -rdynamic -fsanitize=address
