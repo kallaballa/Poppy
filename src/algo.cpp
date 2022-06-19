@@ -30,6 +30,18 @@ namespace poppy {
 
 constexpr double RADIANS_TO_DEGREES = 57.2958;
 
+template <typename T>
+struct reversion_wrapper { T& iterable; };
+
+template <typename T>
+auto begin (reversion_wrapper<T> w) { return std::rbegin(w.iterable); }
+
+template <typename T>
+auto end (reversion_wrapper<T> w) { return std::rend(w.iterable); }
+
+template <typename T>
+reversion_wrapper<T> reverse (T&& iterable) { return { iterable }; }
+
 std::vector<std::vector<Point2f>> convertContourTo2f(const std::vector<std::vector<Point>>& contours1) {
 	std::vector<std::vector<Point2f>> tmp;
 	for(auto& vec: contours1) {
@@ -642,8 +654,8 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	masked1.release();
 	masked2.release();
 
-	show_image("fg1", foreground1);
-	show_image("fg2", foreground2);
+//	show_image("fg1", foreground1);
+//	show_image("fg2", foreground2);
 }
 
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
@@ -984,22 +996,20 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		assert(!contourLayers1.empty() && !contourLayers2.empty());
 		assert(contourLayers1.size() == contourLayers2.size());
 
-		show_image("gf1", goodFeatures1);
-		show_image("gf2", goodFeatures2);
+//		show_image("gf1", goodFeatures1);
+//		show_image("gf2", goodFeatures2);
 
 		if(Settings::instance().enable_auto_align) {
-			Mat features1 = goodFeatures1.clone();
-			Mat features2 = goodFeatures2.clone();
-
 			cerr << "auto aligning..." << endl;
 			for(size_t i = 0; i < contourLayers1.size(); ++i) {
 				if(contourLayers1[i].empty() || contourLayers2[i].empty())
 					continue;
 
-				features1 = features1 * (1.0 - (1.0/contourLayers1.size())) + contourLayers1[i] * (1.0/contourLayers1.size());
-				features2 = features2 * (1.0 - (1.0/contourLayers2.size())) + contourLayers2[i] * (1.0/contourLayers2.size());
+				Mat features1 = goodFeatures1;// * 0.5 + contourLayers1[i] * 0.5;
+				Mat features2 = goodFeatures2;// * 0.5 + contourLayers2[i] * 0.5;
+
 				off_t savedmkp = Settings::instance().max_keypoints;
-				Settings::instance().max_keypoints = 100;
+				Settings::instance().max_keypoints = 200;
 				auto matches = find_keypoints(features1, features2);
 				Settings::instance().max_keypoints = savedmkp;
 
@@ -1009,19 +1019,126 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			auto prepared1 = srcPoints1;
 			auto prepared2 = srcPoints2;
+			Mat img = orig2.clone();
+			plot(img, prepared1, {200,0,0,255});
+			plot(img, prepared2, {0,200,0,255});
+
+			show_image("pre0", img);
+
+			Point2f avg1(0,0);
+			Point2f avg2(0,0);
+			for(const auto& pt : prepared1) {
+				avg1 += pt;
+			}
+
+			avg1.x /= prepared1.size();
+			avg1.y /= prepared1.size();
+
+			for(const auto& pt : prepared2) {
+				avg2 += pt;
+			}
+
+			avg2.x /= prepared2.size();
+			avg2.y /= prepared2.size();
+			waitKey();
+
+
+			multimap<double, Point2f> centroidDistMap1;
+			multimap<double, Point2f> centroidDistMap2;
+
+			for(size_t i = 0; i < prepared1.size(); ++i) {
+				const auto& pt = prepared1[i];
+				centroidDistMap1.insert({hypot(pt.x - avg1.x, pt.y - avg1.y), pt});
+			}
+
+
+			for(size_t i = 0; i < prepared2.size(); ++i) {
+				const auto& pt = prepared2[i];
+				centroidDistMap2.insert({hypot(pt.x - avg2.x, pt.y - avg2.y), pt});
+			}
+			auto it1 = centroidDistMap1.begin();
+			auto it2 = centroidDistMap2.begin();
+
+			for (size_t i = 0; i < std::floor(centroidDistMap1.size() * 0.5); ++i)
+				++it1;
+
+			for (size_t i = 0; i < std::floor(centroidDistMap2.size() * 0.5); ++i)
+				++it2;
+
+			centroidDistMap1.erase(it1, centroidDistMap1.end());
+			centroidDistMap2.erase(it2, centroidDistMap2.end());
+
+			prepared1.clear();
+			for(const auto pr : centroidDistMap1) {
+				prepared1.push_back(pr.second);
+			}
+
+			prepared2.clear();
+			for(const auto pr : centroidDistMap2) {
+				prepared2.push_back(pr.second);
+			}
+
+
+			img = orig2.clone();
+
+			plot(img, prepared1, {200,0,0,255});
+			plot(img, prepared2, {0,200,0,255});
+
+			show_image("pre1", img);
+
+			waitKey();
 
 			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
+
+			img = orig2.clone();
+
+			plot(img, prepared1, {200,0,0,255});
+			plot(img, prepared2, {0,200,0,255});
+
+			show_image("pre2", img);
+
+			waitKey();
+
+			Procrustes procr(false,false);
+			procr.procrustes( prepared1, prepared2 );
+			vector<Point2f> Y_prime = procr.yPrimeAsVector();
+			auto muY = moments(Y_prime);
+			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
+					static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
+
+			auto mu2 = moments(prepared2);
+			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
+					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
+
+			std::vector<Point2f> hullY;
+			std::vector<Point2f> hull1;
+			std::vector<Point2f> hull2;
+
+			convexHull(prepared1, hull1);
+			convexHull(prepared2, hull2);
+			convexHull(Y_prime, hullY);
+			plot(img, prepared1, {200,0,0,255});
+			plot(img, prepared2, {0,200,0,255});
+			plot(img, Y_prime, {0,0,200,255});
+			drawContours(img, convertContourFrom2f({hull1}), 0, {200,0,0});
+			drawContours(img, convertContourFrom2f({hull2}), 0, {0,200,0});
+			drawContours(img, convertContourFrom2f({hullY}), 0, {0,0,200});
+
+			show_image("hull", img);
+
+			waitKey();
+//			Point2f translation = {procr.translation.at<float>(0,0),procr.translation.at<float>(0,1)};
+			Point2f translation = mcY - mc2;
+
 			srcPoints1.clear();
 			srcPoints2.clear();
-			features1 = goodFeatures1.clone();
-			features2 = goodFeatures2.clone();
 
 			for(size_t i = 0; i < contourLayers1.size(); ++i) {
 				if(contourLayers1[i].empty() || contourLayers2[i].empty())
 					continue;
 
-				features1 = features1 * (1.0 - (1.0/contourLayers1.size())) + contourLayers1[i] * (1.0/contourLayers1.size());
-				features2 = features2 * (1.0 - (1.0/contourLayers2.size())) + contourLayers2[i] * (1.0/contourLayers2.size());
+				Mat features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
+				Mat features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
 
 				auto matches = find_keypoints(features1, features2);
 
@@ -1029,37 +1146,23 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 			}
 
-			Procrustes proc(false,false);
-			proc.procrustes( prepared1, prepared2 );
-			std::cerr << "rot:" << endl << proc.rotation << std::endl;
-			std::cerr << "trans:" << endl << proc.translation << std::endl;
-			std::cerr << "error:" << proc.error << std::endl;
-			std::cerr << "scale:" << proc.scale << std::endl;
 
-			double anglePA = (atan2(proc.rotation.at<float>(0,1), proc.rotation.at<float>(0,0)) * RADIANS_TO_DEGREES);
+			std::cerr << "rot:" << endl << procr.rotation << std::endl;
+			std::cerr << "trans:" << endl << translation << std::endl;
+
+			double anglePA = (atan2(procr.rotation.at<float>(0,1), procr.rotation.at<float>(0,0)) * RADIANS_TO_DEGREES);
 			Point2f center = {orig1.cols / 2.0f, orig1.rows  / 2.0f};
 			std::cerr << "anglePA:" << anglePA << std::endl;
 			double angle = anglePA;
 
-			auto mu2 = moments(prepared2);
-			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
-					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
-
-			vector<Point2f> Y_prime = proc.yPrimeAsVector();
-			auto muY = moments(Y_prime);
-			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
-                    static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
-
-			Point2f translation = mcY - mc2;
 
 			for (auto &pt : srcPoints2) {
-				pt.x += translation;
-				pt.y += translation;
+				pt.x += translation.x;
+				pt.y += translation.y;
 			}
 
 			rotate_points(srcPoints2, center, angle);
 
-			//delete exceeding points from both src points vectors
 			for (size_t i = 0; i < srcPoints2.size(); ++i) {
 				Point2f& pt = srcPoints2[i];
 				if(pt.x < 0 || pt.x >= orig1.cols || pt.y < 0 || pt.y >= orig1.rows) {
@@ -1068,21 +1171,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					--i;
 				}
 			}
-			Mat img = orig1.clone();
-
-				/* Plot X */
-			plot( img, prepared1, Scalar(0, 200, 0));
-
-				/* Plot Y */
-			plot( img, prepared2, Scalar(200, 0, 0));
-
-			show_image( "plot", img );
-//			waitKey(0);
-
-			plot( img, Y_prime, Scalar(0, 0, 255));
-
-			show_image("proc", img);
-//			waitKey(0);
 
 			rotate(corrected2, corrected2, center, -angle);
 			rotate(contourMap2, contourMap2, center,-angle);

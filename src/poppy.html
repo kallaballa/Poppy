@@ -353,17 +353,11 @@ input[type=file] {
 
 	<div id="image1container" class="crop-container">
 		<img id="image1"/>
-		<button onclick="make_blob('image1', 'image1container', 'target1', 0);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image1container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image1'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image1'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image1'].scaleX(-1)">Flip X</button><button onclick="croppers['image1'].scaleY(-1)">Flip Y</button>
+		<button onclick="make_blob('image1', 'image1container', 'target1', 0);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image1container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image1'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image1'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image1'].scaleX(-1)">Flip X</button><button onclick="croppers['image1'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image1'].setData({x: 0, y: 0, width: getElementById('image1').width, height: getElementById('image1').height, rotate: 0, scaleX: 1, scaleY: 1})">100%</button>
 	</div>
 	<div id="image2container" class="crop-container">
 		<img id="image2"/>
-		<button onclick="make_blob('image2', 'image2container', 'target2', 1);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image2container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image2'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image2'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].setData({x: 0,
-y: 0,
-width: 100%,
-height: 100%,
-rotate: 0,
-scaleX: 1,
-scaleY: 1})">100%</button>
+		<button onclick="make_blob('image2', 'image2container', 'target2', 1);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image2container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image2'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image2'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><div class="spacer"></div><button onclick="croppers['image2'].setData({x: 0, y: 0, width: getElementById('image2').width, height: getElementById('image2').height, rotate: 0, scaleX: 1, scaleY: 1})">100%</button>
 	</div>
 	<table id="content">
 	<tbody>
@@ -408,7 +402,7 @@ scaleY: 1})">100%</button>
 			<input style="float:right;" type="range" min="1" max="16" value="4" id="tolerance"/>
 			<br/>
 			<label for="autoalign">Auto-align images? </label>
-			<input style="float:right;" type="checkbox" id="autoalign" checked/>
+			<input style="float:right;" type="checkbox" id="autoalign"/>
 			<br/>
 			<label for="face">Auto-scale sources? </label>
 			<input style="float:right;" type="checkbox" id="autoscale" checked/>
