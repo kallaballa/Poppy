@@ -9,6 +9,17 @@ using namespace std;
 using namespace cv;
 
 namespace poppy {
+
+double morph_distance(double width, double height, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	double totalDistance = 0;
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+		Point2f v = srcPoints2[i] - srcPoints1[i];
+		totalDistance += hypot(v.x, v.y);
+	}
+
+	return (totalDistance / srcPoints1.size()) / hypot(width, height);
+}
 void show_image(const string &name, const Mat &img) {
 #ifndef _WASM
 	if(Settings::instance().show_gui) {
@@ -18,6 +29,13 @@ void show_image(const string &name, const Mat &img) {
 #endif
 }
 
+void wait_key(int timeout) {
+#ifndef _WASM
+	if(Settings::instance().show_gui) {
+		waitKey(timeout);
+	}
+#endif
+}
 
 void clip_points(std::vector<Point2f> &pts, int cols, int rows) {
 	for (auto &pt : pts) {

@@ -146,8 +146,6 @@ Mat read_image(const string &path) {
 }
 
 void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
-	std::cerr << "usage0: " << (uintptr_t) sbrk(0) << std::endl;
-
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -247,7 +245,6 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			exit(2);
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
-		std::cerr << "usage1: " << (uintptr_t) sbrk(0) << std::endl;
 
 		poppy::morph(image1, image2, phase, distance, output);
 		image1 = image2.clone();

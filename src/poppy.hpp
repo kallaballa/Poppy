@@ -18,17 +18,6 @@ double ease_in_out_cubic(double x) {
 	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
 }
 
-double morph_distance(double width, double height, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2) {
-	assert(srcPoints1.size() == srcPoints2.size());
-	double totalDistance = 0;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
-		Point2f v = srcPoints2[i] - srcPoints1[i];
-		totalDistance += hypot(v.x, v.y);
-	}
-
-	return (totalDistance / srcPoints1.size()) / hypot(width, height);
-}
-
 void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
@@ -51,9 +40,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 	Mat corrected1, corrected2;
 	Mat allContours1, allContours2;
-	std::cerr << "usage2: " << (uintptr_t) sbrk(0) << std::endl;
 	find_matches(image1, image2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
-	std::cerr << "usage2a: " << (uintptr_t) sbrk(0) << std::endl;
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -66,7 +53,6 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		}
 		return;
 	}
-	std::cerr << "usage2b: " << (uintptr_t) sbrk(0) << std::endl;
 	if(!Settings::instance().enable_face_detection) {
 		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
 	} else {

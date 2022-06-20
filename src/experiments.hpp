@@ -121,42 +121,45 @@ void symmetryTest(
 }
 
 double cheap_morph_distance(const Mat &src1, const Mat &src2) {
+	Mat grey1, grey2;
 	Mat tmp1, tmp2;
+
 	if(src1.type() != CV_8UC1) {
-		cvtColor(src1, tmp1, COLOR_RGB2GRAY);
+		cvtColor(src1, grey1, COLOR_RGB2GRAY);
+		tmp1 = src1.clone();
 	} else {
-		tmp1 = src1;
+		cvtColor(src1, tmp1, COLOR_GRAY2RGB);
+		grey1 = src1.clone();
 	}
 
 	if(src2.type() != CV_8UC1) {
-		cvtColor(src2, tmp2, COLOR_RGB2GRAY);
+		cvtColor(src2, grey2, COLOR_RGB2GRAY);
+		tmp2 = src2.clone();
 	} else {
-		tmp2 = src2;
+		cvtColor(src2, tmp2, COLOR_GRAY2RGB);
+		grey2 = src2.clone();
 	}
 
-
-	auto p = find_keypoints(tmp1, tmp2);
-	vector<Point2f>& corners1 = p.first;
-	vector<Point2f>& corners2 = p.second;
+	show_image("test1", src1);
+	wait_key();
+	auto p = find_keypoints(grey1, grey2);
+	vector<Point2f>& keypoints1 = p.first;
+	vector<Point2f>& keypoints2 = p.second;
+//	prepare_matches2(tmp1, tmp2, src1, src2, keypoints1, keypoints2);
 //	goodFeaturesToTrack(tmp1, corners1, 25,0.01,10);
 //	goodFeaturesToTrack(tmp2, corners2, 25,0.01,10);
 
-	if(corners1.empty() || corners2.empty())
+	if(keypoints1.empty() || keypoints2.empty())
 		return hypot(src1.cols, src1.rows);
 
-	if (corners1.size() > corners2.size())
-		corners1.resize(corners2.size());
-	else
-		corners2.resize(corners1.size());
-
 	double total = 0;
-	for(size_t i = 0; i < corners1.size(); ++i) {
-		for(size_t j = 0; j < corners2.size(); ++j) {
-			total += hypot(corners2[j].x - corners1[i].x, corners2[j].y - corners1[i].y);
+	for(size_t i = 0; i < keypoints1.size(); ++i) {
+		for(size_t j = 0; j < keypoints2.size(); ++j) {
+			total += hypot(keypoints2[j].x - keypoints1[i].x, keypoints2[j].y - keypoints1[i].y);
 		}
 	}
 
-	return total / (corners1.size() * corners2.size());
+	return total / (keypoints1.size() * keypoints2.size());
 }
 
 /*

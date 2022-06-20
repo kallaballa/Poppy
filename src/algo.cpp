@@ -5,6 +5,7 @@
 #include "settings.hpp"
 #include "face.hpp"
 #include "procrustes.hpp"
+#include "experiments.hpp"
 #include <iostream>
 #include <random>
 #include <string>
@@ -96,7 +97,7 @@ void make_delaunay_mesh(const Size &size, Subdiv2D &subdiv, vector<Point2f> &dst
 
 pair<vector<Point2f>, vector<Point2f>> find_keypoints(const Mat &grey1, const Mat &grey2) {
 	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = hypot(grey1.cols, grey1.rows) * 5.0;
+		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	Ptr<ORB> extractor = ORB::create();
 
@@ -447,7 +448,7 @@ void extract_foreground_mask(const Mat &grey, Mat &fgMask) {
 	last.release();
 }
 
-void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point2f>>> &collected1, vector<vector<vector<Point2f>>> &collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2) {
+void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<vector<vector<Point2f>>> &collected1, vector<vector<vector<Point2f>>> &collected2) {
 	Mat grey1, grey2;
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, COLOR_RGB2GRAY);
@@ -525,36 +526,7 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	show_image("cmap1", cmap1);
 	show_image("cmap2", cmap2);
 
-	contourLayers1.clear();
-	contourLayers2.clear();
-	size_t minC = std::min(collected1.size(), collected2.size());
-	contourLayers1.resize(minC);
-	contourLayers2.resize(minC);
-
-	cerr << "draw all contours -> " << endl;
-	for (size_t i = 0; i < 1; ++i) {
-		cerr << i << "/" << (minC - 1) << '\r';
-		Mat &cont1 = contourLayers1[i];
-		Mat &cont2 = contourLayers2[i];
-		cont1 = Mat::zeros(grey1.rows, grey1.cols, grey1.type());
-		cont2 = Mat::zeros(grey2.rows, grey2.cols, grey2.type());
-		std::vector<std::vector<Point2f>>& contours1 = collected1[i];
-		std::vector<std::vector<Point2f>>& contours2 = collected2[i];
-		auto tmp1 = convertContourFrom2f(contours1);
-		auto tmp2 = convertContourFrom2f(contours2);
-
-		for (size_t j = 0; j < tmp1.size(); ++j) {
-			cv::drawContours(cont1, tmp1, j, { 255 }, 1.0, cv::LINE_4, hierarchy1, 0);
-		}
-
-		for (size_t j = 0; j < tmp2.size(); ++j) {
-			cv::drawContours(cont2, tmp2, j, { 255 }, 1.0, cv::LINE_4, hierarchy2, 0);
-		}
-
-//		cvtColor(cont1, cont1, cv::COLOR_RGB2GRAY);
-//		cvtColor(cont2, cont2, cv::COLOR_RGB2GRAY);
-	}
-	cerr << endl;
+	cerr << "collected: " << collected1.size() << ":" << collected2.size() << endl;
 }
 
 void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
@@ -565,11 +537,9 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 
 	Mat fgMask1;
 	Mat fgMask2;
-	std::cerr << "usage2_a_a: " << (uintptr_t) sbrk(0) << std::endl;
 	//extract areas of interest (aka. foreground)
 	extract_foreground_mask(grey1, fgMask1);
 	extract_foreground_mask(grey2, fgMask2);
-	std::cerr << "usage2_a_b: " << (uintptr_t) sbrk(0) << std::endl;
 	Mat radialMaskFloat;
 	if(Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
@@ -578,7 +548,6 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 		radial.convertTo(radialMaskFloat, CV_32F, 1.0 / 255.0);
 		radial.release();
 	}
-	std::cerr << "usage2_a_c: " << (uintptr_t) sbrk(0) << std::endl;
 	//convert the images and masks to floating point for the subsequent multiplication
 	Mat grey1Float, grey2Float, fgMask1Float, fgMask2Float;
 	grey1.convertTo(grey1Float, CV_32F, 1.0 / 255.0);
@@ -591,7 +560,6 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	fgMask1.release();
 	fgMask2.release();
 
-	std::cerr << "usage2_a_d: " << (uintptr_t) sbrk(0) << std::endl;
 
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
@@ -607,7 +575,6 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	fgMask1Float.release();
 	fgMask2Float.release();
 
-	std::cerr << "usage2_a_e: " << (uintptr_t) sbrk(0) << std::endl;
 	show_image("mask1", finalMask1Float);
 	show_image("mask2", finalMask2Float);
 	/*
@@ -629,7 +596,6 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	grey1Float.release();
 	fgMask1Float.release();
 	finalMask1Float.release();
-	std::cerr << "usage2_a_f: " << (uintptr_t) sbrk(0) << std::endl;
 
 	Mat blurred2Float, blurredMask2Float, maskedBlur2Float;
 	GaussianBlur(grey2Float, blurred2Float, Size(23, 23), 3);
@@ -642,7 +608,6 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	blurredMask2Float.release();
 	maskedBlur2Float.release();
 	finalMask2Float.release();
-	std::cerr << "usage2_a_g: " << (uintptr_t) sbrk(0) << std::endl;
 
 	//convert back to 8-bit grey scale
 	masked1.convertTo(masked1, CV_8U, 255.0);
@@ -970,8 +935,6 @@ void plot(Mat& img, vector<Point2f> points, Scalar color ) {
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	vector<vector<vector<Point2f>>> collected1;
 	vector<vector<vector<Point2f>>> collected2;
-	vector<Mat> contourLayers1;
-	vector<Mat> contourLayers2;
 	Mat decimated1;
 	Mat decimated2;
 
@@ -989,33 +952,26 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		Mat goodFeatures1, goodFeatures2;
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
 		decimate_features(orig1, orig2, decimated1, decimated2);
-		extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		extract_contours(decimated1, decimated2, contourMap1, contourMap2, collected1, collected2);
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
 
-		assert(!contourLayers1.empty() && !contourLayers2.empty());
-		assert(contourLayers1.size() == contourLayers2.size());
 
 //		show_image("gf1", goodFeatures1);
 //		show_image("gf2", goodFeatures2);
 
 		if(Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
-			for(size_t i = 0; i < contourLayers1.size(); ++i) {
-				if(contourLayers1[i].empty() || contourLayers2[i].empty())
-					continue;
 
-				Mat features1 = goodFeatures1;// * 0.5 + contourLayers1[i] * 0.5;
-				Mat features2 = goodFeatures2;// * 0.5 + contourLayers2[i] * 0.5;
+			off_t savedmkp = Settings::instance().max_keypoints;
+			Settings::instance().max_keypoints = 500;
+			auto matches = find_keypoints(goodFeatures1, goodFeatures2);
+			Settings::instance().max_keypoints = savedmkp;
 
-				off_t savedmkp = Settings::instance().max_keypoints;
-				Settings::instance().max_keypoints = 200;
-				auto matches = find_keypoints(features1, features2);
-				Settings::instance().max_keypoints = savedmkp;
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-			}
+			cerr << "points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 
 			auto prepared1 = srcPoints1;
 			auto prepared2 = srcPoints2;
@@ -1023,7 +979,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared1, {200,0,0,255});
 			plot(img, prepared2, {0,200,0,255});
 
-			show_image("pre0", img);
+			show_image("prep1", img);
 
 			Point2f avg1(0,0);
 			Point2f avg2(0,0);
@@ -1040,7 +996,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			avg2.x /= prepared2.size();
 			avg2.y /= prepared2.size();
-			waitKey();
+//			wait_key();
 
 
 			multimap<double, Point2f> centroidDistMap1;
@@ -1056,17 +1012,60 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				const auto& pt = prepared2[i];
 				centroidDistMap2.insert({hypot(pt.x - avg2.x, pt.y - avg2.y), pt});
 			}
-			auto it1 = centroidDistMap1.begin();
-			auto it2 = centroidDistMap2.begin();
 
-			for (size_t i = 0; i < std::floor(centroidDistMap1.size() * 0.5); ++i)
-				++it1;
+			vector<Point2f> hull;
+			Mat ellipse;
+			RotatedRect rr1;
+			for (size_t i = 0; i < centroidDistMap1.size(); ++i) {
+				ellipse = orig1.clone();
+				vector<Point2f> pts;
+				for (const auto& pr : centroidDistMap1) {
+					pts.push_back(pr.second);
+				}
+				convexHull(pts, hull);
+				rr1 = fitEllipse(hull);
+				double areaHull = contourArea(hull);
+				double areaEllipse = CV_PI * (rr1.size.height/2.0) * (rr1.size.width/2.0);
+				cv::ellipse(ellipse, rr1, {0,0,200});
+				drawContours(ellipse, convertContourFrom2f({hull}), 0, {200,0,0});
+				plot(ellipse, pts, {0,0,200});
 
-			for (size_t i = 0; i < std::floor(centroidDistMap2.size() * 0.5); ++i)
-				++it2;
+//				show_image("ellipse1", ellipse);
+//			    wait_key(100);
 
-			centroidDistMap1.erase(it1, centroidDistMap1.end());
-			centroidDistMap2.erase(it2, centroidDistMap2.end());
+				if(areaEllipse / areaHull < 1.4) {
+					cerr << "found" << endl;
+					break;
+				}
+
+				centroidDistMap1.erase(prev(centroidDistMap1.end()));
+			}
+			hull.clear();
+			RotatedRect rr2;
+			for (size_t i = 0; i < centroidDistMap2.size(); ++i) {
+				ellipse = orig2.clone();
+				vector<Point2f> pts;
+				for (const auto& pr : centroidDistMap2) {
+					pts.push_back(pr.second);
+				}
+				convexHull(pts, hull);
+				rr2 = fitEllipse(hull);
+				double areaHull = contourArea(hull);
+				double areaEllipse = CV_PI * (rr2.size.height/2.0) * (rr2.size.width/2.0);
+				cv::ellipse(ellipse, rr2, {0,0,200});
+				drawContours(ellipse, convertContourFrom2f({hull}), 0, {200,0,0});
+				plot(ellipse, pts, {0,0,200});
+
+//				show_image("ellipse2", ellipse);
+//			    wait_key(100);
+
+				if(areaEllipse / areaHull < 1.4) {
+					cerr << "found" << endl;
+					break;
+				}
+
+				centroidDistMap2.erase(prev(centroidDistMap2.end()));
+			}
 
 			prepared1.clear();
 			for(const auto pr : centroidDistMap1) {
@@ -1078,16 +1077,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				prepared2.push_back(pr.second);
 			}
 
-
-			img = orig2.clone();
-
-			plot(img, prepared1, {200,0,0,255});
-			plot(img, prepared2, {0,200,0,255});
-
-			show_image("pre1", img);
-
-			waitKey();
-
 			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
 
 			img = orig2.clone();
@@ -1095,65 +1084,66 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared1, {200,0,0,255});
 			plot(img, prepared2, {0,200,0,255});
 
-			show_image("pre2", img);
+			show_image("prep2", img);
 
-			waitKey();
+//			wait_key();
 
 			Procrustes procr(false,false);
 			procr.procrustes( prepared1, prepared2 );
 			vector<Point2f> Y_prime = procr.yPrimeAsVector();
-			auto muY = moments(Y_prime);
-			Point2f mcY = Point2f( static_cast<float>(muY.m10 / (muY.m00 + 1e-5)),
-					static_cast<float>(muY.m01 / (muY.m00 + 1e-5)));
 
-			auto mu2 = moments(prepared2);
-			Point2f mc2 = Point2f( static_cast<float>(mu2.m10 / (mu2.m00 + 1e-5)),
-					static_cast<float>(mu2.m01 / (mu2.m00 + 1e-5)));
+			double anglePA = (atan2(procr.rotation.at<float>(0,1), procr.rotation.at<float>(0,0)) * RADIANS_TO_DEGREES);
+			std::cerr << "anglePA:" << anglePA << std::endl;
+			double angle = anglePA;
 
-			std::vector<Point2f> hullY;
-			std::vector<Point2f> hull1;
-			std::vector<Point2f> hull2;
-
-			convexHull(prepared1, hull1);
-			convexHull(prepared2, hull2);
-			convexHull(Y_prime, hullY);
 			plot(img, prepared1, {200,0,0,255});
 			plot(img, prepared2, {0,200,0,255});
 			plot(img, Y_prime, {0,0,200,255});
-			drawContours(img, convertContourFrom2f({hull1}), 0, {200,0,0});
-			drawContours(img, convertContourFrom2f({hull2}), 0, {0,200,0});
-			drawContours(img, convertContourFrom2f({hullY}), 0, {0,0,200});
 
-			show_image("hull", img);
+			Point2f center = {float(orig1.cols / 2.0),float(orig1.rows / 2.0)};
+			Point2f direction1 = {float(center.x + center.x * cos(anglePA)),
+					float(center.y + center.y * sin(anglePA))};
 
-			waitKey();
+			line(img, center, direction1, {200, 0, 0});
+
+			show_image("dir", img);
+
+//			wait_key();
+
+
+			avg2 = {0,0};
+			Point2f avgY(0,0);
+			for(const auto& pt : prepared2) {
+				avg2 += pt;
+			}
+
+			avg2.x /= prepared2.size();
+			avg2.y /= prepared2.size();
+
+			for(const auto& pt : Y_prime) {
+				avgY += pt;
+			}
+
+			avgY.x /= Y_prime.size();
+			avgY.y /= Y_prime.size();
+
 //			Point2f translation = {procr.translation.at<float>(0,0),procr.translation.at<float>(0,1)};
-			Point2f translation = mcY - mc2;
+			Point2f translation = avgY - avg2;
 
 			srcPoints1.clear();
 			srcPoints2.clear();
 
-			for(size_t i = 0; i < contourLayers1.size(); ++i) {
-				if(contourLayers1[i].empty() || contourLayers2[i].empty())
-					continue;
+			savedmkp = Settings::instance().max_keypoints;
+			Settings::instance().max_keypoints = 500;
+			matches = find_keypoints(goodFeatures1, goodFeatures2);
+			Settings::instance().max_keypoints = savedmkp;
 
-				Mat features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
-				Mat features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
-
-				auto matches = find_keypoints(features1, features2);
-
-				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-			}
-
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
 			std::cerr << "rot:" << endl << procr.rotation << std::endl;
 			std::cerr << "trans:" << endl << translation << std::endl;
-
-			double anglePA = (atan2(procr.rotation.at<float>(0,1), procr.rotation.at<float>(0,0)) * RADIANS_TO_DEGREES);
-			Point2f center = {orig1.cols / 2.0f, orig1.rows  / 2.0f};
-			std::cerr << "anglePA:" << anglePA << std::endl;
-			double angle = anglePA;
+			std::cerr << "error:" << (procr.error + 1.0) / 2.0 << std::endl;
 
 
 			for (auto &pt : srcPoints2) {
@@ -1171,9 +1161,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					--i;
 				}
 			}
-
 			rotate(corrected2, corrected2, center, -angle);
-			rotate(contourMap2, contourMap2, center,-angle);
+			rotate(contourMap2, contourMap2, center, -angle);
 			translate(corrected2, corrected2, translation.x, translation.y);
 			translate(contourMap2, contourMap2, translation.x, translation.y);
 		} else {
@@ -1183,23 +1172,15 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			srcPoints1.clear();
 			srcPoints2.clear();
 
-			for(size_t i = 0; i < contourLayers1.size(); ++i) {
-				if(contourLayers1[i].empty() || contourLayers2[i].empty())
-					continue;
+			auto matches = find_keypoints(goodFeatures1, goodFeatures2);
 
-				features1 = goodFeatures1 * 0.5 + contourLayers1[i] * 0.5;
-				features2 = goodFeatures2 * 0.5 + contourLayers2[i] * 0.5;
-
-				auto matches = find_keypoints(features1, features2);
-
-				srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-				srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-			}
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 		}
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1.empty() && !ft2.empty());
-		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2, contourLayers1, contourLayers2);
+		extract_contours(orig1, orig2, contourMap1, contourMap2, collected1, collected2);
 		srcPoints1 = ft1.getAllPoints();
 		srcPoints2 = ft2.getAllPoints();
 
