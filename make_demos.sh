@@ -19,7 +19,7 @@ ffmpeg -y -i "$LOW" ../demo/cars.gif
 mencoder -vf scale=360:202 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/browns.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/browns.gif
 
-../src/poppy -t16 $OPTS -o ../videos/catdog.mkv cat.png dog.png cat.png
+../src/poppy -t6 $OPTS -o ../videos/catdog.mkv cat.png dog.png cat.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/catdog.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/catdog.gif
 
@@ -31,7 +31,7 @@ ffmpeg -y -i "$LOW" ../demo/squarecircle.gif
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/numbers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/numbers.gif
 
-../src/poppy -t16 $OPTS -o ../videos/flowers.mkv flower1.png flower2.png flower1.png
+../src/poppy $OPTS -o ../videos/flowers.mkv flower1.png flower2.png flower1.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/flowers.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/flowers.gif
 
