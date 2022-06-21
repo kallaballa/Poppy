@@ -1287,13 +1287,11 @@ void match_points_by_proximity2(vector<Point2f> &srcPoints1, vector<Point2f> &sr
 			}
 		}
 
-		if (closest->x == -1 && closest->y == -1)
+		if (closest == &nopoint)
 			continue;
 
 		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
 		distanceMap.insert( { dist, { pt1, *closest } });
-		closest->x = -1;
-		closest->y = -1;
 	}
 
 	srcPoints1.clear();
