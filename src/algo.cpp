@@ -659,8 +659,8 @@ void translate(const Mat &src, Mat &dst, float x, float y) {
 	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 }
 
-void rotate(const Mat &src, Mat &dst, Point2f center, double angle) {
-	Mat rm = getRotationMatrix2D(center, angle, 1.0);
+void rotate(const Mat &src, Mat &dst, Point2f center, double angle, double scale) {
+	Mat rm = getRotationMatrix2D(center, angle, scale);
 	warpAffine(src, dst, rm, src.size());
 }
 
@@ -809,7 +809,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 	}
 
 	if (ft1.empty() || ft2.empty()) {
-		Settings::instance().enable_face_detection = false;
+//		Settings::instance().enable_face_detection = false;
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
@@ -841,7 +841,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared2, { 0, 200, 0, 255 });
 
 			show_image("prep1", img);
-
+			wait_key();
 			Point2f avg1(0, 0);
 			Point2f avg2(0, 0);
 			for (const auto &pt : prepared1) {
@@ -874,6 +874,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			vector<Point2f> hull;
 			Mat ellipse;
+
 			RotatedRect rr1;
 			for (size_t i = 0; i < centroidDistMap1.size(); ++i) {
 				ellipse = orig1.clone();
@@ -882,6 +883,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					pts.push_back(pr.second);
 				}
 				convexHull(pts, hull);
+				overdefineHull(hull, 6);
 				rr1 = fitEllipse(hull);
 				double areaHull = contourArea(hull);
 				double areaEllipse = CV_PI * (rr1.size.height / 2.0) * (rr1.size.width / 2.0);
@@ -890,9 +892,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				plot(ellipse, pts, { 0, 0, 200 });
 
 				show_image("ellipse1", ellipse);
-			    wait_key(10);
+			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.4) {
+				if (areaEllipse / areaHull < 1.5) {
 					cerr << "found" << endl;
 					break;
 				}
@@ -900,6 +902,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				centroidDistMap1.erase(prev(centroidDistMap1.end()));
 			}
 			hull.clear();
+
 			RotatedRect rr2;
 			for (size_t i = 0; i < centroidDistMap2.size(); ++i) {
 				ellipse = orig2.clone();
@@ -908,6 +911,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					pts.push_back(pr.second);
 				}
 				convexHull(pts, hull);
+				overdefineHull(hull, 6);
 				rr2 = fitEllipse(hull);
 				double areaHull = contourArea(hull);
 				double areaEllipse = CV_PI * (rr2.size.height / 2.0) * (rr2.size.width / 2.0);
@@ -916,9 +920,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				plot(ellipse, pts, { 0, 0, 200 });
 
 				show_image("ellipse2", ellipse);
-			    wait_key(10);
+			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.4) {
+				if (areaEllipse / areaHull < 1.5) {
 					cerr << "found" << endl;
 					break;
 				}
@@ -936,6 +940,12 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				prepared2.push_back(pr.second);
 			}
 
+//
+//			if (prepared1.size() > prepared2.size())
+//				prepared1.resize(prepared2.size());
+//			else
+//				prepared2.resize(prepared1.size());
+
 			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
 
 			img = orig2.clone();
@@ -947,7 +957,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			wait_key();
 
-			Procrustes procr(false, false);
+			Procrustes procr(Settings::instance().enable_src_scaling, false);
 			procr.procrustes(prepared1, prepared2);
 			vector<Point2f> Y_prime = procr.yPrimeAsVector();
 
@@ -1003,96 +1013,25 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			std::cerr << "trans:" << endl << translation << std::endl;
 			std::cerr << "error:" << (procr.error + 1.0) / 2.0 << std::endl;
 
-//			vector<Point2f> left;
-//			vector<Point2f> right;
-//			vector<Point2f> top;
-//			vector<Point2f> bottom;
-//			for (auto &pt : srcPoints2) {
-//				left.push_back( { pt.x - 1, pt.y });
-//				right.push_back( { pt.x + 1, pt.y });
-//				top.push_back( { pt.x, pt.y - 1 });
-//				bottom.push_back( { pt.x, pt.y + 1 });
-//			}
-//			double mdCurrent = morph_distance(orig1.cols, orig1.rows, srcPoints1, srcPoints2);
-//			double mdLeft = morph_distance(orig1.cols, orig1.rows, srcPoints1, left);
-//			double mdRight = morph_distance(orig1.cols, orig1.rows, srcPoints1, right);
-//			double mdTop = morph_distance(orig1.cols, orig1.rows, srcPoints1, top);
-//			double mdBottom = morph_distance(orig1.cols, orig1.rows, srcPoints1, bottom);
-//			off_t xchange = 0;
-//			off_t ychange = 0;
-//
-//			if (mdLeft < mdCurrent)
-//				xchange = -1;
-//			else if (mdRight < mdCurrent)
-//				xchange = +1;
-//
-//			if (mdTop < mdCurrent)
-//				ychange = -1;
-//			else if (mdBottom < mdCurrent)
-//				ychange = +1;
-//			cerr << "current morph dist: " << mdCurrent << endl;
-//			size_t xProgress = 0;
-//
-//			if (xchange != 0) {
-//				double lastMorphDist = mdCurrent;
-//				double morphDist = 0;
-//				do {
-//					vector<Point2f> tmp;
-//					for (auto &pt : srcPoints2) {
-//						tmp.push_back( { pt.x + xchange, pt.y });
-//					}
-//					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
-//					cerr << "morph dist x: " << morphDist << endl;
-//					if (morphDist >= lastMorphDist)
-//						break;
-//					lastMorphDist = morphDist;
-//					++xProgress;
-//				} while (true);
-//			}
-//			size_t yProgress = 0;
-//
-//			if (ychange != 0) {
-//				double lastMorphDist = mdCurrent;
-//				double morphDist = 0;
-//
-//				do {
-//					vector<Point2f> tmp;
-//					for (auto &pt : srcPoints2) {
-//						tmp.push_back( { pt.x, pt.y + ychange });
-//					}
-//					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
-//					cerr << "morph dist y: " << morphDist << endl;
-//					if (morphDist >= lastMorphDist)
-//						break;
-//					lastMorphDist = morphDist;
-//					++yProgress;
-//				} while (true);
-//			}
-//			Point2f retranslation(xchange * xProgress, ychange * yProgress);
-//			cerr << "retranslation: " << retranslation << endl;
-//			for (auto &pt : srcPoints2) {
-//				pt.x += retranslation.x;
-//				pt.y += retranslation.y;
-//			}
-//			double morphDist = -1;
-//			vector<Point2f> tmp;
-//			map<double,double> morphDistMap;
-//			double tmpAngle = 0;
-//			for(size_t i = 0; i < 100; ++i) {
-//				tmp = srcPoints2;
-//				tmpAngle = angle + ((M_PI * 2.0) / (i + 1));
-//				rotate_points(tmp, center, tmpAngle);
-//				morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
-//				morphDistMap[morphDist] = tmpAngle;
-//			}
-//			double finalAngle = (*morphDistMap.begin()).second;
+			double morphDist = -1;
+			vector<Point2f> tmp;
+			map<double,double> morphDistMap;
+			double tmpAngle = 0;
+			for(size_t i = 0; i < 100; ++i) {
+				tmp = srcPoints2;
+				tmpAngle = angle + ((M_PI * 2.0) / (i + 1));
+				rotate_points(tmp, center, tmpAngle);
+				morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+				morphDistMap[morphDist] = tmpAngle;
+			}
+			double finalAngle = (*morphDistMap.begin()).second;
+			cerr << "finalAngle:" << finalAngle << endl;
 
 			for (auto &pt : srcPoints2) {
 				pt.x += translation.x;
 				pt.y += translation.y;
 			}
 
-			double finalAngle = angle;
 			rotate_points(srcPoints2, center, finalAngle);
 
 			for (size_t i = 0; i < srcPoints2.size(); ++i) {
@@ -1104,8 +1043,81 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				}
 			}
 
-			rotate(corrected2, corrected2, center, -finalAngle);
-			rotate(contourMap2, contourMap2, center, -finalAngle);
+			vector<Point2f> left;
+			vector<Point2f> right;
+			vector<Point2f> top;
+			vector<Point2f> bottom;
+			for (auto &pt : srcPoints2) {
+				left.push_back( { pt.x - 1, pt.y });
+				right.push_back( { pt.x + 1, pt.y });
+				top.push_back( { pt.x, pt.y - 1 });
+				bottom.push_back( { pt.x, pt.y + 1 });
+			}
+			double mdCurrent = morph_distance(orig1.cols, orig1.rows, srcPoints1, srcPoints2);
+			double mdLeft = morph_distance(orig1.cols, orig1.rows, srcPoints1, left);
+			double mdRight = morph_distance(orig1.cols, orig1.rows, srcPoints1, right);
+			double mdTop = morph_distance(orig1.cols, orig1.rows, srcPoints1, top);
+			double mdBottom = morph_distance(orig1.cols, orig1.rows, srcPoints1, bottom);
+			off_t xchange = 0;
+			off_t ychange = 0;
+
+			if (mdLeft < mdCurrent)
+				xchange = -1;
+			else if (mdRight < mdCurrent)
+				xchange = +1;
+
+			if (mdTop < mdCurrent)
+				ychange = -1;
+			else if (mdBottom < mdCurrent)
+				ychange = +1;
+			cerr << "current morph dist: " << mdCurrent << endl;
+			off_t xProgress = 0;
+
+			if (xchange != 0) {
+				double lastMorphDist = mdCurrent;
+				double morphDist = 0;
+				do {
+					vector<Point2f> tmp;
+					for (auto &pt : srcPoints2) {
+						tmp.push_back( { pt.x + xchange * xProgress, pt.y });
+					}
+					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+//					cerr << "morph dist x: " << morphDist << endl;
+					if (morphDist > lastMorphDist)
+						break;
+					lastMorphDist = morphDist;
+					++xProgress;
+				} while (true);
+			}
+			off_t yProgress = 0;
+
+			if (ychange != 0) {
+				double lastMorphDist = mdCurrent;
+				double morphDist = 0;
+
+				do {
+					vector<Point2f> tmp;
+					for (auto &pt : srcPoints2) {
+						tmp.push_back( { pt.x, pt.y + ychange * yProgress});
+					}
+					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+//					cerr << "morph dist y: " << morphDist << endl;
+					if (morphDist > lastMorphDist)
+						break;
+					lastMorphDist = morphDist;
+					++yProgress;
+				} while (true);
+			}
+			Point2f retranslation(xchange * xProgress, ychange * yProgress);
+			cerr << "retranslation: " << retranslation << endl;
+			for (auto &pt : srcPoints2) {
+				pt.x += retranslation.x;
+				pt.y += retranslation.y;
+			}
+
+			cerr << "scale: " << procr.scale << endl;
+			rotate(corrected2, corrected2, center, -finalAngle, procr.scale);
+			rotate(contourMap2, contourMap2, center, -finalAngle, procr.scale);
 			translate(corrected2, corrected2, translation.x, translation.y);
 			translate(contourMap2, contourMap2, translation.x, translation.y);
 		} else {

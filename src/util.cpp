@@ -4,21 +4,39 @@
 
 #include <opencv2/highgui/highgui.hpp>
 #include <set>
+#include <iostream>
 
 using namespace std;
 using namespace cv;
 
 namespace poppy {
 
+void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
+	assert(hull.size() > 1);
+	off_t diff = minPoints - hull.size();
+	if(diff > 0)  {
+		for(size_t i = 0; i < hull.size() - 1; i+=2) {
+			const auto& first = hull[i];
+			const auto& second = hull[i + 1];
+			auto insertee = first;
+			auto vector = second - first;
+			vector.x /= 2.0;
+			vector.y /= 2.0;
+			insertee.x += vector.x;
+			insertee.y += vector.y;
+			hull.insert(hull.begin() + (i+1), std::move(insertee));
+		}
+	}
+}
+
 double morph_distance(double width, double height, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	double totalDistance = 0;
+	double totalDistance = 0.00001;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		Point2f v = srcPoints2[i] - srcPoints1[i];
-		totalDistance += hypot(v.x, v.y);
+			totalDistance += hypot(v.x, v.y);
 	}
-
-	return (totalDistance / srcPoints1.size()) / hypot(width, height);
+	return (totalDistance / srcPoints1.size()) / (width * height);
 }
 void show_image(const string &name, const Mat &img) {
 #ifndef _WASM

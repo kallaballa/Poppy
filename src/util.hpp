@@ -56,6 +56,7 @@ struct LessPointOp {
 	}
 };
 
+void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
 double morph_distance(double width, double height, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2);
 void show_image(const std::string &name, const cv::Mat &img);
 void wait_key(int timeout = 0);
