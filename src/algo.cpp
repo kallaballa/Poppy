@@ -859,9 +859,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 						}
 					}
 				}
-				centroidDistMap1.erase((*prev(candidates.end())).second);
+//				centroidDistMap1.erase((*prev(candidates.end())).second);
 //				centroidDistMap1.erase((*candidates.begin()).second);
-//				centroidDistMap1.erase(prev(centroidDistMap1.end()));
+				centroidDistMap1.erase(prev(centroidDistMap1.end()));
 			}
 			hull.clear();
 
@@ -907,9 +907,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 						}
 					}
 				}
-				centroidDistMap2.erase((*prev(candidates.end())).second);
+//				centroidDistMap2.erase((*prev(candidates.end())).second);
 //				centroidDistMap2.erase((*candidates.begin()).second);
-//				centroidDistMap2.erase(prev(centroidDistMap2.end()));
+				centroidDistMap2.erase(prev(centroidDistMap2.end()));
 			}
 
 			prepared1.clear();
