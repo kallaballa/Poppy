@@ -752,7 +752,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 	}
 
 	if (ft1.empty() || ft2.empty()) {
-//		Settings::instance().enable_face_detection = false;
+		bool savedefd = Settings::instance().enable_face_detection;
+		Settings::instance().enable_face_detection = false;
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
@@ -768,14 +769,12 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			cerr << "auto aligning..." << endl;
 
 			off_t savedmkp = Settings::instance().max_keypoints;
-			Settings::instance().max_keypoints = 200;
+			Settings::instance().max_keypoints = 100;
 			auto matches = find_keypoints(goodFeatures1, goodFeatures2);
 			Settings::instance().max_keypoints = savedmkp;
 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-
-			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 
 			auto prepared1 = srcPoints1;
 			auto prepared2 = srcPoints2;
@@ -785,6 +784,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			show_image("prep1", img);
 			wait_key();
+
 			Point2f avg1(0, 0);
 			Point2f avg2(0, 0);
 			for (const auto &pt : prepared1) {
@@ -800,7 +800,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			avg2.x /= prepared2.size();
 			avg2.y /= prepared2.size();
-			wait_key();
 
 			multimap<double, Point2f> centroidDistMap1;
 			multimap<double, Point2f> centroidDistMap2;
@@ -837,26 +836,32 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				show_image("ellipse1", ellipse);
 			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.7) {
-					cerr << "found" << endl;
+				if (areaEllipse / areaHull < M_PI_2) {
 					break;
 				}
 
-//				bool found = false;
-//				for(const Point2f& pt : hull) {
-//					auto it = centroidDistMap1.end();
-//					for(size_t i = 0; i < centroidDistMap1.size(); ++i) {
-//						it = prev(it);
-//						if((*it).second == pt) {
-//							centroidDistMap1.erase(it);
-//							found = true;
-//							break;
-//						}
-//					}
-//					if(found)
-//						break;
-//				}
-				centroidDistMap1.erase(prev(centroidDistMap1.end()));
+				multimap<double,typename multimap<double, Point2f>::iterator> candidates;
+				auto it = centroidDistMap1.end();
+				for(size_t i = 0; i < centroidDistMap1.size(); ++i) {
+					it = prev(it);
+					for(const Point2f& pt : hull) {
+						if((*it).second == pt) {
+							vector<Point2f> hullCopy;
+							for(auto& pt2 : hull) {
+								if(pt != pt2)
+									hullCopy.push_back(pt2);
+							}
+
+							RotatedRect rr = fitEllipse(hullCopy);
+							double areaHull = contourArea(hullCopy);
+							double areaEllipse = M_PI * (rr.size.height / 2.0) * (rr.size.width / 2.0);
+							candidates.insert({areaHull, it});
+						}
+					}
+				}
+				centroidDistMap1.erase((*prev(candidates.end())).second);
+//				centroidDistMap1.erase((*candidates.begin()).second);
+//				centroidDistMap1.erase(prev(centroidDistMap1.end()));
 			}
 			hull.clear();
 
@@ -879,26 +884,32 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				show_image("ellipse2", ellipse);
 			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.7) {
-					cerr << "found" << endl;
+				if (areaEllipse / areaHull < M_PI_2) {
 					break;
 				}
 
-//				bool found = false;
-//				for(const Point2f& pt : hull) {
-//					auto it = centroidDistMap1.end();
-//					for(size_t i = 0; i < centroidDistMap1.size(); ++i) {
-//						it = prev(it);
-//						if((*it).second == pt) {
-//							centroidDistMap1.erase(it);
-//							found = true;
-//							break;
-//						}
-//					}
-//					if(found)
-//						break;
-//				}
-				centroidDistMap2.erase(prev(centroidDistMap2.end()));
+				multimap<double,typename multimap<double, Point2f>::iterator> candidates;
+				auto it = centroidDistMap2.end();
+				for(size_t i = 0; i < centroidDistMap2.size(); ++i) {
+					it = prev(it);
+					for(const Point2f& pt : hull) {
+						if((*it).second == pt) {
+							vector<Point2f> hullCopy;
+							for(auto& pt2 : hull) {
+								if(pt != pt2)
+									hullCopy.push_back(pt2);
+							}
+
+							RotatedRect rr = fitEllipse(hullCopy);
+							double areaHull = contourArea(hullCopy);
+							double areaEllipse = M_PI * (rr.size.height / 2.0) * (rr.size.width / 2.0);
+							candidates.insert({areaHull, it});
+						}
+					}
+				}
+				centroidDistMap2.erase((*prev(candidates.end())).second);
+//				centroidDistMap2.erase((*candidates.begin()).second);
+//				centroidDistMap2.erase(prev(centroidDistMap2.end()));
 			}
 
 			prepared1.clear();
@@ -911,13 +922,10 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				prepared2.push_back(pr.second);
 			}
 
-//
 			if (prepared1.size() > prepared2.size())
 				prepared1.resize(prepared2.size());
 			else
 				prepared2.resize(prepared1.size());
-
-//			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
 
 			img = orig2.clone();
 
@@ -925,172 +933,71 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared2, { 0, 200, 0, 255 });
 
 			show_image("prep2", img);
-
 			wait_key();
 
-			Procrustes procr(Settings::instance().enable_src_scaling, false);
+			Procrustes procr(false, false);
 			procr.procrustes(prepared1, prepared2);
-			vector<Point2f> Y_prime = procr.yPrimeAsVector();
+			vector<Point2f> Yprime = procr.yPrimeAsVector();
 
-			double anglePA = (atan2(procr.rotation.at<float>(0, 1), procr.rotation.at<float>(0, 0)) * RADIANS_TO_DEGREES);
-			std::cerr << "anglePA:" << anglePA << std::endl;
-			double angle = anglePA;
+			vector<Point2f> hull1;
+			vector<Point2f> hull2;
+			vector<Point2f> hullY;
 
-			plot(img, prepared1, { 200, 0, 0, 255 });
-			plot(img, prepared2, { 0, 200, 0, 255 });
-			plot(img, Y_prime, { 0, 0, 200, 255 });
+			convexHull(prepared1, hull1);
+			convexHull(prepared2, hull2);
+			convexHull(Yprime, hullY);
 
-			Point2f center = { float(orig1.cols / 2.0), float(orig1.rows / 2.0) };
-			Point2f direction1 = { float(center.x + center.x * cos(anglePA)),
-					float(center.y + center.y * sin(anglePA)) };
+			if(hull1.size() > hull2.size())
+				overdefineHull(hull2, hull1.size());
+			else
+				overdefineHull(hull1, hull2.size());
 
-			line(img, center, direction1, { 200, 0, 0 });
+			drawContours(img, convertContourFrom2f( { hull1 }), 0, { 200, 0, 0 });
+			drawContours(img, convertContourFrom2f( { hull2 }), 0, { 0, 200, 0 });
+			drawContours(img, convertContourFrom2f( { hullY }), 0, { 0, 0, 200 });
 
-			show_image("dir", img);
-
+			show_image("Yprime", img);
 			wait_key();
 
-			avg2 = { 0, 0 };
-			Point2f avgY(0, 0);
-			for (const auto &pt : prepared2) {
-				avg2 += pt;
-			}
+		    Point2f srcTri[3];
+		    srcTri[0] = prepared2[0];
+		    srcTri[1] = prepared2[1];
+		    srcTri[2] = prepared2[2];
+		    Point2f dstTri[3];
+		    dstTri[0] = Yprime[0];
+		    dstTri[1] = Yprime[1];
+		    dstTri[2] = Yprime[2];
 
-			avg2.x /= prepared2.size();
-			avg2.y /= prepared2.size();
+		    Mat warp_mat = getAffineTransform( srcTri, dstTri );
+			warpAffine(corrected2, corrected2, warp_mat, corrected2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+			warpAffine(contourMap1, contourMap2, warp_mat, contourMap2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 
-			for (const auto &pt : Y_prime) {
-				avgY += pt;
-			}
+			srcPoints1.clear();
+			srcPoints2.clear();
 
-			avgY.x /= Y_prime.size();
-			avgY.y /= Y_prime.size();
+			matches = find_keypoints(goodFeatures1, goodFeatures2);
 
-//			Point2f translation = {procr.translation.at<float>(0,0),procr.translation.at<float>(0,1)};
-			Point2f translation = avgY - avg2;
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-//			srcPoints1.clear();
-//			srcPoints2.clear();
-//
-//			savedmkp = Settings::instance().max_keypoints;
-//			Settings::instance().max_keypoints = 500;
-//			matches = find_keypoints(goodFeatures1, goodFeatures2);
-//			Settings::instance().max_keypoints = savedmkp;
-//
-//			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-//			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-
-			std::cerr << "rot:" << endl << procr.rotation << std::endl;
-			std::cerr << "trans:" << endl << translation << std::endl;
-			std::cerr << "error:" << (procr.error + 1.0) / 2.0 << std::endl;
-
-			double morphDist = -1;
-			vector<Point2f> tmp;
-			map<double,double> morphDistMap;
-			double tmpAngle = 0;
-			for(size_t i = 0; i < 100; ++i) {
-				tmp = srcPoints2;
-				tmpAngle = angle + ((M_PI * 2.0) / (i + 1));
-				rotate_points(tmp, center, tmpAngle);
-				morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-				morphDistMap[morphDist] = tmpAngle;
-			}
-			double finalAngle = (*morphDistMap.begin()).second;
-			cerr << "finalAngle:" << finalAngle << endl;
-
-			for (auto &pt : srcPoints2) {
-				pt.x += translation.x;
-				pt.y += translation.y;
-			}
-
-			rotate_points(srcPoints2, center, finalAngle);
+			vector<double> r = {0,0,1};
+			cv::Mat row(1, 3, CV_64F, r.data());
+			warp_mat.push_back(row);
+			cerr << "trans mat: " << warp_mat << endl;
+			perspectiveTransform(srcPoints2, srcPoints2, warp_mat);
 
 			for (size_t i = 0; i < srcPoints2.size(); ++i) {
-				Point2f &pt = srcPoints2[i];
-				if (pt.x < 0 || pt.x >= orig1.cols || pt.y < 0 || pt.y >= orig1.rows) {
-					srcPoints1.erase(srcPoints1.begin() + i);
-					srcPoints2.erase(srcPoints2.begin() + i);
+				Point2f& pt = srcPoints2[i];
+				if(pt.x < 0 || pt.x >= orig1.cols || pt.y < 0 || pt.y >= orig1.rows) {
+					srcPoints1.erase(srcPoints1.begin()+i);
+					srcPoints2.erase(srcPoints2.begin()+i);
 					--i;
 				}
 			}
 
-			vector<Point2f> left;
-			vector<Point2f> right;
-			vector<Point2f> top;
-			vector<Point2f> bottom;
-			for (auto &pt : srcPoints2) {
-				left.push_back( { pt.x - 1, pt.y });
-				right.push_back( { pt.x + 1, pt.y });
-				top.push_back( { pt.x, pt.y - 1 });
-				bottom.push_back( { pt.x, pt.y + 1 });
-			}
-			double mdCurrent = morph_distance(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
-			double mdLeft = morph_distance(srcPoints1, left, orig1.cols, orig1.rows);
-			double mdRight = morph_distance(srcPoints1, right, orig1.cols, orig1.rows);
-			double mdTop = morph_distance(srcPoints1, top, orig1.cols, orig1.rows);
-			double mdBottom = morph_distance(srcPoints1, bottom, orig1.cols, orig1.rows);
-			off_t xchange = 0;
-			off_t ychange = 0;
-
-			if (mdLeft < mdCurrent)
-				xchange = -1;
-			else if (mdRight < mdCurrent)
-				xchange = +1;
-
-			if (mdTop < mdCurrent)
-				ychange = -1;
-			else if (mdBottom < mdCurrent)
-				ychange = +1;
-			cerr << "current morph dist: " << mdCurrent << endl;
-			off_t xProgress = 0;
-
-			if (xchange != 0) {
-				double lastMorphDist = mdCurrent;
-				double morphDist = 0;
-				do {
-					vector<Point2f> tmp;
-					for (auto &pt : srcPoints2) {
-						tmp.push_back( { pt.x + xchange * xProgress, pt.y });
-					}
-					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-//					cerr << "morph dist x: " << morphDist << endl;
-					if (morphDist > lastMorphDist)
-						break;
-					lastMorphDist = morphDist;
-					++xProgress;
-				} while (true);
-			}
-			off_t yProgress = 0;
-
-			if (ychange != 0) {
-				double lastMorphDist = mdCurrent;
-				double morphDist = 0;
-
-				do {
-					vector<Point2f> tmp;
-					for (auto &pt : srcPoints2) {
-						tmp.push_back( { pt.x, pt.y + ychange * yProgress});
-					}
-					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-//					cerr << "morph dist y: " << morphDist << endl;
-					if (morphDist > lastMorphDist)
-						break;
-					lastMorphDist = morphDist;
-					++yProgress;
-				} while (true);
-			}
-			Point2f retranslation(xchange * xProgress, ychange * yProgress);
-			cerr << "retranslation: " << retranslation << endl;
-			for (auto &pt : srcPoints2) {
-				pt.x += retranslation.x;
-				pt.y += retranslation.y;
-			}
-
-			cerr << "scale: " << procr.scale << endl;
-			rotate(corrected2, corrected2, center, -finalAngle, procr.scale);
-			rotate(contourMap2, contourMap2, center, -finalAngle, procr.scale);
-			translate(corrected2, corrected2, translation.x, translation.y);
-			translate(contourMap2, contourMap2, translation.x, translation.y);
+//			prepare_matches2(corrected1, corrected2, orig1, orig2, srcPoints1, srcPoints2);
+			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+			Settings::instance().enable_face_detection = savedefd;
 		} else {
 			Mat features1, features2;
 			cerr << "find matches" << endl;
@@ -1157,6 +1064,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 	}
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+	check_points(srcPoints1, orig1.cols, orig1.rows);
+	check_points(srcPoints2, orig1.cols, orig1.rows);
 }
 
 tuple<double, double, double> calculate_sum_mean_and_sd(multimap<double, pair<Point2f, Point2f>> distanceMap) {
@@ -1181,6 +1090,8 @@ std::mt19937 g(rd());
 void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
 	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
+	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
+
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
 		double dist = 0;
@@ -1206,29 +1117,35 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		closest->x = -1;
 		closest->y = -1;
 	}
+	assert(srcPoints1.size() == srcPoints2.size());
+	assert(!srcPoints1.empty() && !srcPoints2.empty());
 
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	assert(!distanceMap.empty());
 	srcPoints1.clear();
 	srcPoints2.clear();
+
 	double mean = get<1>(distribution);
 	if(mean == 0) {
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
+		assert(srcPoints1.size() == srcPoints2.size());
+		assert(!srcPoints1.empty() && !srcPoints2.empty());
+
 		return;
 	}
 	double value = 0;
 	double limit = mean;
-
+	double limitCoef = 0.9;
 	do {
 		srcPoints1.clear();
 		srcPoints2.clear();
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			value = (*it).first;
 
-			if (value == 0 || (value > 0 && value < limit)) {
+			if ((value > 0 && value < limit)) {
 				srcPoints1.push_back((*it).second.first);
 				srcPoints2.push_back((*it).second.second);
 			}
@@ -1237,8 +1154,22 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
-		limit *= 0.25;
-	} while (srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
+		if(srcPoints1.empty()) {
+			limitCoef *= 1.1;
+			limit *= (1.0 / limitCoef);
+			continue;
+		} else
+			limit *= limitCoef;
+
+	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
+	bool compares = false;
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+		if(!(compares = (srcPoints1[i] == srcPoints2[i])))
+			break;
+	}
+	cerr << "same: " << compares << endl;
+	assert(srcPoints1.size() == srcPoints2.size());
+	assert(!srcPoints1.empty() && !srcPoints2.empty());
 }
 
 void match_points_by_proximity2(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
@@ -1314,9 +1245,9 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 
 void prepare_matches2(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	//edit matches
-	cerr << "prepare: " << srcPoints1.size() << endl;
+	cerr << "prepare2: " << srcPoints1.size() << endl;
 	match_points_by_proximity2(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	cerr << "match: " << srcPoints1.size() << endl;
+	cerr << "match2: " << srcPoints1.size() << endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
