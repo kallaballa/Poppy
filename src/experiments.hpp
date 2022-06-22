@@ -156,7 +156,7 @@ double morph_distance(const Mat &src1, const Mat &src2) {
 	else
 		corners2.resize(corners1.size());
 
-	return morph_distance(src1.cols, src1.rows, corners1, corners2);
+	return morph_distance(corners1, corners2, src1.cols, src1.rows);
 }
 
 void fft_shift(const Mat &input_img, Mat &output_img)

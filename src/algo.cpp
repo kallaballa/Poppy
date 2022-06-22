@@ -106,7 +106,7 @@ pair<vector<Point2f>, vector<Point2f>> find_keypoints(const Mat &grey1, const Ma
 	if (Settings::instance().max_keypoints == -1)
 		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
-	Ptr<ORB> extractor = ORB::create();
+//	Ptr<ORB> extractor = ORB::create();
 
 	vector<KeyPoint> keypoints1, keypoints2;
 
@@ -730,63 +730,6 @@ Mat sine(const Mat &x) {
 	return c;
 }
 
-void align(const cv::Mat &points, const cv::Mat &pointsRef, cv::Mat &res, cv::Mat &ops) {
-	Mat pts(points.rows, points.cols, CV_64FC1);
-	Mat ptsRef(points.rows, points.cols, CV_64FC1);
-	assert(pts.rows >= 2);
-	assert(ptsRef.rows >= 2);
-	res = Mat(pts.rows, 2, CV_64FC1);
-	ops = Mat(4, 1, CV_64FC1);
-	points.copyTo(pts);
-	pointsRef.copyTo(ptsRef);
-
-	Mat avgs;
-	reduce(pts, avgs, 0, REDUCE_AVG, CV_64FC1);
-	for (int i = 0; i < avgs.cols; i++) {
-		pts.col(i) -= avgs.col(i).at<double>(0, 0);
-	}
-
-	cv::Mat avgsR;
-	reduce(ptsRef, avgsR, 0, REDUCE_AVG, CV_64FC1);
-	for (int i = 0; i < avgsR.cols; i++) {
-		ptsRef.col(i) -= avgsR.col(i).at<double>(0, 0);
-	}
-
-	cv::Mat x2;
-	cv::Mat y2;
-	cv::Mat x2R;
-	cv::Mat y2R;
-	cv::pow(pts.col(0), 2, x2);
-	cv::pow(pts.col(1), 2, y2);
-	cv::pow(ptsRef.col(0), 2, x2R);
-	cv::pow(ptsRef.col(1), 2, y2R);
-	cv::Mat sqrootP;
-	cv::Mat sqrootPR;
-	cv::sqrt(x2 + y2, sqrootP);
-	cv::sqrt(x2R + y2R, sqrootPR);
-
-	double offsetS = (cv::mean(sqrootPR) / cv::mean(sqrootP))[0];
-	pts *= offsetS;
-
-	Mat rot = arctan2(pts.col(1), pts.col(0));
-	Mat rotR = arctan2(ptsRef.col(1), ptsRef.col(0));
-	double offsetR = -cv::mean((rot - rotR))[0];
-	cv::Mat angRot;
-//    angRot = rot + offsetR;
-//    cv::Mat dist(pts.rows, 1, CV_64FC1);
-//
-//    sqrootP.mul(cosine(angRot)).col(0).operator Mat().copyTo(res.col(0));
-//    sqrootP.mul(sine(angRot)).col(0).operator Mat().copyTo(res.col(1));
-
-	std::cerr << "offsetS: " << offsetS << std::endl;
-	std::cerr << "offsetR: " << offsetR << std::endl;
-	ops.at<double>(0, 0) = avgs.at<double>(0, 0);
-	ops.at<double>(0, 1) = avgs.at<double>(0, 1);
-	ops.at<double>(0, 2) = offsetS * cos(offsetR);
-	ops.at<double>(0, 3) = offsetS * sin(offsetR);
-
-}
-
 /**
  * A simple helper class to plot the points
  **/
@@ -832,7 +775,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-			cerr << "points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 
 			auto prepared1 = srcPoints1;
 			auto prepared2 = srcPoints2;
@@ -876,7 +819,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			Mat ellipse;
 
 			RotatedRect rr1;
-			for (size_t i = 0; i < centroidDistMap1.size(); ++i) {
+			while (true) {
 				ellipse = orig1.clone();
 				vector<Point2f> pts;
 				for (const auto &pr : centroidDistMap1) {
@@ -894,17 +837,31 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				show_image("ellipse1", ellipse);
 			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.5) {
+				if (areaEllipse / areaHull < 1.7) {
 					cerr << "found" << endl;
 					break;
 				}
 
+//				bool found = false;
+//				for(const Point2f& pt : hull) {
+//					auto it = centroidDistMap1.end();
+//					for(size_t i = 0; i < centroidDistMap1.size(); ++i) {
+//						it = prev(it);
+//						if((*it).second == pt) {
+//							centroidDistMap1.erase(it);
+//							found = true;
+//							break;
+//						}
+//					}
+//					if(found)
+//						break;
+//				}
 				centroidDistMap1.erase(prev(centroidDistMap1.end()));
 			}
 			hull.clear();
 
 			RotatedRect rr2;
-			for (size_t i = 0; i < centroidDistMap2.size(); ++i) {
+			while(true) {
 				ellipse = orig2.clone();
 				vector<Point2f> pts;
 				for (const auto &pr : centroidDistMap2) {
@@ -922,11 +879,25 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				show_image("ellipse2", ellipse);
 			    wait_key(100);
 
-				if (areaEllipse / areaHull < 1.5) {
+				if (areaEllipse / areaHull < 1.7) {
 					cerr << "found" << endl;
 					break;
 				}
 
+//				bool found = false;
+//				for(const Point2f& pt : hull) {
+//					auto it = centroidDistMap1.end();
+//					for(size_t i = 0; i < centroidDistMap1.size(); ++i) {
+//						it = prev(it);
+//						if((*it).second == pt) {
+//							centroidDistMap1.erase(it);
+//							found = true;
+//							break;
+//						}
+//					}
+//					if(found)
+//						break;
+//				}
 				centroidDistMap2.erase(prev(centroidDistMap2.end()));
 			}
 
@@ -941,12 +912,12 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			}
 
 //
-//			if (prepared1.size() > prepared2.size())
-//				prepared1.resize(prepared2.size());
-//			else
-//				prepared2.resize(prepared1.size());
+			if (prepared1.size() > prepared2.size())
+				prepared1.resize(prepared2.size());
+			else
+				prepared2.resize(prepared1.size());
 
-			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
+//			prepare_matches2(corrected1, corrected2, orig1, orig2, prepared1, prepared2);
 
 			img = orig2.clone();
 
@@ -1021,7 +992,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				tmp = srcPoints2;
 				tmpAngle = angle + ((M_PI * 2.0) / (i + 1));
 				rotate_points(tmp, center, tmpAngle);
-				morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+				morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
 				morphDistMap[morphDist] = tmpAngle;
 			}
 			double finalAngle = (*morphDistMap.begin()).second;
@@ -1053,11 +1024,11 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				top.push_back( { pt.x, pt.y - 1 });
 				bottom.push_back( { pt.x, pt.y + 1 });
 			}
-			double mdCurrent = morph_distance(orig1.cols, orig1.rows, srcPoints1, srcPoints2);
-			double mdLeft = morph_distance(orig1.cols, orig1.rows, srcPoints1, left);
-			double mdRight = morph_distance(orig1.cols, orig1.rows, srcPoints1, right);
-			double mdTop = morph_distance(orig1.cols, orig1.rows, srcPoints1, top);
-			double mdBottom = morph_distance(orig1.cols, orig1.rows, srcPoints1, bottom);
+			double mdCurrent = morph_distance(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
+			double mdLeft = morph_distance(srcPoints1, left, orig1.cols, orig1.rows);
+			double mdRight = morph_distance(srcPoints1, right, orig1.cols, orig1.rows);
+			double mdTop = morph_distance(srcPoints1, top, orig1.cols, orig1.rows);
+			double mdBottom = morph_distance(srcPoints1, bottom, orig1.cols, orig1.rows);
 			off_t xchange = 0;
 			off_t ychange = 0;
 
@@ -1081,7 +1052,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					for (auto &pt : srcPoints2) {
 						tmp.push_back( { pt.x + xchange * xProgress, pt.y });
 					}
-					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
 //					cerr << "morph dist x: " << morphDist << endl;
 					if (morphDist > lastMorphDist)
 						break;
@@ -1100,7 +1071,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					for (auto &pt : srcPoints2) {
 						tmp.push_back( { pt.x, pt.y + ychange * yProgress});
 					}
-					morphDist = morph_distance(orig1.cols, orig1.rows, srcPoints1, tmp);
+					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
 //					cerr << "morph dist y: " << morphDist << endl;
 					if (morphDist > lastMorphDist)
 						break;
@@ -1227,7 +1198,6 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 				closest = &pt2;
 			}
 		}
-
 		if (closest->x == -1 && closest->y == -1)
 			continue;
 
@@ -1239,11 +1209,16 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	assert(!distanceMap.empty());
-	if (get<1>(distribution) == 0 || get<2>(distribution) == 0)
-		return;
 	srcPoints1.clear();
 	srcPoints2.clear();
 	double mean = get<1>(distribution);
+	if(mean == 0) {
+		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
+			srcPoints1.push_back((*it).second.first);
+			srcPoints2.push_back((*it).second.second);
+		}
+		return;
+	}
 	double value = 0;
 	double limit = mean;
 
@@ -1253,7 +1228,7 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			value = (*it).first;
 
-			if (value > 0 && value < limit) {
+			if (value == 0 || (value > 0 && value < limit)) {
 				srcPoints1.push_back((*it).second.first);
 				srcPoints2.push_back((*it).second.second);
 			}

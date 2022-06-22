@@ -59,7 +59,19 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		add_corners(srcPoints1, srcPoints2, image1.size);
 	}
 	if(distance) {
-		std::cerr << morph_distance(double(image1.size().width), double(image1.size().height), srcPoints1, srcPoints2) << std::endl;
+		vector<Point2f> uniq1;
+		clip_points(srcPoints1, image1.cols, image1.rows);
+		check_points(srcPoints1, image1.cols, image1.rows);
+		make_uniq(srcPoints1, uniq1);
+		check_uniq(uniq1);
+
+		vector<Point2f> uniq2;
+		clip_points(srcPoints2, image1.cols, image1.rows);
+		check_points(srcPoints2, image1.cols, image1.rows);
+		make_uniq(srcPoints2, uniq2);
+		check_uniq(uniq2);
+
+		cerr << morph_distance(srcPoints1, srcPoints2, image1.cols, image1.rows) << endl;
 		exit(0);
 	}
 

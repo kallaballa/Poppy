@@ -15,7 +15,7 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	assert(hull.size() > 1);
 	off_t diff = minPoints - hull.size();
 	if(diff > 0)  {
-		for(size_t i = 0; i < hull.size() - 1; i+=2) {
+		for(size_t i = 0; i < hull.size() - 1 && diff > 0; i+=2) {
 			const auto& first = hull[i];
 			const auto& second = hull[i + 1];
 			auto insertee = first;
@@ -25,19 +25,21 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 			insertee.x += vector.x;
 			insertee.y += vector.y;
 			hull.insert(hull.begin() + (i+1), std::move(insertee));
+			--diff;
 		}
 	}
 }
 
-double morph_distance(double width, double height, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2) {
+double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const double width, const double height) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	double totalDistance = 0.00001;
+	double totalDistance = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		Point2f v = srcPoints2[i] - srcPoints1[i];
-			totalDistance += hypot(v.x, v.y);
+		totalDistance += hypot(v.x, v.y);
 	}
-	return (totalDistance / srcPoints1.size()) / (width * height);
+	return ((totalDistance / srcPoints1.size()) / hypot(width,height)) * 1000.0;
 }
+
 void show_image(const string &name, const Mat &img) {
 #ifndef _WASM
 	if(Settings::instance().show_gui) {
