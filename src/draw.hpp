@@ -5,6 +5,7 @@ using namespace cv;
 using namespace std;
 
 namespace poppy {
+void draw_radial_gradiant2(Mat &grad);
 void draw_radial_gradiant(Mat &grad);
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color);
 void draw_flow_heightmap(const Mat &morphed, const Mat &last, Mat &dst);

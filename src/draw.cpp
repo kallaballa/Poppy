@@ -14,6 +14,25 @@ double euclidean_distance(cv::Point center, cv::Point point) {
 	return distance;
 }
 
+void draw_radial_gradiant2(Mat &grad) {
+	cv::Point center(grad.cols / 2.0, grad.rows / 2.0);
+	cv::Point point;
+	double maxDist = hypot(grad.cols / 2.0, grad.rows / 2.0);
+	for (int row = 0; row < grad.rows; ++row) {
+		for (int col = 0; col < grad.cols; ++col) {
+			point.x = col;
+			point.y = row;
+			double dist = euclidean_distance(center, point) / maxDist;
+//			grad.at<float>(row, col) = dist;
+			grad.at<float>(row, col) = log10(log10(log10(sin(sin(dist * (M_PI/2)) * (M_PI/2)) + 9) +9) +9);
+		}
+	}
+
+	cv::normalize(grad, grad, 0, 255, cv::NORM_MINMAX, CV_8U);
+	cv::bitwise_not(grad, grad);
+	show_image("grad", grad);
+}
+
 void draw_radial_gradiant(Mat &grad) {
 	cv::Point center(grad.cols / 2.0, grad.rows / 2.0);
 	cv::Point point;
@@ -32,7 +51,6 @@ void draw_radial_gradiant(Mat &grad) {
 	cv::bitwise_not(grad, grad);
 	show_image("grad", grad);
 }
-
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);
