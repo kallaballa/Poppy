@@ -960,7 +960,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				cv::ellipse(ellipse, rr1, { 0, 0, 255 });
 				drawContours(ellipse, convertContourFrom2f( { hull }), 0, { 200, 0, 0 });
 				plot(ellipse, pts, { 200, 0, 0 });
-				drawKeypoints( blobs2, keypoints, ellipse, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+				drawKeypoints( ellipse, keypoints, ellipse, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 
 				show_image("ellipse2", ellipse);
 			    wait_key(1);
