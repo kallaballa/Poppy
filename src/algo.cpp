@@ -863,7 +863,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			params.maxThreshold = 200;
 
 			// Filter by Area.
-			params.filterByArea = true;
+			params.filterByArea = false;
 			params.minArea = 1000;
 			params.maxArea = 100000000000;
 
@@ -872,7 +872,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			params.maxConvexity = 1;
 
 			// Filter by Circularity
-			params.filterByCircularity = true;
+			params.filterByCircularity = false;
 			params.minCircularity = 0;
 			params.maxCircularity = 0.87;
 
