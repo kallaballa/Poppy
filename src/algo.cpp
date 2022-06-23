@@ -872,7 +872,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			params.maxConvexity = 1;
 
 			// Filter by Circularity
-			params.filterByCircularity = false;
+			params.filterByCircularity = true;
 			params.minCircularity = 0;
 			params.maxCircularity = 0.87;
 
