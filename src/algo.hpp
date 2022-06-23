@@ -29,7 +29,7 @@ void morph_homography(const cv::Mat& hom, cv::Mat& morphHom1, cv::Mat& morphHom2
 void morph_homography(const std::vector<cv::Mat>& homs, std::vector<cv::Mat>& morphHoms1, std::vector<cv::Mat>& morphHoms2, float blend_ratio);
 void create_map(const cv::Mat& triangleMap, const std::vector<cv::Mat>& homMatrices, cv::Mat& mapx, cv::Mat& mapy);
 void draw_contour_map(std::vector<std::vector<std::vector<cv::Point>>>& collected, vector<Vec4i>& hierarchy, Mat &dst, int cols, int rows, int type);
-void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2);
+void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2);
 void extract_features(const Mat& img1, const Mat& img2, Mat &foreground1, Mat &foreground2, std::vector<Mat>& dst1, std::vector<Mat>& dst2, Mat& allContours1, Mat& allContours2, vector<vector<vector<Point>>>& collected1, vector<vector<vector<Point>>>& collected2, vector<Mat> &contourLayers1, vector<Mat> &contourLayers2);
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &allContours1, Mat &allContours2);
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, std::pair<Point2f, Point2f>> distanceMap);

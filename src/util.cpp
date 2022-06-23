@@ -14,10 +14,10 @@ namespace poppy {
 void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	assert(hull.size() > 1);
 	off_t diff = minPoints - hull.size();
-	if(diff > 0)  {
-		for(size_t i = 0; i < hull.size() - 1 && diff > 0; i+=2) {
+	while(diff > 0)  {
+		for(size_t i = 0; i < hull.size() && diff > 0; i+=2) {
 			const auto& first = hull[i];
-			const auto& second = hull[i + 1];
+			const auto& second = hull[(i + 1) % hull.size()];
 			auto insertee = first;
 			auto vector = second - first;
 			vector.x /= 2.0;
