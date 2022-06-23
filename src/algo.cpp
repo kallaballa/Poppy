@@ -806,8 +806,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 //			cvtColor(layer2, clRGB2, COLOR_GRAY2RGB);
 
 //			decimate_features(clRGB1, clRGB2, decimated1, decimated2);
-			decimated1 = plainContours1.clone();
-			decimated2 = plainContours2.clone();
+			decimated1 = goodFeatures1.clone();
+			decimated2 = goodFeatures1.clone();
 			off_t savedmkp = Settings::instance().max_keypoints;
 			Settings::instance().max_keypoints = 100;
 			auto matches = find_keypoints(decimated1, decimated2);
