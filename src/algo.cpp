@@ -1141,17 +1141,100 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			warpMat.push_back(row);
 
 			perspectiveTransform(srcPoints2, srcPoints2, warpMat);
+			filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
-			for (size_t i = 0; i < srcPoints2.size(); ++i) {
-				Point2f& pt = srcPoints2[i];
-				if(pt.x < 0 || pt.x >= orig1.cols || pt.y < 0 || pt.y >= orig1.rows) {
-					srcPoints1.erase(srcPoints1.begin()+i);
-					srcPoints2.erase(srcPoints2.begin()+i);
-					--i;
-				}
+			vector<Point2f> left;
+			vector<Point2f> right;
+			vector<Point2f> top;
+			vector<Point2f> bottom;
+			for (auto &pt : srcPoints2) {
+				left.push_back( { pt.x - 1, pt.y });
+				right.push_back( { pt.x + 1, pt.y });
+				top.push_back( { pt.x, pt.y - 1 });
+				bottom.push_back( { pt.x, pt.y + 1 });
 			}
+			double mdCurrent = morph_distance(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
+			double mdLeft = morph_distance(srcPoints1, left, orig1.cols, orig1.rows);
+			double mdRight = morph_distance(srcPoints1, right, orig1.cols, orig1.rows);
+			double mdTop = morph_distance(srcPoints1, top, orig1.cols, orig1.rows);
+			double mdBottom = morph_distance(srcPoints1, bottom, orig1.cols, orig1.rows);
+			off_t xchange = 0;
+			off_t ychange = 0;
 
-//			prepare_matches2(corrected1, corrected2, orig1, orig2, srcPoints1, srcPoints2);
+			if (mdLeft < mdCurrent)
+				xchange = -1;
+			else if (mdRight < mdCurrent)
+				xchange = +1;
+
+			if (mdTop < mdCurrent)
+				ychange = -1;
+			else if (mdBottom < mdCurrent)
+				ychange = +1;
+			cerr << "current morph dist: " << mdCurrent << endl;
+			off_t xProgress = 0;
+
+			if (xchange != 0) {
+				double lastMorphDist = mdCurrent;
+				double morphDist = 0;
+				do {
+					vector<Point2f> tmp;
+					for (auto &pt : srcPoints2) {
+						tmp.push_back( { pt.x + xchange * xProgress, pt.y });
+					}
+					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
+//					cerr << "morph dist x: " << morphDist << endl;
+					if (morphDist > lastMorphDist)
+						break;
+					lastMorphDist = morphDist;
+					++xProgress;
+				} while (true);
+			}
+			off_t yProgress = 0;
+
+			if (ychange != 0) {
+				double lastMorphDist = mdCurrent;
+				double morphDist = 0;
+
+				do {
+					vector<Point2f> tmp;
+					for (auto &pt : srcPoints2) {
+						tmp.push_back( { pt.x, pt.y + ychange * yProgress});
+					}
+					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
+//					cerr << "morph dist y: " << morphDist << endl;
+					if (morphDist > lastMorphDist)
+						break;
+					lastMorphDist = morphDist;
+					++yProgress;
+				} while (true);
+			}
+			Point2f retranslation(xchange * xProgress, ychange * yProgress);
+			cerr << "retranslation: " << retranslation << endl;
+			translate(corrected2, corrected2, retranslation.x, retranslation.y);
+			translate(contourMap1, contourMap1, retranslation.x, retranslation.y);
+			for (auto &pt : srcPoints2) {
+				pt.x += retranslation.x;
+				pt.y += retranslation.y;
+			}
+			filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
+
+
+			double morphDist = -1;
+			vector<Point2f> tmp;
+			map<double,double> morphDistMap;
+			Point2f center = {orig1.cols/2.0, orig1.cols/2.0};
+			for(size_t i = 0; i < 3600; ++i) {
+				tmp = srcPoints2;
+				rotate_points(tmp, center, i);
+				morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
+				morphDistMap[morphDist] = i / 10.0;
+			}
+			double angle = (*morphDistMap.begin()).second;
+			cerr << "angle: " << angle << "°" << endl;
+			rotate(corrected2, corrected2, center, angle);
+			rotate(contourMap1, contourMap1, center, angle);
+			rotate_points(srcPoints2, center, angle);
+
 			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 			Settings::instance().enable_face_detection = savedefd;
 		} else {
@@ -1222,6 +1305,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			corrected2 = orig2.clone();
 		}
 	}
+	filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
 	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 	check_points(srcPoints1, orig1.cols, orig1.rows);

@@ -72,9 +72,20 @@ void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
 		assert(!isinf(pt.x) && !isinf(pt.y));
 		assert(!isnan(pt.x) && !isnan(pt.y));
 		assert(pt.x >= 0 && pt.y >= 0);
-		assert(pt.x < cols && pt.y < rows);
+		assert(pt.x <= cols && pt.y <= rows);
 	}
 #endif
+}
+
+void filter_invalid_points(vector<Point2f>& srcPoints1, vector<Point2f>& srcPoints2, int cols, int rows) {
+	for (size_t i = 0; i < srcPoints2.size(); ++i) {
+		Point2f& pt = srcPoints2[i];
+		if(pt.x < 0 || pt.x > cols || pt.y < 0 || pt.y > rows) {
+			srcPoints1.erase(srcPoints1.begin()+i);
+			srcPoints2.erase(srcPoints2.begin()+i);
+			--i;
+		}
+	}
 }
 
 
