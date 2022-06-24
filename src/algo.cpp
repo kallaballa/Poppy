@@ -807,9 +807,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 //			decimate_features(clRGB1, clRGB2, decimated1, decimated2);
 			decimated1 = goodFeatures1.clone();
-			decimated2 = goodFeatures1.clone();
+			decimated2 = goodFeatures2.clone();
 			off_t savedmkp = Settings::instance().max_keypoints;
-			Settings::instance().max_keypoints = 100;
+			Settings::instance().max_keypoints = 500;
 			auto matches = find_keypoints(decimated1, decimated2);
 			Settings::instance().max_keypoints = savedmkp;
 
@@ -863,18 +863,18 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			params.maxThreshold = 200;
 
 			// Filter by Area.
-			params.filterByArea = false;
-			params.minArea = 1000;
+			params.filterByArea = true;
+			params.minArea = 1100;
 			params.maxArea = 100000000000;
 
-			params.filterByConvexity = false;
-			params.minConvexity = 0.9;
+			params.filterByConvexity = true;
+			params.minConvexity = 0.7;
 			params.maxConvexity = 1;
 
 			// Filter by Circularity
 			params.filterByCircularity = true;
-			params.minCircularity = 0;
-			params.maxCircularity = 0.87;
+			params.minCircularity = 0.3;
+			params.maxCircularity = 1;
 
 			//Filter by Inertia
 			params.filterByInertia = false;
@@ -882,9 +882,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			params.maxInertiaRatio = 1;
 
 			Mat radialMaskFloat = Mat::ones(orig1.rows, orig1.cols, CV_32FC1);
-//			Mat radial = Mat::ones(orig1.rows, orig1.cols, CV_32FC1);
-//			draw_radial_gradiant2(radial);
-//			radial.convertTo(radialMaskFloat, CV_32FC1, 1.0 / 255.0);
+			Mat radial = Mat::ones(orig1.rows, orig1.cols, CV_32FC1);
+			draw_radial_gradiant2(radial);
+			radial.convertTo(radialMaskFloat, CV_32FC1, 1.0 / 255.0);
 
 			Ptr<SimpleBlobDetector> detector = SimpleBlobDetector::create(params);
 			std::vector<KeyPoint> keypoints;
@@ -953,7 +953,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 					//assert(lastRemoved.first != -1);
 					lastRemoved.first = -1;
 					centroidDistMap1.insert(lastRemoved);
-					cerr << "insert" << endl;
 				}
 
 				auto itErase = prev(centroidDistMap1.end());
@@ -961,7 +960,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 				if(lastRemoved.first == -1)
 					break;
 				centroidDistMap1.erase(itErase);
-				cerr << "remove" << endl;
 			}
 			hull.clear();
 
@@ -1070,7 +1068,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			else
 				overdefineHull(hull1, hull2.size());
 
-			Procrustes procr(false, false);
+			Procrustes procr(true, true);
 			procr.procrustes(prepared1, prepared2);
 			vector<Point2f> Yprime = procr.yPrimeAsVector();
 			Mat hullY;
@@ -1103,9 +1101,32 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		    dstTri[1] = Yprime[Yprime.size()*0.33];
 		    dstTri[2] = Yprime[Yprime.size()*0.66];
 
-		    Mat warp_mat = getAffineTransform( srcTri, dstTri);
-			warpAffine(corrected2, corrected2, warp_mat, corrected2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
-			warpAffine(contourMap1, contourMap2, warp_mat, contourMap2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+		    Mat warpMat = getAffineTransform(srcTri, dstTri);
+			cerr << "before trans mat: " << warpMat << endl;
+			double& a = warpMat.at<double>(0,0);
+			double& d = warpMat.at<double>(1,0);
+			double& b = warpMat.at<double>(0,1);
+			double& e = warpMat.at<double>(1,1);
+			double& c = warpMat.at<double>(0,2);
+			double& f = warpMat.at<double>(1,2);
+//			double scaleX = hypot(a, d);
+//			double scaleY = hypot(b, e);
+//			double scaleZ = hypot(c, f);
+			a /= procr.scale;
+			d /= procr.scale;
+			b /= procr.scale;
+			e /= procr.scale;
+			c += orig1.cols / 2.0;
+//			cerr << "inverse scale: " << 1.0/procr.scale << endl;
+//			cerr << "scaleX: " << scaleX << endl;
+//			cerr << "scaleY: " << scaleY << endl;
+//			cerr << "scaleZ: " << scaleZ << endl;
+//			cerr << "x2: " << b << endl;
+//			cerr << "y2: " << e << endl;
+			cerr << "after trans mat: " << warpMat << endl;
+
+		    warpAffine(corrected2, corrected2, warpMat, corrected2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+			warpAffine(contourMap1, contourMap2, warpMat, contourMap2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 
 			srcPoints1.clear();
 			srcPoints2.clear();
@@ -1117,9 +1138,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			vector<double> r = {0,0,1};
 			cv::Mat row(1, 3, CV_64F, r.data());
-			warp_mat.push_back(row);
-			cerr << "trans mat: " << warp_mat << endl;
-			perspectiveTransform(srcPoints2, srcPoints2, warp_mat);
+			warpMat.push_back(row);
+
+			perspectiveTransform(srcPoints2, srcPoints2, warpMat);
 
 			for (size_t i = 0; i < srcPoints2.size(); ++i) {
 				Point2f& pt = srcPoints2[i];
