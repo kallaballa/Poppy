@@ -823,7 +823,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared2, { 0, 200, 0, 255 });
 
 			show_image("prep1", img);
-			wait_key();
+//			wait_key();
 
 			Point2f avg1(0, 0);
 			Point2f avg2(0, 0);
@@ -902,13 +902,13 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			finalBlobs.convertTo(blobs, CV_8UC1, 255);
 
 			detector->detect(blobs, keypoints);
-			drawKeypoints( blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+			drawKeypoints(blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			show_image("blobs1", blobs);
-			wait_key();
-			blobs = decimated1.clone();
+//			wait_key();
+			blobs = decimated2.clone();
 			drawKeypoints( blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			show_image("kp1", blobs);
-			wait_key();
+//			wait_key();
 
 			size_t initialBlobs = keypoints.size();
 			auto initialKP = keypoints;
@@ -975,11 +975,11 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			detector->detect(blobs, keypoints);
 			drawKeypoints(blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			show_image("blobs2", blobs);
-			wait_key();
+//			wait_key();
 			blobs = decimated2.clone();
 			drawKeypoints( blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			show_image("kp2", blobs);
-			wait_key();
+//			wait_key();
 
 			initialBlobs = keypoints.size();
 			initialKP = keypoints;
@@ -1055,7 +1055,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared2, { 0, 200, 0, 255 });
 
 			show_image("prep2", img);
-			wait_key();
+//			wait_key();
 
 			vector<Point2f> hull1;
 			vector<Point2f> hull2;
@@ -1089,7 +1089,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, {Yprime[Yprime.size()*0.66]}, { 0, 200, 200, 255 }, 15);
 
 			show_image("Yprime", img);
-			wait_key();
+//			wait_key();
 
 			assert(Yprime.size() >= 3 && prepared2.size() >= 3);
 		    Point2f srcTri[3];
