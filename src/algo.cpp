@@ -559,8 +559,8 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 
 	allContours1 = cmap1.clone();
 	allContours2 = cmap2.clone();
-	show_image("cmap1", cmap1);
-	show_image("cmap2", cmap2);
+//	show_image("cmap1", cmap1);
+//	show_image("cmap2", cmap2);
 }
 
 void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
@@ -608,8 +608,8 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	fgMask1Float.release();
 	fgMask2Float.release();
 
-	show_image("mask1", finalMask1Float);
-	show_image("mask2", finalMask2Float);
+//	show_image("mask1", finalMask1Float);
+//	show_image("mask2", finalMask2Float);
 	/*
 	 * create the final masked image. uses gaussian blur to sharpen the image.
 	 * But before the blurred image is subtracted from the image (to sharpen)
@@ -763,6 +763,105 @@ void plot(Mat &img, vector<Point2f> points, Scalar color, int radius = 2) {
 		circle(img, p, radius, color, radius * 2);
 }
 
+void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, const size_t width, const size_t height) {
+	vector<Point2f> left;
+	vector<Point2f> right;
+	vector<Point2f> top;
+	vector<Point2f> bottom;
+	for (auto &pt : srcPoints2) {
+		left.push_back( { pt.x - 1, pt.y });
+		right.push_back( { pt.x + 1, pt.y });
+		top.push_back( { pt.x, pt.y - 1 });
+		bottom.push_back( { pt.x, pt.y + 1 });
+	}
+	double mdCurrent = morph_distance(srcPoints1, srcPoints2, width, height);
+	double mdLeft = morph_distance(srcPoints1, left, width, height);
+	double mdRight = morph_distance(srcPoints1, right, width, height);
+	double mdTop = morph_distance(srcPoints1, top, width, height);
+	double mdBottom = morph_distance(srcPoints1, bottom, width, height);
+	off_t xchange = 0;
+	off_t ychange = 0;
+
+	if (mdLeft < mdCurrent)
+		xchange = -1;
+	else if (mdRight < mdCurrent)
+		xchange = +1;
+
+	if (mdTop < mdCurrent)
+		ychange = -1;
+	else if (mdBottom < mdCurrent)
+		ychange = +1;
+	cerr << "current morph dist: " << mdCurrent << endl;
+	off_t xProgress = 1;
+
+	if (xchange != 0) {
+		double lastMorphDist = mdCurrent;
+		double morphDist = 0;
+		do {
+			vector<Point2f> tmp;
+			for (auto &pt : srcPoints2) {
+				tmp.push_back( { pt.x + xchange * xProgress, pt.y });
+			}
+			morphDist = morph_distance(srcPoints1, tmp, width, height);
+			cerr << "morph dist x: " << morphDist << endl;
+			if (morphDist > lastMorphDist)
+				break;
+			lastMorphDist = morphDist;
+			++xProgress;
+		} while (true);
+	}
+	off_t yProgress = 1;
+
+	if (ychange != 0) {
+		double lastMorphDist = mdCurrent;
+		double morphDist = 0;
+
+		do {
+			vector<Point2f> tmp;
+			for (auto &pt : srcPoints2) {
+				tmp.push_back( { pt.x, pt.y + ychange * yProgress});
+			}
+			morphDist = morph_distance(srcPoints1, tmp, width, height);
+			cerr << "morph dist y: " << morphDist << endl;
+			if (morphDist > lastMorphDist)
+				break;
+			lastMorphDist = morphDist;
+			++yProgress;
+		} while (true);
+	}
+	Point2f retranslation(xchange * xProgress, ychange * yProgress);
+	cerr << "retranslation: " << retranslation << endl;
+	translate(corrected2, corrected2, retranslation.x, retranslation.y);
+	translate(contourMap1, contourMap1, retranslation.x, retranslation.y);
+	for (auto &pt : srcPoints2) {
+		pt.x += retranslation.x;
+		pt.y += retranslation.y;
+	}
+}
+
+void rerotate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, const size_t width, const size_t height) {
+	double morphDist = -1;
+	vector<Point2f> tmp;
+	map<double,double> morphDistMap;
+	Point2f center = {corrected1.cols/2.0, corrected1.cols/2.0};
+	for(size_t i = 0; i < 3600; ++i) {
+		tmp = srcPoints2;
+		rotate_points(tmp, center, i / 10.0);
+		morphDist = morph_distance(srcPoints1, tmp, width, height);
+		morphDistMap[morphDist] = i / 10.0;
+	}
+
+	double angle = (*morphDistMap.begin()).second;
+	cerr << "angle: " << angle << "°" << endl;
+//	show_image("angle before", corrected2);
+//	wait_key();
+	rotate(corrected2, corrected2, center, -angle);
+	rotate(contourMap1, contourMap1, center, -angle);
+	rotate_points(srcPoints2, center, -angle);
+//	show_image("angle after", corrected2);
+//	wait_key();
+}
+
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	Mat decimated1;
 	Mat decimated2;
@@ -809,7 +908,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			decimated1 = goodFeatures1.clone();
 			decimated2 = goodFeatures2.clone();
 			off_t savedmkp = Settings::instance().max_keypoints;
-			Settings::instance().max_keypoints = 500;
+			Settings::instance().max_keypoints = 300;
 			auto matches = find_keypoints(decimated1, decimated2);
 			Settings::instance().max_keypoints = savedmkp;
 
@@ -855,7 +954,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			}
 
 			vector<Point2f> hull;
-			Mat ellipse;
 
 			SimpleBlobDetector::Params params;
 			// Change thresholds
@@ -910,58 +1008,24 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			show_image("kp1", blobs);
 //			wait_key();
 
-			size_t initialBlobs = keypoints.size();
-			auto initialKP = keypoints;
-			assert(initialBlobs > 0);
-			pair<double, Point2f> lastRemoved = {-1,{-1,-1}};
-			while (true) {
-				ellipse = decimated1.clone();
-				vector<Point2f> pts;
-				for (const auto &pr : centroidDistMap1) {
-					pts.push_back(pr.second);
+			std::vector<Point2f> insideKeypoint1;
+			for(size_t i = 0; i < keypoints.size(); ++i) {
+				for(size_t j = 0; j < prepared1.size(); ++j)
+					if(pow(prepared1[j].x - keypoints[i].pt.x,2) + pow(prepared1[j].y - keypoints[i].pt.y,2) < pow(keypoints[i].size,2)) {
+						insideKeypoint1.push_back(prepared1[j]);
 				}
-
-				Mat blobsFloat(orig1.rows, orig1.cols, CV_32FC1);
-				Mat blobs(orig1.rows, orig1.cols, CV_8UC1);
-				blobs = Scalar(255);
-				plot(blobs, pts, { 0 }, 5);
-				blobs.convertTo(blobsFloat, CV_32FC1, 1.0 / 255.0);
-				Mat finalBlobs(orig1.rows, orig1.cols, CV_8UC1);
-				multiply(blobsFloat, radialMaskFloat, finalBlobs);
-				finalBlobs.convertTo(blobs, CV_8UC1, 255);
-				detector->detect(blobs, keypoints);
-				convexHull(pts, hull);
+				Mat preview = goodFeatures1.clone();
+				convexHull(insideKeypoint1, hull);
 				overdefineHull(hull, 6);
 				rr1 = fitEllipse(hull);
-				cv::ellipse(ellipse, rr1, { 0, 0, 255 });
-				drawContours(ellipse, convertContourFrom2f( { hull }), 0, { 200, 0, 0 });
-				plot(ellipse, pts, { 200, 0, 0 });
-				drawKeypoints( blobs, keypoints, ellipse, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+				cv::ellipse(preview, rr1, { 0, 0, 255 });
+				drawContours(preview, convertContourFrom2f( { hull }), 0, { 200, 0, 0 }, 3);
+				plot(preview, insideKeypoint1, { 200, 0, 0 });
+				drawKeypoints( preview, keypoints, preview, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 
-				show_image("ellipse1", ellipse);
-			    wait_key(1);
-
-			    bool compares = true;
-			    for(size_t i = 0; i < keypoints.size(); ++i) {
-			    	if(initialKP[i].pt != keypoints[i].pt || initialKP[i].angle != keypoints[i].angle) {
-			    		compares = false;
-			    		break;
-			    	}
-			    }
-
-				if (!compares) {
-					//assert(lastRemoved.first != -1);
-					lastRemoved.first = -1;
-					centroidDistMap1.insert(lastRemoved);
-				}
-
-				auto itErase = prev(centroidDistMap1.end());
-				lastRemoved = *itErase;
-				if(lastRemoved.first == -1)
-					break;
-				centroidDistMap1.erase(itErase);
+				show_image("preview1", preview);
+				wait_key(100);
 			}
-			hull.clear();
 
 			blobsFloat = Mat(orig1.rows, orig1.cols, CV_32FC1);
 			blobs = Mat(orig1.rows, orig1.cols, CV_8UC1);
@@ -971,8 +1035,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			finalBlobs = Mat(orig1.rows, orig1.cols, CV_8UC1);
 			multiply(blobsFloat, radialMaskFloat, finalBlobs);
 			finalBlobs.convertTo(blobs, CV_8UC1, 255);
-
 			detector->detect(blobs, keypoints);
+
+
 			drawKeypoints(blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 			show_image("blobs2", blobs);
 //			wait_key();
@@ -981,68 +1046,29 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			show_image("kp2", blobs);
 //			wait_key();
 
-			initialBlobs = keypoints.size();
-			initialKP = keypoints;
-			assert(initialBlobs > 0);
-			lastRemoved = {-1,{-1,-1}};
-			while (true) {
-				ellipse = decimated2.clone();
-				vector<Point2f> pts;
-				for (const auto &pr : centroidDistMap2) {
-					pts.push_back(pr.second);
+			std::vector<Point2f> insideKeypoint2;
+			for(size_t i = 0; i < keypoints.size(); ++i) {
+				for(size_t j = 0; j < prepared2.size(); ++j)
+					if(pow(prepared2[j].x - keypoints[i].pt.x,2) + pow(prepared2[j].y - keypoints[i].pt.y,2) < pow(keypoints[i].size,2)) {
+						insideKeypoint2.push_back(prepared2[j]);
 				}
-
-				Mat blobsFloat(orig1.rows, orig1.cols, CV_32FC1);
-				Mat blobs(orig1.rows, orig1.cols, CV_8UC1);
-				blobs = Scalar(255);
-				plot(blobs, pts, { 0 }, 5);
-				blobs.convertTo(blobsFloat, CV_32FC1, 1.0 / 255.0);
-				Mat finalBlobs(orig1.rows, orig1.cols, CV_8UC1);
-				multiply(blobsFloat, radialMaskFloat, finalBlobs);
-				finalBlobs.convertTo(blobs, CV_8UC1, 255);
-				detector->detect(blobs, keypoints);
-				convexHull(pts, hull);
+				Mat preview = goodFeatures2.clone();
+				convexHull(insideKeypoint2, hull);
 				overdefineHull(hull, 6);
 				rr1 = fitEllipse(hull);
-				cv::ellipse(ellipse, rr1, { 0, 0, 255 });
-				drawContours(ellipse, convertContourFrom2f( { hull }), 0, { 200, 0, 0 });
-				plot(ellipse, pts, { 200, 0, 0 });
-				drawKeypoints( ellipse, keypoints, ellipse, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+				cv::ellipse(preview, rr1, { 0, 0, 255 });
+				drawContours(preview, convertContourFrom2f( { hull }), 0, { 200, 0, 0 },3);
+				plot(preview, insideKeypoint2, { 200, 0, 0 });
+				drawKeypoints( preview, keypoints, preview, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 
-				show_image("ellipse2", ellipse);
-			    wait_key(1);
-
-			    bool compares = true;
-				for (size_t i = 0; i < keypoints.size(); ++i) {
-			    	if(initialKP[i].pt != keypoints[i].pt || initialKP[i].angle != keypoints[i].angle) {
-						compares = false;
-						break;
-					}
-				}
-
-				if (!compares) {
-//					assert(lastRemoved.first != -1);
-					lastRemoved.first = -1;
-					centroidDistMap2.insert(lastRemoved);
-					continue;
-				}
-				auto itErase = prev(centroidDistMap2.end());
-				lastRemoved = *itErase;
-				if(lastRemoved.first == -1)
-					break;
-				centroidDistMap2.erase(itErase);
+				show_image("preview2", preview);
+				wait_key(100);
 			}
 
 
-			prepared1.clear();
-			for (const auto pr : centroidDistMap1) {
-				prepared1.push_back(pr.second);
-			}
 
-			prepared2.clear();
-			for (const auto pr : centroidDistMap2) {
-				prepared2.push_back(pr.second);
-			}
+			prepared1 = std::move(insideKeypoint1);
+			prepared2 = std::move(insideKeypoint2);
 
 			if (prepared1.size() > prepared2.size())
 				prepared1.resize(prepared2.size());
@@ -1054,7 +1080,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, prepared1, { 200, 0, 0, 255 });
 			plot(img, prepared2, { 0, 200, 0, 255 });
 
-			show_image("prep2", img);
+//			show_image("prep2", img);
 //			wait_key();
 
 			vector<Point2f> hull1;
@@ -1074,9 +1100,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			Mat hullY;
 			convexHull(Yprime, hullY);
 
-			drawContours(img, convertContourFrom2f( { hull1 }), 0, { 200, 0, 0 });
-			drawContours(img, convertContourFrom2f( { hull2 }), 0, { 0, 200, 0 });
-			drawContours(img, convertContourFrom2f( { hullY }), 0, { 0, 0, 200 });
+			drawContours(img, convertContourFrom2f( { hull1 }), 0, { 200, 0, 0 },3);
+			drawContours(img, convertContourFrom2f( { hull2 }), 0, { 0, 200, 0 },3);
+			drawContours(img, convertContourFrom2f( { hullY }), 0, { 0, 0, 200 },3);
 			plot(img, hull1, { 200, 200, 200, 255 });
 			plot(img, hull2, { 200, 200, 0, 255 });
 			plot(img, hullY, { 0, 200, 200, 255 });
@@ -1089,7 +1115,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			plot(img, {Yprime[Yprime.size()*0.66]}, { 0, 200, 200, 255 }, 15);
 
 			show_image("Yprime", img);
-//			wait_key();
+			wait_key();
 
 			assert(Yprime.size() >= 3 && prepared2.size() >= 3);
 		    Point2f srcTri[3];
@@ -1109,25 +1135,37 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			double& e = warpMat.at<double>(1,1);
 			double& c = warpMat.at<double>(0,2);
 			double& f = warpMat.at<double>(1,2);
-//			double scaleX = hypot(a, d);
-//			double scaleY = hypot(b, e);
-//			double scaleZ = hypot(c, f);
+			double scaleX = hypot(a, d);
+			double scaleY = hypot(b, e);
+			double scaleZ = hypot(c, f);
 			a /= procr.scale;
 			d /= procr.scale;
 			b /= procr.scale;
 			e /= procr.scale;
-			c += orig1.cols / 2.0;
-//			cerr << "inverse scale: " << 1.0/procr.scale << endl;
-//			cerr << "scaleX: " << scaleX << endl;
-//			cerr << "scaleY: " << scaleY << endl;
-//			cerr << "scaleZ: " << scaleZ << endl;
-//			cerr << "x2: " << b << endl;
-//			cerr << "y2: " << e << endl;
+			c += corrected2.cols;
+			f += corrected2.rows;
+//			c = c / procr.scale;
+//			f = f / procr.scale;
+
+
+			cerr << "inverse scale: " << 1.0/procr.scale << endl;
+			cerr << "scaleX: " << scaleX << endl;
+			cerr << "scaleY: " << scaleY << endl;
+			cerr << "scaleZ: " << scaleZ << endl;
 			cerr << "after trans mat: " << warpMat << endl;
 
-		    warpAffine(corrected2, corrected2, warpMat, corrected2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
-			warpAffine(contourMap1, contourMap2, warpMat, contourMap2.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+			Mat wideCorrected1(corrected1.rows * 2.0, corrected1.cols * 2.0, corrected1.type(), 0.0);
+			Mat wideContourMap1(contourMap1.rows * 2.0, contourMap1.cols * 2.0, contourMap1.type(), 0.0);
+			Rect centerRect((wideContourMap1.cols - contourMap1.cols) / 2.0, (wideContourMap1.rows - contourMap1.rows) / 2.0, contourMap1.cols, contourMap1.rows);
+			corrected1.copyTo(wideCorrected1(centerRect));
+			contourMap1.copyTo(wideContourMap1(centerRect));
 
+			Mat wideCorrected2(corrected2.rows * 2.0, corrected2.cols * 2.0, corrected2.type());
+			Mat wideContourMap2(contourMap2.rows * 2.0, contourMap2.cols * 2.0, contourMap2.type());
+			warpAffine(corrected2, wideCorrected2, warpMat, wideCorrected2.size(), INTER_CUBIC, BORDER_CONSTANT, Scalar(0, 0, 0));
+			warpAffine(contourMap2, wideContourMap2, warpMat, wideContourMap2.size(), INTER_CUBIC, BORDER_CONSTANT, Scalar(0, 0, 0));
+			show_image("affine", wideCorrected2);
+			wait_key();
 			srcPoints1.clear();
 			srcPoints2.clear();
 
@@ -1136,104 +1174,32 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
+
 			vector<double> r = {0,0,1};
 			cv::Mat row(1, 3, CV_64F, r.data());
 			warpMat.push_back(row);
 
 			perspectiveTransform(srcPoints2, srcPoints2, warpMat);
-			filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
+			for (auto &pt : srcPoints1) {
+				pt.x += centerRect.x;
+				pt.y += centerRect.y;
+			}
+			retranslate(wideCorrected1, wideCorrected2, srcPoints1, srcPoints2, wideContourMap1, wideContourMap2, wideContourMap1.cols, wideContourMap1.rows);
 
-			vector<Point2f> left;
-			vector<Point2f> right;
-			vector<Point2f> top;
-			vector<Point2f> bottom;
+			for (auto &pt : srcPoints1) {
+				pt.x -= centerRect.x;
+				pt.y -= centerRect.y;
+			}
 			for (auto &pt : srcPoints2) {
-				left.push_back( { pt.x - 1, pt.y });
-				right.push_back( { pt.x + 1, pt.y });
-				top.push_back( { pt.x, pt.y - 1 });
-				bottom.push_back( { pt.x, pt.y + 1 });
-			}
-			double mdCurrent = morph_distance(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
-			double mdLeft = morph_distance(srcPoints1, left, orig1.cols, orig1.rows);
-			double mdRight = morph_distance(srcPoints1, right, orig1.cols, orig1.rows);
-			double mdTop = morph_distance(srcPoints1, top, orig1.cols, orig1.rows);
-			double mdBottom = morph_distance(srcPoints1, bottom, orig1.cols, orig1.rows);
-			off_t xchange = 0;
-			off_t ychange = 0;
-
-			if (mdLeft < mdCurrent)
-				xchange = -1;
-			else if (mdRight < mdCurrent)
-				xchange = +1;
-
-			if (mdTop < mdCurrent)
-				ychange = -1;
-			else if (mdBottom < mdCurrent)
-				ychange = +1;
-			cerr << "current morph dist: " << mdCurrent << endl;
-			off_t xProgress = 0;
-
-			if (xchange != 0) {
-				double lastMorphDist = mdCurrent;
-				double morphDist = 0;
-				do {
-					vector<Point2f> tmp;
-					for (auto &pt : srcPoints2) {
-						tmp.push_back( { pt.x + xchange * xProgress, pt.y });
-					}
-					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-//					cerr << "morph dist x: " << morphDist << endl;
-					if (morphDist > lastMorphDist)
-						break;
-					lastMorphDist = morphDist;
-					++xProgress;
-				} while (true);
-			}
-			off_t yProgress = 0;
-
-			if (ychange != 0) {
-				double lastMorphDist = mdCurrent;
-				double morphDist = 0;
-
-				do {
-					vector<Point2f> tmp;
-					for (auto &pt : srcPoints2) {
-						tmp.push_back( { pt.x, pt.y + ychange * yProgress});
-					}
-					morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-//					cerr << "morph dist y: " << morphDist << endl;
-					if (morphDist > lastMorphDist)
-						break;
-					lastMorphDist = morphDist;
-					++yProgress;
-				} while (true);
-			}
-			Point2f retranslation(xchange * xProgress, ychange * yProgress);
-			cerr << "retranslation: " << retranslation << endl;
-			translate(corrected2, corrected2, retranslation.x, retranslation.y);
-			translate(contourMap1, contourMap1, retranslation.x, retranslation.y);
-			for (auto &pt : srcPoints2) {
-				pt.x += retranslation.x;
-				pt.y += retranslation.y;
+				pt.x -= centerRect.x;
+				pt.y -= centerRect.y;
 			}
 			filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
-
-			double morphDist = -1;
-			vector<Point2f> tmp;
-			map<double,double> morphDistMap;
-			Point2f center = {orig1.cols/2.0, orig1.cols/2.0};
-			for(size_t i = 0; i < 3600; ++i) {
-				tmp = srcPoints2;
-				rotate_points(tmp, center, i);
-				morphDist = morph_distance(srcPoints1, tmp, orig1.cols, orig1.rows);
-				morphDistMap[morphDist] = i / 10.0;
-			}
-			double angle = (*morphDistMap.begin()).second;
-			cerr << "angle: " << angle << "°" << endl;
-			rotate(corrected2, corrected2, center, angle);
-			rotate(contourMap1, contourMap1, center, angle);
-			rotate_points(srcPoints2, center, angle);
+			corrected1 = wideCorrected1(centerRect).clone();
+			corrected2 = wideCorrected2(centerRect).clone();
+			contourMap1 = wideContourMap1(centerRect).clone();
+			contourMap2 = wideContourMap2(centerRect).clone();
 
 			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 			Settings::instance().enable_face_detection = savedefd;
@@ -1477,7 +1443,7 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	cvtColor(src1, grey1, COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matches reduced", matMatches);
+//	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1498,7 +1464,7 @@ void prepare_matches2(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, ve
 	cvtColor(src1, grey1, COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matches reduced", matMatches);
+//	show_image("matches reduced", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());

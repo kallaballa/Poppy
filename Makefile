@@ -32,7 +32,7 @@ CXXFLAGS += -D_AUTOVECTOR
 endif
 
 ifndef WASM
-CXXFLAGS += `pkg-config --cflags opencv4 libpng` -I../third/gif-h/
+CXXFLAGS += `pkg-config --cflags opencv4 libpng` -I../third/gif-h/ 
 #-march=native
 LIBS += -lboost_program_options `pkg-config --libs opencv4 libpng sdl SDL_image`
 else
