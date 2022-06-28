@@ -15,8 +15,8 @@
 
 namespace poppy {
 
-double ease_in_out_cubic(double x) {
-	return ((x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2));
+double ease(double x) {
+	return 1.0 - pow(1.0 - x, 4.0);
 }
 
 void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate) {
@@ -34,7 +34,7 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 }
 
 template<typename Twriter>
-void morph(const Mat &image1, const Mat &image2, double phase, bool distance, Twriter &output) {
+void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &output) {
 	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
 
@@ -90,7 +90,8 @@ void morph(const Mat &image1, const Mat &image2, double phase, bool distance, Tw
 
 	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
-	double shape;
+	double shape = 0;
+	double color = 0;
 	image1 = corrected1.clone();
 	image2 = corrected2.clone();
 
@@ -107,8 +108,8 @@ void morph(const Mat &image1, const Mat &image2, double phase, bool distance, Tw
 		if(linear > 1.0)
 			linear = 1.0;
 
-		shape =	((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-
+		shape =	ease((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
+		color = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, shape);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;

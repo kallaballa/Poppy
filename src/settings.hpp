@@ -14,7 +14,7 @@ public:
 	double number_of_frames = 60;
 	double frame_rate = 30;
 	double contour_sensitivity = 1;
-	double match_tolerance = 4;
+	double match_tolerance = 2;
 	off_t max_keypoints = -1;
 	size_t pyramid_levels = 4;
 	bool enable_auto_align = false;
