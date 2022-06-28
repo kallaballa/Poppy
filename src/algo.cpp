@@ -3,7 +3,6 @@
 #include "util.hpp"
 #include "blend.hpp"
 #include "settings.hpp"
-#include "face.hpp"
 #include "procrustes.hpp"
 #include "experiments.hpp"
 #include <iostream>
@@ -295,18 +294,17 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 	size_t cnt = 0;
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
-		double shade = 0;
+		double shade = 32.0 + 223.0 * (double(i) / collected.size());
 
 		cnt += contours.size();
 		cerr << i << "/" << (collected.size() - 1) << '\r';
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
-			shade = 32.0 + 223.0 * (double(j) / tmp.size());
 			drawContours(layer, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
-			dst = dst * (1.0 - (1.0 / tmp.size())) + layer * 1.0 / tmp.size();
-			contourLayers.push_back(layer);
+			drawContours(dst, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
 		}
+		contourLayers.push_back(layer);
 	}
 	cerr << endl;
 }
@@ -458,14 +456,15 @@ void extract_foreground_mask(const Mat &grey, Mat &fgMask) {
 	last.release();
 }
 
-void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &allContours2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2) {
+void extract_contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2) {
 	Mat grey1, grey2;
 	vector<vector<vector<Point2f>>> collected1;
 	vector<vector<vector<Point2f>>> collected2;
 
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
 	cvtColor(img2, grey2, COLOR_RGB2GRAY);
-
+	equalizeHist(grey1, grey1);
+	equalizeHist(grey2, grey2);
 	plainContours1 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
 	plainContours2 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
 	Mat edges1;
@@ -485,46 +484,31 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	for(size_t i = 0; i < c2.size(); ++i)
 			drawContours(plainContours2, c2, i, { 255 }, 1.0, LINE_4, h2, 0);
 
-	double localSensitivity = 1;
+	show_image("pc1", plainContours1);
+	show_image("pc2", plainContours2);
+
 	double t1 = 0;
 	double t2 = 255;
-	double highLimit = countNonZero(grey1) * 0.75;
 	Mat thresh1, thresh2;
 	vector<Vec4i> hierarchy1;
 	size_t numContours = 0;
-	threshold(grey1, thresh1, t1, t2, 0);
-	size_t cnt = 0;
-	do {
-		t1 = localSensitivity;
-		t2 = 255;
-		if (t1 >= 255)
-			t1 = 255;
-
-		if (t2 >= 255)
-			t2 = 255;
-		threshold(grey1, thresh1, t1, t2, 0);
-		cnt = countNonZero(thresh1);
-		if (cnt > highLimit)
-			++localSensitivity;
-	} while (cnt > highLimit);
 
 	t1 = 0;
 	t2 = 0;
-	localSensitivity = localSensitivity / 255.0;
 	cerr << "thresholding 1" << endl;
-	for (off_t i = 0; i < 16; ++i) {
-		cerr << i << "/15" << '\r';
+	for (off_t i = 0; i < 15; ++i) {
+		t1 = max(0, min(255, (int) round((i * 16.0 * Settings::instance().contour_sensitivity))));
+		t2 = max(0, min(255, (int) round(((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
+		cerr << t1 << "/" << t2 << '\r';
 
-		t1 = max(0, min(255, (int) round(localSensitivity + (i * 16.0 * Settings::instance().contour_sensitivity))));
-		t2 = max(0, min(255, (int) round(localSensitivity + ((i + 1) * 16.0 * Settings::instance().contour_sensitivity))));
 		threshold(grey1, thresh1, t1, t2, 0);
 
 		vector<vector<Point>> contours1;
 		findContours(thresh1, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
 		std::vector<std::vector<Point2f>> tmp = convertContourTo2f(contours1);
 
-		if (!tmp.empty())
-			collected1.push_back(tmp);
+		assert(!tmp.empty());
+		collected1.push_back(tmp);
 		numContours += tmp.size();
 	}
 	cerr << endl;
@@ -537,19 +521,19 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 
 	cerr << "thresholding 2" << endl;
 	vector<Vec4i> hierarchy2;
-	for (off_t j = 0; j < 16; ++j) {
-		cerr << j << "/15" << '\r';
+	for (off_t j = 0; j < 15; ++j) {
+		t1 = min(255, (int) round((j * 16 * Settings::instance().contour_sensitivity)));
+		t2 = min(255, (int) round(((j + 1) * 16 * Settings::instance().contour_sensitivity)));
+		cerr << t1 << "/" << t2 << '\r';
 
-		t1 = min(255, (int) round(localSensitivity + (j * 16 * Settings::instance().contour_sensitivity)));
-		t2 = min(255, (int) round(localSensitivity + ((j + 1) * 16 * Settings::instance().contour_sensitivity)));
 		threshold(grey2, thresh2, t1, t2, 0);
 
 		vector<vector<Point>> contours2;
 		findContours(thresh2, contours2, hierarchy2, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
 		std::vector<std::vector<Point2f>> tmp = convertContourTo2f(contours2);
 
-		if (!tmp.empty())
-			collected2.push_back(tmp);
+		assert(!tmp.empty());
+		collected2.push_back(tmp);
 		numContours += tmp.size();
 	}
 	cerr << endl;
@@ -557,10 +541,11 @@ void extract_contours(const Mat &img1, const Mat &img2, Mat &allContours1, Mat &
 	cerr << "draw map 2: " << numContours << endl;
 	draw_contour_map(cmap2, contourLayers2, collected2, hierarchy2, grey2.cols, grey2.rows, grey2.type());
 
-	allContours1 = cmap1.clone();
-	allContours2 = cmap2.clone();
-//	show_image("cmap1", cmap1);
-//	show_image("cmap2", cmap2);
+	contourMap1 = cmap1.clone();
+	contourMap2 = cmap2.clone();
+	show_image("cmap1", cmap1);
+	show_image("cmap2", cmap2);
+	assert(contourLayers1.size() == contourLayers2.size());
 }
 
 void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
@@ -608,8 +593,8 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	fgMask1Float.release();
 	fgMask2Float.release();
 
-//	show_image("mask1", finalMask1Float);
-//	show_image("mask2", finalMask2Float);
+	show_image("mask1", finalMask1Float);
+	show_image("mask2", finalMask2Float);
 	/*
 	 * create the final masked image. uses gaussian blur to sharpen the image.
 	 * But before the blurred image is subtracted from the image (to sharpen)
@@ -652,8 +637,8 @@ void extract_foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat 
 	masked1.release();
 	masked2.release();
 
-//	show_image("fg1", foreground1);
-//	show_image("fg2", foreground2);
+	show_image("fg1", foreground1);
+	show_image("fg2", foreground2);
 }
 
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
@@ -710,7 +695,6 @@ void rotate_points(vector<Point2f> &pts, const Point2f &center, const double &an
 	}
 }
 
-FaceDetector face(1.4);
 void scale_points(vector<Point2f> &pts, double coef) {
 	for (auto &pt : pts) {
 		pt.x *= coef;
@@ -861,21 +845,11 @@ void rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, ve
 	rotate_points(srcPoints2, center, -selectedAngle);
 }
 
-void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
+void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	Mat decimated1;
 	Mat decimated2;
 
-	Features ft1;
-	Features ft2;
-
-	if (Settings::instance().enable_face_detection) {
-		ft1 = face.detect(orig1);
-		ft2 = face.detect(orig2);
-	}
-
 	if (ft1.empty() || ft2.empty()) {
-		bool savedefd = Settings::instance().enable_face_detection;
-		Settings::instance().enable_face_detection = false;
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
@@ -888,8 +862,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
 
-//		show_image("gf1", goodFeatures1);
-//		show_image("gf2", goodFeatures2);
+		show_image("gf1", goodFeatures1);
+		show_image("gf2", goodFeatures2);
 
 		cerr << "find matches..." << endl;
 
@@ -898,15 +872,13 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			srcPoints1.clear();
 			srcPoints2.clear();
-
 			auto matches = find_keypoints(goodFeatures1, goodFeatures2);
-
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			cerr << "collected keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 
-			retranslate(contourMap2, corrected2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
-			rerotate(contourMap2, corrected2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
-
+			retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+			rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
 		} else {
 			srcPoints1.clear();
 			srcPoints2.clear();
@@ -916,7 +888,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 		}
-		Settings::instance().enable_face_detection = savedefd;
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1.empty() && !ft2.empty());
@@ -938,7 +909,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			scale_features(ft2, scale2);
 			Mat scaled2;
 			resize(orig2, scaled2, Size { int(std::round(orig2.cols * scale2)), int(std::round(orig2.rows * scale2)) });
-			ft2 = face.detect(scaled2);
+			ft2 = FaceDetector::instance().detect(scaled2);
 
 			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
 			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
@@ -1079,47 +1050,11 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		if(!(compares = (srcPoints1[i] == srcPoints2[i])))
 			break;
 	}
-	cerr << "same: " << compares << endl;
+
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
 }
 
-void match_points_by_proximity2(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
-	multimap<double, pair<Point2f, Point2f>> distanceMap;
-	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
-	Point2f nopoint(-1, -1);
-	for (auto &pt1 : srcPoints1) {
-		double dist = 0;
-		double currentMinDist = numeric_limits<double>::max();
-
-		Point2f *closest = &nopoint;
-		for (auto &pt2 : srcPoints2) {
-			if (pt2.x == -1 && pt2.y == -1)
-				continue;
-
-			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
-
-			if (dist < currentMinDist) {
-				currentMinDist = dist;
-				closest = &pt2;
-			}
-		}
-
-		if (closest == &nopoint)
-			continue;
-
-		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
-		distanceMap.insert( { dist, { pt1, *closest } });
-	}
-
-	srcPoints1.clear();
-	srcPoints2.clear();
-	for (const auto &v : distanceMap) {
-		srcPoints1.push_back(v.second.first);
-		srcPoints2.push_back(v.second.second);
-	}
-
-}
 
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, MatSize sz) {
 	float w = sz().width - 1;
@@ -1145,7 +1080,7 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 	cvtColor(src1, grey1, COLOR_RGB2GRAY);
 	cvtColor(src2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	show_image("matches reduced", matMatches);
+	show_image("matched", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());
@@ -1153,27 +1088,6 @@ void prepare_matches(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vec
 		srcPoints2.resize(srcPoints1.size());
 
 	add_corners(srcPoints1, srcPoints2, src1.size);
-}
-
-void prepare_matches2(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
-	//edit matches
-	cerr << "prepare2: " << srcPoints1.size() << endl;
-	match_points_by_proximity2(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	cerr << "match2: " << srcPoints1.size() << endl;
-
-	Mat matMatches;
-	Mat grey1, grey2;
-	cvtColor(src1, grey1, COLOR_RGB2GRAY);
-	cvtColor(src2, grey2, COLOR_RGB2GRAY);
-	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-//	show_image("matches reduced", matMatches);
-
-	if (srcPoints1.size() > srcPoints2.size())
-		srcPoints1.resize(srcPoints2.size());
-	else
-		srcPoints2.resize(srcPoints1.size());
-
-//	add_corners(srcPoints1, srcPoints2, src1.size);
 }
 
 double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
@@ -1288,6 +1202,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	show_image("mesh", analysis);
+//	wait_key();
 	return 0;
 }
 }

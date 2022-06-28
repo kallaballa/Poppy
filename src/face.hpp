@@ -57,10 +57,18 @@ class FaceDetector {
 	    };
 	};
 public:
-    explicit FaceDetector(double scale);
     Features detect(const cv::Mat &frame);
+    static FaceDetector& instance() {
+    	if(instance_ == nullptr) {
+    		instance_ = new FaceDetector(1.4);
+    	}
+
+    	return *instance_;
+    }
 private:
+    explicit FaceDetector(double scale);
     Conf cfg;
+    static FaceDetector* instance_;
 #ifndef _NO_FACE_DETECT
     Ptr<Facemark> facemark;
     CascadeClassifier face_detector;

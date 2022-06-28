@@ -4,6 +4,7 @@
 #include "util.hpp"
 #include "algo.hpp"
 #include "settings.hpp"
+#include "face.hpp"
 
 #include <iostream>
 #include <string>
@@ -34,13 +35,25 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 
 template<typename Twriter>
 void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &output) {
+	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
 
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 
 	Mat corrected1, corrected2;
 	Mat allContours1, allContours2;
-	find_matches(image1, image2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
+	Features ft1;
+	Features ft2;
+
+	if (Settings::instance().enable_face_detection) {
+		ft1 = FaceDetector::instance().detect(image1);
+		ft2 = FaceDetector::instance().detect(image2);
+	}
+
+	if(ft1.empty() || ft2.empty())
+		Settings::instance().enable_face_detection = false;
+
+	find_matches(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -77,7 +90,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
-
+	double shape;
 	image1 = corrected1.clone();
 	image2 = corrected2.clone();
 
@@ -87,14 +100,16 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		morphedPoints.clear();
 
 		if(phase != -1)
-			linear = j * step * 0.6 * phase;
+			linear = j * step * phase;
 		else
-			linear = j * step * 0.6;
+			linear = j * step;
 
 		if(linear > 1.0)
 			linear = 1.0;
 
-		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, linear, linear);
+		shape =	((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
+
+		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, shape);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
@@ -121,6 +136,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	morphed.release();
 	srcPoints1.clear();
 	srcPoints2.clear();
+	Settings::instance().enable_face_detection = savedefd;
 }
 }
 #endif

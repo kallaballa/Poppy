@@ -11,6 +11,7 @@
 
 namespace poppy {
 
+FaceDetector* FaceDetector::instance_ = nullptr;
 FaceDetector::FaceDetector(double scale) : cfg(scale) {
 #ifndef _NO_FACE_DETECT
 #ifndef _WASM
