@@ -763,7 +763,7 @@ void plot(Mat &img, vector<Point2f> points, Scalar color, int radius = 2) {
 		circle(img, p, radius, color, radius * 2);
 }
 
-void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, const size_t width, const size_t height) {
+void retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
 	vector<Point2f> left;
 	vector<Point2f> right;
 	vector<Point2f> top;
@@ -832,17 +832,17 @@ void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, 
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
 	cerr << "retranslation: " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation.x, retranslation.y);
-	translate(contourMap1, contourMap1, retranslation.x, retranslation.y);
+	translate(contourMap2, contourMap2, retranslation.x, retranslation.y);
 	for (auto &pt : srcPoints2) {
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
 	}
 }
 
-void rerotate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, const size_t width, const size_t height) {
+void rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
-	Point2f center = {float(corrected1.cols/2.0), float(corrected1.cols/2.0)};
+	Point2f center = {float(corrected2.cols/2.0), float(corrected2.cols/2.0)};
 	double lowestDist = numeric_limits<double>::max();
 	double selectedAngle = 0;
 	for(size_t i = 0; i < 3600; ++i) {
@@ -857,7 +857,7 @@ void rerotate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vec
 
 	cerr << "dist: " << lowestDist << " angle: " << selectedAngle << "°" << endl;
 	rotate(corrected2, corrected2, center, -selectedAngle);
-	rotate(contourMap1, contourMap1, center, -selectedAngle);
+	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPoints2, center, -selectedAngle);
 }
 
@@ -904,8 +904,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-			retranslate(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, contourMap1.cols, contourMap1.rows);
-			rerotate(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, contourMap1.cols, contourMap1.rows);
+			retranslate(contourMap2, corrected2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+			rerotate(contourMap2, corrected2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
 
 		} else {
 			srcPoints1.clear();
