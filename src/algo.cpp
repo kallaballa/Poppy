@@ -981,8 +981,10 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 	srcPoints1.clear();
 	srcPoints2.clear();
 
+	double total = get<0>(distribution);
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
+	cerr << "size: " << distanceMap.size() << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
@@ -994,7 +996,7 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 		return;
 	}
 	double value = 0;
-	double limit = mean;
+	double limit = (mean / hypot(cols, rows)) * 1000;
 	double limitCoef = 0.9;
 	do {
 		srcPoints1.clear();
@@ -1007,17 +1009,19 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (mean * 1000.0 / total))) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
 		if(srcPoints1.empty()) {
-			limitCoef *= 1.1;
-			limit *= (1.0 / limitCoef);
+			limit *= (1.5 / limitCoef);
+			limitCoef += ((1.0 - limitCoef) / 4.0);
 			continue;
-		} else
+		} else {
 			limit *= limitCoef;
-	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
+		}
+
+	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / ((mean * 1000.0 / total) * Settings::instance().match_tolerance))));
 	bool compares = false;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		if(!(compares = (srcPoints1[i] == srcPoints2[i])))

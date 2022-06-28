@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
 		cerr << "and it will be removed in the near future." << endl;
 		cerr << "The key point limit (--maxkey) is useful for large" << endl;
 		cerr << "images with lots of features which could easily yield" << endl;
-		cerr << "too many keypoints for a particular machine. e.g. " << endl;
+		cerr << "too many keypoints for a particular system. e.g. " << endl;
 		cerr << "embedded systems. Please note that the feature extractor" << endl;
 		cerr << "generates a larger number of key points than defined" << endl;
 		cerr << "by this limit and only decides to retain that number" << endl;
