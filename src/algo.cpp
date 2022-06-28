@@ -842,22 +842,23 @@ void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, 
 void rerotate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, const size_t width, const size_t height) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
-	map<double,double> morphDistMap;
 	Point2f center = {float(corrected1.cols/2.0), float(corrected1.cols/2.0)};
+	double lowestDist = numeric_limits<double>::max();
+	double selectedAngle = 0;
 	for(size_t i = 0; i < 3600; ++i) {
 		tmp = srcPoints2;
 		rotate_points(tmp, center, i / 10.0);
 		morphDist = morph_distance(srcPoints1, tmp, width, height);
-		morphDistMap[morphDist] = i / 10.0;
-		cerr << "dist: " << morphDist << endl;
+		if(morphDist < lowestDist) {
+			lowestDist = morphDist;
+			selectedAngle = i / 10.0;
+		}
 	}
 
-	double angle = (*morphDistMap.begin()).second;
-
-	cerr << "dist: " << (*morphDistMap.begin()).first << " angle: " << angle << "°" << endl;
-	rotate(corrected2, corrected2, center, -angle);
-	rotate(contourMap1, contourMap1, center, -angle);
-	rotate_points(srcPoints2, center, -angle);
+	cerr << "dist: " << lowestDist << " angle: " << selectedAngle << "°" << endl;
+	rotate(corrected2, corrected2, center, -selectedAngle);
+	rotate(contourMap1, contourMap1, center, -selectedAngle);
+	rotate_points(srcPoints2, center, -selectedAngle);
 }
 
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
@@ -974,7 +975,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 	}
 	filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
-	cerr << "contour points: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+	cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 	check_points(srcPoints1, orig1.cols, orig1.rows);
 	check_points(srcPoints2, orig1.cols, orig1.rows);
 }

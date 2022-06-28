@@ -9,6 +9,11 @@
 #include <opencv2/features2d.hpp>
 #include <string>
 
+namespace cv
+{
+bool operator<(Point2f const& lhs, Point2f const& rhs);
+}
+
 namespace poppy {
 
 template<typename C>
@@ -55,6 +60,8 @@ struct LessPointOp {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
 	}
 };
+
+
 
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
 double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const double width, const double height);

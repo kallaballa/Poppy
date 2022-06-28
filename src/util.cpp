@@ -35,10 +35,9 @@ double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& 
 	double totalDistance = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		Point2f v = srcPoints2[i] - srcPoints1[i];
-		totalDistance += pow(v.x,2) + pow(v.y,2);
+		totalDistance += hypot(v.x, v.y);
 	}
-
-	return sqrt(totalDistance / srcPoints1.size());
+	return totalDistance / srcPoints1.size();
 }
 
 void show_image(const string &name, const Mat &img) {
