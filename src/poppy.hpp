@@ -34,7 +34,7 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 }
 
 template<typename Twriter>
-void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &output) {
+void morph(const Mat &image1, const Mat &image2, double phase, bool distance, Twriter &output) {
 	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
 
