@@ -803,7 +803,7 @@ void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, 
 				tmp.push_back( { pt.x + xchange * xProgress, pt.y });
 			}
 			morphDist = morph_distance(srcPoints1, tmp, width, height);
-			cerr << "morph dist x: " << morphDist << endl;
+//			cerr << "morph dist x: " << morphDist << endl;
 			if (morphDist > lastMorphDist)
 				break;
 			lastMorphDist = morphDist;
@@ -822,7 +822,7 @@ void retranslate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, 
 				tmp.push_back( { pt.x, pt.y + ychange * yProgress});
 			}
 			morphDist = morph_distance(srcPoints1, tmp, width, height);
-			cerr << "morph dist y: " << morphDist << endl;
+//			cerr << "morph dist y: " << morphDist << endl;
 			if (morphDist > lastMorphDist)
 				break;
 			lastMorphDist = morphDist;
@@ -843,23 +843,21 @@ void rerotate(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vec
 	double morphDist = -1;
 	vector<Point2f> tmp;
 	map<double,double> morphDistMap;
-	Point2f center = {corrected1.cols/2.0, corrected1.cols/2.0};
+	Point2f center = {float(corrected1.cols/2.0), float(corrected1.cols/2.0)};
 	for(size_t i = 0; i < 3600; ++i) {
 		tmp = srcPoints2;
 		rotate_points(tmp, center, i / 10.0);
 		morphDist = morph_distance(srcPoints1, tmp, width, height);
 		morphDistMap[morphDist] = i / 10.0;
+		cerr << "dist: " << morphDist << endl;
 	}
 
 	double angle = (*morphDistMap.begin()).second;
-	cerr << "angle: " << angle << "°" << endl;
-//	show_image("angle before", corrected2);
-//	wait_key();
+
+	cerr << "dist: " << (*morphDistMap.begin()).first << " angle: " << angle << "°" << endl;
 	rotate(corrected2, corrected2, center, -angle);
 	rotate(contourMap1, contourMap1, center, -angle);
 	rotate_points(srcPoints2, center, -angle);
-//	show_image("angle after", corrected2);
-//	wait_key();
 }
 
 void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
@@ -892,320 +890,10 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 //		show_image("gf1", goodFeatures1);
 //		show_image("gf2", goodFeatures2);
 
+		cerr << "find matches..." << endl;
+
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
-			Mat clRGB1, clRGB2;
-			Mat decimated1, decimated2;
-//			Mat layer1;
-//			Mat layer2;
-//			threshold(contourLayers1[4], layer1, 1, 255, 0);
-//			threshold(contourLayers2[4], layer2, 1, 255, 0);
-
-//			cvtColor(layer1, clRGB1, COLOR_GRAY2RGB);
-//			cvtColor(layer2, clRGB2, COLOR_GRAY2RGB);
-
-//			decimate_features(clRGB1, clRGB2, decimated1, decimated2);
-			decimated1 = goodFeatures1.clone();
-			decimated2 = goodFeatures2.clone();
-			off_t savedmkp = Settings::instance().max_keypoints;
-			Settings::instance().max_keypoints = 300;
-			auto matches = find_keypoints(decimated1, decimated2);
-			Settings::instance().max_keypoints = savedmkp;
-
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-
-			auto prepared1 = srcPoints1;
-			auto prepared2 = srcPoints2;
-			Mat img = decimated1.clone();
-			plot(img, prepared1, { 200, 0, 0, 255 });
-			plot(img, prepared2, { 0, 200, 0, 255 });
-
-			show_image("prep1", img);
-//			wait_key();
-
-			Point2f avg1(0, 0);
-			Point2f avg2(0, 0);
-			for (const auto &pt : prepared1) {
-				avg1 += pt;
-			}
-
-			avg1.x /= prepared1.size();
-			avg1.y /= prepared1.size();
-
-			for (const auto &pt : prepared2) {
-				avg2 += pt;
-			}
-
-			avg2.x /= prepared2.size();
-			avg2.y /= prepared2.size();
-
-			multimap<double, Point2f> centroidDistMap1;
-			multimap<double, Point2f> centroidDistMap2;
-
-			for (size_t i = 0; i < prepared1.size(); ++i) {
-				const auto &pt = prepared1[i];
-				centroidDistMap1.insert( { hypot(pt.x - avg1.x, pt.y - avg1.y), pt });
-			}
-
-			for (size_t i = 0; i < prepared2.size(); ++i) {
-				const auto &pt = prepared2[i];
-				centroidDistMap2.insert( { hypot(pt.x - avg2.x, pt.y - avg2.y), pt });
-			}
-
-			vector<Point2f> hull;
-
-			SimpleBlobDetector::Params params;
-			// Change thresholds
-			params.minThreshold = 10;
-			params.maxThreshold = 200;
-
-			// Filter by Area.
-			params.filterByArea = true;
-			params.minArea = 1100;
-			params.maxArea = 100000000000;
-
-			params.filterByConvexity = true;
-			params.minConvexity = 0.7;
-			params.maxConvexity = 1;
-
-			// Filter by Circularity
-			params.filterByCircularity = true;
-			params.minCircularity = 0.3;
-			params.maxCircularity = 1;
-
-			//Filter by Inertia
-			params.filterByInertia = false;
-			params.minInertiaRatio = 0.7;
-			params.maxInertiaRatio = 1;
-
-			Mat radialMaskFloat = Mat::ones(orig1.rows, orig1.cols, CV_32FC1);
-			Mat radial = Mat::ones(orig1.rows, orig1.cols, CV_32FC1);
-			draw_radial_gradiant2(radial);
-			radial.convertTo(radialMaskFloat, CV_32FC1, 1.0 / 255.0);
-
-			Ptr<SimpleBlobDetector> detector = SimpleBlobDetector::create(params);
-			std::vector<KeyPoint> keypoints;
-			RotatedRect rr1;
-			double density = 0;
-			double lastDensity = 0;
-
-			Mat blobsFloat(orig1.rows, orig1.cols, CV_32FC1);
-			Mat blobs(orig1.rows, orig1.cols, CV_8UC1);
-			blobs = Scalar(255);
-			plot(blobs, prepared1, { 0 }, 5);
-			blobs.convertTo(blobsFloat, CV_32FC1, 1.0 / 255.0);
-			Mat finalBlobs(orig1.rows, orig1.cols, CV_8UC1);
-			multiply(blobsFloat, radialMaskFloat, finalBlobs);
-			finalBlobs.convertTo(blobs, CV_8UC1, 255);
-
-			detector->detect(blobs, keypoints);
-			drawKeypoints(blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-			show_image("blobs1", blobs);
-//			wait_key();
-			blobs = decimated2.clone();
-			drawKeypoints( blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-			show_image("kp1", blobs);
-//			wait_key();
-
-			std::vector<Point2f> insideKeypoint1;
-			for(size_t i = 0; i < keypoints.size(); ++i) {
-				for(size_t j = 0; j < prepared1.size(); ++j)
-					if(pow(prepared1[j].x - keypoints[i].pt.x,2) + pow(prepared1[j].y - keypoints[i].pt.y,2) < pow(keypoints[i].size,2)) {
-						insideKeypoint1.push_back(prepared1[j]);
-				}
-				Mat preview = goodFeatures1.clone();
-				convexHull(insideKeypoint1, hull);
-				overdefineHull(hull, 6);
-				rr1 = fitEllipse(hull);
-				cv::ellipse(preview, rr1, { 0, 0, 255 });
-				drawContours(preview, convertContourFrom2f( { hull }), 0, { 200, 0, 0 }, 3);
-				plot(preview, insideKeypoint1, { 200, 0, 0 });
-				drawKeypoints( preview, keypoints, preview, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-
-				show_image("preview1", preview);
-				wait_key(100);
-			}
-
-			blobsFloat = Mat(orig1.rows, orig1.cols, CV_32FC1);
-			blobs = Mat(orig1.rows, orig1.cols, CV_8UC1);
-			blobs = Scalar(255);
-			plot(blobs, prepared2, { 0 }, 5);
-			blobs.convertTo(blobsFloat, CV_32FC1, 1.0 / 255.0);
-			finalBlobs = Mat(orig1.rows, orig1.cols, CV_8UC1);
-			multiply(blobsFloat, radialMaskFloat, finalBlobs);
-			finalBlobs.convertTo(blobs, CV_8UC1, 255);
-			detector->detect(blobs, keypoints);
-
-
-			drawKeypoints(blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-			show_image("blobs2", blobs);
-//			wait_key();
-			blobs = decimated2.clone();
-			drawKeypoints( blobs, keypoints, blobs, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-			show_image("kp2", blobs);
-//			wait_key();
-
-			std::vector<Point2f> insideKeypoint2;
-			for(size_t i = 0; i < keypoints.size(); ++i) {
-				for(size_t j = 0; j < prepared2.size(); ++j)
-					if(pow(prepared2[j].x - keypoints[i].pt.x,2) + pow(prepared2[j].y - keypoints[i].pt.y,2) < pow(keypoints[i].size,2)) {
-						insideKeypoint2.push_back(prepared2[j]);
-				}
-				Mat preview = goodFeatures2.clone();
-				convexHull(insideKeypoint2, hull);
-				overdefineHull(hull, 6);
-				rr1 = fitEllipse(hull);
-				cv::ellipse(preview, rr1, { 0, 0, 255 });
-				drawContours(preview, convertContourFrom2f( { hull }), 0, { 200, 0, 0 },3);
-				plot(preview, insideKeypoint2, { 200, 0, 0 });
-				drawKeypoints( preview, keypoints, preview, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-
-				show_image("preview2", preview);
-				wait_key(100);
-			}
-
-
-
-			prepared1 = std::move(insideKeypoint1);
-			prepared2 = std::move(insideKeypoint2);
-
-			if (prepared1.size() > prepared2.size())
-				prepared1.resize(prepared2.size());
-			else
-				prepared2.resize(prepared1.size());
-
-			img = orig2.clone();
-
-			plot(img, prepared1, { 200, 0, 0, 255 });
-			plot(img, prepared2, { 0, 200, 0, 255 });
-
-//			show_image("prep2", img);
-//			wait_key();
-
-			vector<Point2f> hull1;
-			vector<Point2f> hull2;
-
-			convexHull(prepared1, hull1);
-			convexHull(prepared2, hull2);
-
-			if(hull1.size() > hull2.size())
-				overdefineHull(hull2, hull1.size());
-			else
-				overdefineHull(hull1, hull2.size());
-
-			Procrustes procr(true, true);
-			procr.procrustes(prepared1, prepared2);
-			vector<Point2f> Yprime = procr.yPrimeAsVector();
-			Mat hullY;
-			convexHull(Yprime, hullY);
-
-			drawContours(img, convertContourFrom2f( { hull1 }), 0, { 200, 0, 0 },3);
-			drawContours(img, convertContourFrom2f( { hull2 }), 0, { 0, 200, 0 },3);
-			drawContours(img, convertContourFrom2f( { hullY }), 0, { 0, 0, 200 },3);
-			plot(img, hull1, { 200, 200, 200, 255 });
-			plot(img, hull2, { 200, 200, 0, 255 });
-			plot(img, hullY, { 0, 200, 200, 255 });
-
-			plot(img, {prepared2[0]}, { 200, 200, 0, 255 }, 5);
-			plot(img, {Yprime[0]}, { 0, 200, 200, 255 }, 5);
-			plot(img, {prepared2[prepared2.size()*0.33]}, { 200, 200, 0, 255 }, 7);
-			plot(img, {Yprime[Yprime.size()*0.33]}, { 0, 200, 200, 255 }, 10);
-			plot(img, {prepared2[prepared2.size()*0.66]}, { 200, 200, 0, 255 }, 1);
-			plot(img, {Yprime[Yprime.size()*0.66]}, { 0, 200, 200, 255 }, 15);
-
-			show_image("Yprime", img);
-			wait_key();
-
-			assert(Yprime.size() >= 3 && prepared2.size() >= 3);
-		    Point2f srcTri[3];
-		    srcTri[0] = prepared2[0];
-		    srcTri[1] = prepared2[prepared2.size()*0.33];
-		    srcTri[2] = prepared2[prepared2.size()*0.66];
-		    Point2f dstTri[3];
-		    dstTri[0] = Yprime[0];
-		    dstTri[1] = Yprime[Yprime.size()*0.33];
-		    dstTri[2] = Yprime[Yprime.size()*0.66];
-
-		    Mat warpMat = getAffineTransform(srcTri, dstTri);
-			cerr << "before trans mat: " << warpMat << endl;
-			double& a = warpMat.at<double>(0,0);
-			double& d = warpMat.at<double>(1,0);
-			double& b = warpMat.at<double>(0,1);
-			double& e = warpMat.at<double>(1,1);
-			double& c = warpMat.at<double>(0,2);
-			double& f = warpMat.at<double>(1,2);
-			double scaleX = hypot(a, d);
-			double scaleY = hypot(b, e);
-			double scaleZ = hypot(c, f);
-			a /= procr.scale;
-			d /= procr.scale;
-			b /= procr.scale;
-			e /= procr.scale;
-			c += corrected2.cols;
-			f += corrected2.rows;
-//			c = c / procr.scale;
-//			f = f / procr.scale;
-
-
-			cerr << "inverse scale: " << 1.0/procr.scale << endl;
-			cerr << "scaleX: " << scaleX << endl;
-			cerr << "scaleY: " << scaleY << endl;
-			cerr << "scaleZ: " << scaleZ << endl;
-			cerr << "after trans mat: " << warpMat << endl;
-
-			Mat wideCorrected1(corrected1.rows * 2.0, corrected1.cols * 2.0, corrected1.type(), 0.0);
-			Mat wideContourMap1(contourMap1.rows * 2.0, contourMap1.cols * 2.0, contourMap1.type(), 0.0);
-			Rect centerRect((wideContourMap1.cols - contourMap1.cols) / 2.0, (wideContourMap1.rows - contourMap1.rows) / 2.0, contourMap1.cols, contourMap1.rows);
-			corrected1.copyTo(wideCorrected1(centerRect));
-			contourMap1.copyTo(wideContourMap1(centerRect));
-
-			Mat wideCorrected2(corrected2.rows * 2.0, corrected2.cols * 2.0, corrected2.type());
-			Mat wideContourMap2(contourMap2.rows * 2.0, contourMap2.cols * 2.0, contourMap2.type());
-			warpAffine(corrected2, wideCorrected2, warpMat, wideCorrected2.size(), INTER_CUBIC, BORDER_CONSTANT, Scalar(0, 0, 0));
-			warpAffine(contourMap2, wideContourMap2, warpMat, wideContourMap2.size(), INTER_CUBIC, BORDER_CONSTANT, Scalar(0, 0, 0));
-			show_image("affine", wideCorrected2);
-			wait_key();
-			srcPoints1.clear();
-			srcPoints2.clear();
-
-			matches = find_keypoints(goodFeatures1, goodFeatures2);
-
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-
-
-			vector<double> r = {0,0,1};
-			cv::Mat row(1, 3, CV_64F, r.data());
-			warpMat.push_back(row);
-
-			perspectiveTransform(srcPoints2, srcPoints2, warpMat);
-			for (auto &pt : srcPoints1) {
-				pt.x += centerRect.x;
-				pt.y += centerRect.y;
-			}
-			retranslate(wideCorrected1, wideCorrected2, srcPoints1, srcPoints2, wideContourMap1, wideContourMap2, wideContourMap1.cols, wideContourMap1.rows);
-
-			for (auto &pt : srcPoints1) {
-				pt.x -= centerRect.x;
-				pt.y -= centerRect.y;
-			}
-			for (auto &pt : srcPoints2) {
-				pt.x -= centerRect.x;
-				pt.y -= centerRect.y;
-			}
-			filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
-
-			corrected1 = wideCorrected1(centerRect).clone();
-			corrected2 = wideCorrected2(centerRect).clone();
-			contourMap1 = wideContourMap1(centerRect).clone();
-			contourMap2 = wideContourMap2(centerRect).clone();
-
-			cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
-			Settings::instance().enable_face_detection = savedefd;
-		} else {
-			Mat features1, features2;
-			cerr << "find matches" << endl;
 
 			srcPoints1.clear();
 			srcPoints2.clear();
@@ -1214,7 +902,20 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+
+			retranslate(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, contourMap1.cols, contourMap1.rows);
+			rerotate(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, contourMap1.cols, contourMap1.rows);
+
+		} else {
+			srcPoints1.clear();
+			srcPoints2.clear();
+
+			auto matches = find_keypoints(goodFeatures1, goodFeatures2);
+
+			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
+			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 		}
+		Settings::instance().enable_face_detection = savedefd;
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1.empty() && !ft2.empty());
@@ -1227,7 +928,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Mat &corrected1, Mat &corr
 		srcPoints2 = ft2.getAllPoints();
 
 		if (Settings::instance().enable_auto_align) {
-			cerr << orig1.size() << "/" << orig2.size() << endl;
+			cerr << "auto aligning..." << endl;
 
 			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
 			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
