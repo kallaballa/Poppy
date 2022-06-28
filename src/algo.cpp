@@ -720,36 +720,6 @@ void scale_features(Features &ft, double coef) {
 	scale_points(ft.inside_lips_, coef);
 }
 
-
-
-Mat arctan2(const Mat &y, const Mat &x) {
-	assert(y.rows == x.rows);
-	cv::Mat at2(y.rows, 1, CV_64FC1);
-	for (size_t i = 0; i < y.rows; ++i) {
-		at2.at<double>(i, 0) = atan2(y.at<double>(i, 0), x.at<double>(i, 0));
-	}
-
-	return at2;
-}
-
-Mat cosine(const Mat &x) {
-	cv::Mat c(x.rows, 1, CV_64FC1);
-	for (size_t i = 0; i < x.rows; ++i) {
-		c.at<double>(i, 0) = cos(x.at<double>(i, 0));
-	}
-
-	return c;
-}
-
-Mat sine(const Mat &x) {
-	cv::Mat c(x.rows, 1, CV_64FC1);
-	for (size_t i = 0; i < x.rows; ++i) {
-		c.at<double>(i, 0) = sin(x.at<double>(i, 0));
-	}
-
-	return c;
-}
-
 void plot(Mat &img, vector<Point2f> points, Scalar color, int radius = 2) {
 	for (Point2f p : points)
 		circle(img, p, radius, color, radius * 2);
@@ -858,7 +828,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extract_foreground(orig1, orig2, goodFeatures1, goodFeatures2);
-//		decimate_features(orig1, orig2, decimated1, decimated2);
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
 		Mat plainContours1;
