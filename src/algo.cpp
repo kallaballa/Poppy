@@ -666,8 +666,8 @@ pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
 	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x), cntr};
 }
 
-void translate(const Mat &src, Mat &dst, float x, float y) {
-	float warpValues[] = { 1.0, 0.0, x, 0.0, 1.0, y };
+void translate(const Mat &src, Mat &dst, const Point2f& by) {
+	float warpValues[] = { 1.0, 0.0, by.x, 0.0, 1.0, by.y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
 	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 }
@@ -687,6 +687,12 @@ Point2f rotate_point(const cv::Point2f &inPoint, const double &angDeg) {
 
 Point2f rotate_point(const cv::Point2f &inPoint, const cv::Point2f &center, const double &angDeg) {
 	return rotate_point(inPoint - center, angDeg) + center;
+}
+
+void translate_points(vector<Point2f> &pts, const Point2f &by) {
+	for (auto &pt : pts) {
+		pt += by;
+	}
 }
 
 void rotate_points(vector<Point2f> &pts, const Point2f &center, const double &angDeg) {
@@ -713,6 +719,8 @@ void scale_features(Features &ft, double coef) {
 	scale_points(ft.outer_lips_, coef);
 	scale_points(ft.inside_lips_, coef);
 }
+
+
 
 Mat arctan2(const Mat &y, const Mat &x) {
 	assert(y.rows == x.rows);
@@ -815,8 +823,8 @@ void retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1,
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
 	cerr << "retranslation: " << retranslation << endl;
-	translate(corrected2, corrected2, retranslation.x, retranslation.y);
-	translate(contourMap2, contourMap2, retranslation.x, retranslation.y);
+	translate(corrected2, corrected2, retranslation);
+	translate(contourMap2, contourMap2, retranslation);
 	for (auto &pt : srcPoints2) {
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
@@ -846,9 +854,6 @@ void rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, ve
 }
 
 void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
-	Mat decimated1;
-	Mat decimated2;
-
 	if (ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
@@ -896,8 +901,6 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 		Mat plainContours1;
 		Mat plainContours2;
 		extract_contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
-		srcPoints1 = ft1.getAllPoints();
-		srcPoints2 = ft2.getAllPoints();
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -905,11 +908,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
 			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
 			double scale2 = w1 / w2;
-			cerr << "scale: " << scale2 << endl;
-			scale_features(ft2, scale2);
 			Mat scaled2;
 			resize(orig2, scaled2, Size { int(std::round(orig2.cols * scale2)), int(std::round(orig2.rows * scale2)) });
-			ft2 = FaceDetector::instance().detect(scaled2);
+			srcPoints1 = ft1.getAllPoints();
 
 			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
 			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
@@ -921,7 +922,7 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 			double dx = center1.x - center2.x;
 
 			Mat translated2;
-			translate(scaled2, translated2, dx, dy);
+			translate(scaled2, translated2, {float(dx), float(dy)});
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
@@ -931,8 +932,8 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 			double targetAng = angle2 - angle1;
 			Mat rotated2;
 			rotate(translated2, rotated2, center2, targetAng);
-			rotate_points(srcPoints2, center2, -targetAng);
-			cerr << rotated2.size() << "/" << orig2.size() << endl;
+			ft2 = FaceDetector::instance().detect(rotated2);
+			srcPoints2 = ft2.getAllPoints();
 
 			double dw = rotated2.cols - orig2.cols;
 			double dh = rotated2.rows - orig2.rows;
@@ -940,6 +941,9 @@ void find_matches(const Mat &orig1, const Mat &orig2, Features& ft1, Features& f
 			corrected1 = orig1.clone();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
+			srcPoints1 = ft1.getAllPoints();
+			srcPoints2 = ft2.getAllPoints();
+
 			corrected1 = orig1.clone();
 			corrected2 = orig2.clone();
 		}
@@ -1009,6 +1013,7 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 	srcPoints2.clear();
 
 	double mean = get<1>(distribution);
+	double deviation = get<2>(distribution);
 	if(mean == 0) {
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
@@ -1043,7 +1048,6 @@ void match_points_by_proximity(vector<Point2f> &srcPoints1, vector<Point2f> &src
 			continue;
 		} else
 			limit *= limitCoef;
-
 	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / Settings::instance().match_tolerance)));
 	bool compares = false;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {

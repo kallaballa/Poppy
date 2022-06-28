@@ -44,7 +44,10 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat img = frame.clone();
 
 	vector<Rect> faces;
-	resize(img,img,Size(460,460),0,0,INTER_LINEAR_EXACT);
+	double width = 500;
+	double scale = (width / img.cols);
+	double height = img.rows * scale;
+	resize(img,img,Size(width,height),0,0,INTER_LINEAR_EXACT);
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
@@ -65,40 +68,40 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	unsigned long i = 0;
 	// Around Chin. Ear to Ear
 	for (i = 0; i <= 16; ++i)
-		features.chin_.push_back(shapes[0][i]);
+		features.chin_.push_back(shapes[0][i] * scale);
 
 	// left eyebrow
 	for (;i <= 21; ++i)
-		features.left_eyebrow_.push_back(shapes[0][i]);
+		features.left_eyebrow_.push_back(shapes[0][i] * scale);
 
 	// Right eyebrow
 	for (; i <= 26; ++i)
-		features.right_eyebrow_.push_back(shapes[0][i]);
+		features.right_eyebrow_.push_back(shapes[0][i] * scale);
 
 	// Line on top of nose
 	for (; i <= 30; ++i)
-		features.top_nose_.push_back(shapes[0][i]);
+		features.top_nose_.push_back(shapes[0][i] * scale);
 
 
 	// Bottom part of the nose
 	for (; i <= 35; ++i)
-		features.bottom_nose_.push_back(shapes[0][i]);
+		features.bottom_nose_.push_back(shapes[0][i] * scale);
 
 	// Left eye
 	for (unsigned long i = 37; i <= 41; ++i)
-		features.left_eye_.push_back(shapes[0][i]);
+		features.left_eye_.push_back(shapes[0][i] * scale);
 
 	// Right eye
 	for (unsigned long i = 43; i <= 47; ++i)
-		features.right_eye_.push_back(shapes[0][i]);
+		features.right_eye_.push_back(shapes[0][i] * scale);
 
 	// Lips outer part
 	for (unsigned long i = 49; i <= 59; ++i)
-		features.outer_lips_.push_back(shapes[0][i]);
+		features.outer_lips_.push_back(shapes[0][i] * scale);
 
 	// Lips inside part
 	for (unsigned long i = 61; i <= 67; ++i)
-		features.inside_lips_.push_back(shapes[0][i]);
+		features.inside_lips_.push_back(shapes[0][i] * scale);
 #endif
 	return features;
 }

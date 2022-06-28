@@ -41,7 +41,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 
 	Mat corrected1, corrected2;
-	Mat allContours1, allContours2;
+	Mat contourMap1, contourMap2;
 	Features ft1;
 	Features ft2;
 
@@ -53,7 +53,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	find_matches(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, allContours1, allContours2);
+	find_matches(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -91,7 +91,6 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	float step = 1.0 / Settings::instance().number_of_frames;
 	double linear = 0;
 	double shape = 0;
-	double color = 0;
 	image1 = corrected1.clone();
 	image2 = corrected2.clone();
 
@@ -109,8 +108,8 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 			linear = 1.0;
 
 		shape =	ease((1.0 / (1.0 - linear)) / Settings::instance().number_of_frames);
-		color = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
-		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, allContours1, allContours2, shape, shape);
+//		color = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
+		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, contourMap1, contourMap2, shape, shape);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);

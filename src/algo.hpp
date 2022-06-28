@@ -39,7 +39,7 @@ void add_corners(std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> 
 void prepare_matches(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2);
 void prepare_matches2(Mat &origImg1, Mat &origImg2, const cv::Mat &img1, const cv::Mat &img2, std::vector<cv::Point2f> &srcPoints1, std::vector<cv::Point2f> &srcPoints2);
 double morph_images(const Mat &origImg1, const Mat &origImg2, cv::Mat &dst, const cv::Mat &last, std::vector<cv::Point2f> &morphedPoints, std::vector<cv::Point2f> srcPoints1, std::vector<cv::Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio);
-void translate(const Mat& src, Mat& dst, float x, float y);
+void translate(const Mat& src, Mat& dst, const Point2f& by);
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts);
 void rotate(const Mat& src, Mat& dst, Point2f center, double angle, double scale = 1.0);
 }

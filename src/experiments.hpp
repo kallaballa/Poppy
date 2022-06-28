@@ -342,7 +342,7 @@ void correct_alignment(const Mat &src1, const Mat &src2, Mat &dst1, Mat &dst2, v
 	Point2f center2 = rr2.center;
 	Mat rotated2;
 	rotate(src2, rotated2, center2, targetAng);
-	translate(rotated2, dst2, center1.x - center2.x, center1.y - center2.y);
+	translate(rotated2, dst2, Point2f(center1.x - center2.x, center1.y - center2.y));
 	dst1 = src1.clone();
 
 //	Mat test, copy1, copy2;
