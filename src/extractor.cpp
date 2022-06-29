@@ -83,7 +83,7 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub1->apply(med, flow);
 		fgMask = fgMask + (flow * (1.0 / 6.0));
-		blur(fgMask, fgMaskBlur, { 23, 23 });
+		GaussianBlur(fgMask, fgMaskBlur, { 23, 23 }, 1);
 		fgMask = fgMaskBlur.clone();
 		last = med.clone();
 		med.release();

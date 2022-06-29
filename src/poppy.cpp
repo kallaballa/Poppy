@@ -394,7 +394,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
 		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
-		off_t maxKeypoints = 200;
+		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 		bool autoAlign = autoalign;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
 		bool srcScaling = autoscale;

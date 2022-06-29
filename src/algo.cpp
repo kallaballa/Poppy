@@ -175,7 +175,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &contourMap1, Mat &contourMap2, double shapeRatio, double maskRatio) {
 	Size SourceImgSize(origImg1.cols, origImg1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -244,18 +244,18 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-	equalizeHist(allContours1, allContours1);
-	equalizeHist(allContours2, allContours2);
+	equalizeHist(contourMap1, contourMap1);
+	equalizeHist(contourMap2, contourMap2);
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y, x) = allContours1.at<uint8_t>(y, x) / 255.0;
+			m1.at<float>(y, x) = contourMap1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y, x) = allContours2.at<uint8_t>(y, x) / 255.0;
+			m2.at<float>(y, x) = contourMap2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
@@ -263,15 +263,15 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat mask;
 	m = ones * (1.0 - maskRatio) + m2 * maskRatio;
 	show_image("blend", m);
-//	off_t kx = round(m.cols / 32.0);
-//	off_t ky = round(m.rows / 32.0);
-//	if (kx % 2 != 1)
-//		kx -= 1;
-//
-//	if (ky % 2 != 1)
-//		ky -= 1;
-//	GaussianBlur(m, mask, Size(kx, ky), 12);
-	mask = m;
+	off_t kx = ceil(m.cols / 4.0);
+	off_t ky = ceil(m.rows / 4.0);
+	if (kx % 2 != 1)
+		kx -= 1;
+
+	if (ky % 2 != 1)
+		ky -= 1;
+	GaussianBlur(m, mask, Size(kx, ky), kx / 3.0);
+
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);

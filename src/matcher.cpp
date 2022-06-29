@@ -3,23 +3,23 @@
 #include "util.hpp"
 #include "draw.hpp"
 #include "settings.hpp"
+#include "transformer.hpp"
 
 namespace poppy {
 
 Matcher::~Matcher(){
 }
 
-void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
+void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, Mat& plainContours1, Mat& plainContours2) {
 	Extractor extractor;
-
+	Transformer trafo;
 	if (ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extractor.foreground(orig1, orig2, goodFeatures1, goodFeatures2);
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		Mat plainContours1;
-		Mat plainContours2;
+
 		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
@@ -33,11 +33,12 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			srcPoints1.clear();
 			srcPoints2.clear();
 			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
+
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-			retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
-			rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+			trafo.retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+			trafo.rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
 		} else {
 			srcPoints1.clear();
 			srcPoints2.clear();
@@ -76,7 +77,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			double dx = center1.x - center2.x;
 
 			Mat translated2;
-			translate(scaled2, translated2, {float(dx), float(dy)});
+			trafo.translate(scaled2, translated2, {float(dx), float(dy)});
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
@@ -84,7 +85,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
 			double targetAng = angle2 - angle1;
 			Mat rotated2;
-			rotate(translated2, rotated2, center2, targetAng);
+			trafo.rotate(translated2, rotated2, center2, targetAng);
 			ft2 = FaceDetector::instance().detect(rotated2);
 			srcPoints2 = ft2.getAllPoints();
 
@@ -174,7 +175,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance)) << endl;
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance)) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);

@@ -20,6 +20,10 @@ double ease(double x) {
 	return 1.0 - pow(1.0 - x, 4.0);
 }
 
+double easeInOutSine(double x) {
+	return -(cos(M_PI * x) - 1.0) / 2.0;
+}
+
 void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
@@ -45,6 +49,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 	Mat corrected1, corrected2;
 	Mat contourMap1, contourMap2;
+	Mat plainContours1, plainContours2;
 	Features ft1;
 	Features ft2;
 
@@ -56,7 +61,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
+	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, plainContours1, plainContours2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
