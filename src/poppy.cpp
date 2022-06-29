@@ -416,8 +416,9 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 				}
 		});
 		t.detach();
+	} catch(std::exception& ex) {
+		std::cerr << "caught: " << ex.what() << std::endl;
 	} catch(...) {
-//		std::cerr << "caught: " << ex.what() << std::endl;
 		std::cerr << "caught" << std::endl;
 	}
 	return 0;
