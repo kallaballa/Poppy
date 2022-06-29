@@ -165,7 +165,7 @@ vector<Mat> Procrustes::align( const vector<Mat>& X, Mat& mean_shape ) {
  */
 vector<vector<Point2f>> Procrustes::generalizedProcrustes( vector<vector<Point2f>>& X, vector<Point2f>& mean_shape, const int itol, const float ftol ) {
     vector<Mat> temp(X.size());
-    for( int i = 0; i < temp.size(); i++ )
+    for( size_t i = 0; i < temp.size(); i++ )
         temp[i] = Mat( X[i] );
     
     Mat mean_shape_mat;

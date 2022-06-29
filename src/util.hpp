@@ -8,6 +8,12 @@
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
 #include <string>
+#include <map>
+#include <tuple>
+
+using std::pair;
+using std::vector;
+using namespace cv;
 
 namespace cv
 {
@@ -15,6 +21,28 @@ bool operator<(Point2f const& lhs, Point2f const& rhs);
 }
 
 namespace poppy {
+
+constexpr double RADIANS_TO_DEGREES = 57.2958;
+
+template<typename T>
+struct reversion_wrapper {
+	T &iterable;
+};
+
+template<typename T>
+auto begin(reversion_wrapper<T> w) {
+	return std::rbegin(w.iterable);
+}
+
+template<typename T>
+auto end(reversion_wrapper<T> w) {
+	return std::rend(w.iterable);
+}
+
+template<typename T>
+reversion_wrapper<T> reverse(T &&iterable) {
+	return {iterable};
+}
 
 template<typename C>
 double meanAngle(const C& c) {
@@ -60,9 +88,21 @@ struct LessPointOp {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
 	}
 };
-
-
-
+double feature_metric(const Mat &grey1);
+void translate(const Mat &src, Mat &dst, const Point2f& by);
+void rotate(const Mat &src, Mat &dst, Point2f center, double angle, double scale=1.0);
+Point2f rotate_point(const cv::Point2f &inPoint, const double &angDeg);
+Point2f rotate_point(const cv::Point2f &inPoint, const cv::Point2f &center, const double &angDeg);
+void translate_points(vector<Point2f> &pts, const Point2f &by);
+void rotate_points(vector<Point2f> &pts, const Point2f &center, const double &angDeg);
+void scale_points(vector<Point2f> &pts, double coef);
+void retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height);
+void rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height);
+std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, pair<Point2f, Point2f>> distanceMap);
+void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
+void adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double contrast, double lowcut);
+std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
+std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
 double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const double width, const double height);
 void show_image(const std::string &name, const cv::Mat &img);

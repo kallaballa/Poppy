@@ -4,6 +4,8 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include "algo.hpp"
 #include "util.hpp"
+#include "matcher.hpp"
+
 
 namespace poppy {
 using namespace cv;
@@ -123,6 +125,7 @@ void symmetryTest(
 
 
 double morph_distance(const Mat &src1, const Mat &src2) {
+	Matcher matcher;
 	Mat tmp1, tmp2;
 	if(src1.type() != CV_8UC1) {
 		cvtColor(src1, tmp1, COLOR_RGB2GRAY);
@@ -149,7 +152,7 @@ double morph_distance(const Mat &src1, const Mat &src2) {
 		corners2.resize(corners1.size());
 
 
-	match_points_by_proximity(corners1, corners2, src1.cols, src1.rows);
+	matcher.match(corners1, corners2, src1.cols, src1.rows);
 
 	if (corners1.size() > corners2.size())
 		corners1.resize(corners2.size());

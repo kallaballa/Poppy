@@ -5,6 +5,7 @@
 #include "algo.hpp"
 #include "settings.hpp"
 #include "face.hpp"
+#include "matcher.hpp"
 
 #include <iostream>
 #include <string>
@@ -37,7 +38,7 @@ template<typename Twriter>
 void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &output) {
 	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
-
+	Matcher matcher;
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 
 	Mat corrected1, corrected2;
@@ -53,7 +54,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	find_matches(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
+	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -67,7 +68,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		return;
 	}
 	if(!Settings::instance().enable_face_detection) {
-		prepare_matches(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
+		matcher.prepare(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
 	} else {
 		add_corners(srcPoints1, srcPoints2, image1.size);
 	}

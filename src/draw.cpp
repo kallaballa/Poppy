@@ -8,29 +8,15 @@
 #include <opencv2/core/ocl.hpp>
 
 namespace poppy {
+void plot(Mat &img, vector<Point2f> points, Scalar color, int radius) {
+	for (Point2f p : points)
+		circle(img, p, radius, color, radius * 2);
+}
+
 double euclidean_distance(cv::Point center, cv::Point point) {
 	double distance = std::sqrt(
 			std::pow(center.x - point.x, 2) + std::pow(center.y - point.y, 2));
 	return distance;
-}
-
-void draw_radial_gradiant2(Mat &grad) {
-	cv::Point center(grad.cols / 2.0, grad.rows / 2.0);
-	cv::Point point;
-	double maxDist = hypot(grad.cols / 2.0, grad.rows / 2.0);
-	for (int row = 0; row < grad.rows; ++row) {
-		for (int col = 0; col < grad.cols; ++col) {
-			point.x = col;
-			point.y = row;
-			double dist = euclidean_distance(center, point) / maxDist;
-//			grad.at<float>(row, col) = dist;
-			grad.at<float>(row, col) = log10(log10(log10(sin(sin(dist * (M_PI/2)) * (M_PI/2)) + 9) +9) +9);
-		}
-	}
-
-	cv::normalize(grad, grad, 0, 255, cv::NORM_MINMAX, CV_8U);
-	cv::bitwise_not(grad, grad);
-	show_image("grad", grad);
 }
 
 void draw_radial_gradiant(Mat &grad) {
@@ -51,6 +37,25 @@ void draw_radial_gradiant(Mat &grad) {
 	cv::bitwise_not(grad, grad);
 	show_image("grad", grad);
 }
+
+void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {
+	dst = Mat::zeros(rows, cols, type);
+	size_t cnt = 0;
+	for (size_t i = 0; i < collected.size(); ++i) {
+		auto &contours = collected[i];
+		double shade = 32.0 + 223.0 * (double(i) / collected.size());
+
+		cnt += contours.size();
+		vector<vector<Point>> tmp = convertContourFrom2f(contours);
+		Mat layer = Mat::zeros(rows, cols, type);
+		for (size_t j = 0; j < tmp.size(); ++j) {
+			drawContours(layer, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
+			drawContours(dst, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
+		}
+		contourLayers.push_back(layer);
+	}
+}
+
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
 	vector<Vec6f> triangleList;
 	subdiv.getTriangleList(triangleList);

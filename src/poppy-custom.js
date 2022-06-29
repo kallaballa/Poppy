@@ -163,7 +163,7 @@
 		var arrayBuffer;
 		var fileReader1 = new FileReader();
 		var fileReader2 = new FileReader();
-		var tolerance  = document.getElementById('tolerance').value;
+		var tolerance  = 1;//document.getElementById('tolerance').value;
 		var autoalign = document.getElementById('autoalign').checked;
 //		var face = document.getElementById('face').checked;
 		var face = false;
