@@ -180,9 +180,9 @@
 			return document.getElementById('canvas');
 		})()
 	};
-// 	window.addEventListener("resize", function(e) {
-// 		scale_canvas();
-// 	}, true);
+ 	window.addEventListener("resize", function(e) {
+ 		scale_canvas();
+ 	}, true);
 	Module.doNotCaptureKeyboard = true;
 
 	function load_images() {

@@ -92,7 +92,7 @@ void loop() {
 			sdl_writer.write(frameBuffer);
 		}
 
-		if(!running) {
+//		if(!running) {
 			SDL_Event event;
 			SDL_PollEvent(&event);
 			switch (event.type)
@@ -105,7 +105,7 @@ void loop() {
 			default:
 				break;
 			}
-		}
+//		}
 	} catch (std::exception& ex) {
 	std::cerr << "Main loop exception: " << ex.what() << std::endl;
 	} catch (...) {
