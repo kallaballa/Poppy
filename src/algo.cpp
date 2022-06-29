@@ -228,9 +228,9 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_CUBIC);
 
 	Mat trImg2;
-	Mat trMapX2, trMapY2;
-	create_map(triMap, morphHom2, trMapX2, trMapY2);
-	remap(origImg2, trImg2, trMapX2, trMapY2, INTER_CUBIC);
+	Mat trans_map_x2, trans_map_y2;
+	create_map(triMap, morphHom2, trans_map_x2, trans_map_y2);
+	remap(origImg2, trImg2, trans_map_x2, trans_map_y2, INTER_CUBIC);
 
 	homographyMats.clear();
 	morphHom1.clear();

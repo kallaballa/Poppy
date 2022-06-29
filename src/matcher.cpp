@@ -35,7 +35,6 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
-			cerr << "collected keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 
 			retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
 			rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);

@@ -145,6 +145,10 @@ input[type=file] {
 	width: 100%;
 }
 
+#headerrow {
+	width: 100%;
+}
+
 #progress {
 /*	top: 0px;
 	left: 0px;
@@ -357,7 +361,7 @@ input[type=file] {
 	</div>
 	<div id="image2container" class="crop-container">
 		<img id="image2"/>
-		<button onclick="make_blob('image2', 'image2container', 'target2', 1);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image2container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image2'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image2'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><div class="spacer"></div><button onclick="croppers['image2'].setData({x: 0, y: 0, width: getElementById('image2').width, height: getElementById('image2').height, rotate: 0, scaleX: 1, scaleY: 1})">100%</button>
+		<button onclick="make_blob('image2', 'image2container', 'target2', 1);">Crop</button><button onclick="document.getElementById('crop-bg').style.display = 'none'; document.getElementById('image2container').style.display='none';">Cancel</button><div class="spacer"></div><button onclick="croppers['image2'].rotate(-5.625)">Rotate -</button><button onclick="croppers['image2'].rotate(5.625)">Rotate +</button><div class="spacer"></div><button onclick="croppers['image2'].scaleX(-1)">Flip X</button><button onclick="croppers['image2'].scaleY(-1)">Flip Y</button><div class="spacer"></div><button onclick="croppers['image2'].setData({x: 0, y: 0, width: getElementById('image2').width, height: getElementById('image2').height, rotate: 0, scaleX: 1, scaleY: 1})">100%</button>
 	</div>
 	<table id="content">
 	<tbody>

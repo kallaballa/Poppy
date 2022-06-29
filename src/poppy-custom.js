@@ -1,3 +1,14 @@
+// 	HTMLCanvasElement.prototype.toBlob || Object.defineProperty( HTMLCanvasElement.prototype, 'toBlob', {
+// 		value: function( callback, type, quality ) {
+// 			var xhr = new XMLHttpRequest;
+// 			xhr.open( 'GET', this.toDataURL( type, quality ) );
+// 			xhr.responseType = 'arraybuffer';
+// 			xhr.onload = function(e) {
+// 				callback( new Blob( [this.response], {type: type || 'image/png'} ) );
+// 			}
+// 			xhr.send();
+// 		}
+// 	});
 	var croppers = {};
 	var blobs = {};
 	var is_mobile = false;
@@ -52,7 +63,7 @@
 		croppers[imageID].crop();
 		var croppedCanvas = croppers[imageID].getCroppedCanvas();
 		//take apart data URL
-		var parts = croppedCanvas.toDataURL('image/png').match(/data:([^;]*)(;base64)?,([0-9A-Za-z+/]+)/);
+/*		var parts = croppedCanvas.toDataURL('image/png').match(/data:([^;]*)(;base64)?,([0-9A-Za-z+/]+)/);
 
 		//assume base64 encoding
 		var binStr = atob(parts[3]);
@@ -64,29 +75,37 @@
 		view[i] = binStr.charCodeAt(i);
 
 		var blob = new Blob([view], {'type': parts[1]});
-		var dataUrl = URL.createObjectURL(blob)
-		var maxWidth = is_mobile ? 768 : 2048;
-		var maxHeight = is_mobile ? 768 : 2048;
-		var srcWidth = croppedCanvas.width;
-		var srcHeight = croppedCanvas.height;
-		var ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
-		var w = srcWidth * ratio;
-		var h = srcHeight * ratio;
+		var dataUrl = URL.createObjectURL(blob)*/
+		croppedCanvas.toBlob(function(blob) {
+			var dataUrl = URL.createObjectURL(blob);
+			var maxWidth = is_mobile ? 768 : 2048;
+			var maxHeight = is_mobile ? 768 : 2048;
+			var srcWidth = croppedCanvas.width;
+			var srcHeight = croppedCanvas.height;
+			var ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
+			var w = srcWidth * ratio;
+			var h = srcHeight * ratio;
 
-		if(srcWidth > maxWidth || srcHeight > maxHeight) {
-			alert("The image will be scaled down because of program limitiations.");
-			var offCanvas = new OffscreenCanvas(w, h);
-			var ctx = offCanvas.getContext("2d");
-			ctx.drawImage(croppedCanvas, 0, 0, w, h);
-			offCanvas.convertToBlob().then(blob => {
+			if(srcWidth > maxWidth || srcHeight > maxHeight) {
+				alert("The image will be scaled down because of program limitiations.");
+				var offCanvas = document.createElement("canvas");
+				offCanvas.style.display = 'none';
+				document.body.appendChild(offCanvas);
+
+// 				var offCanvas = new OffscreenCanvas(w, h);
+				var ctx = offCanvas.getContext("2d");
+				offCanvas.width = w;
+				offCanvas.height = h;
+				ctx.drawImage(croppedCanvas, 0, 0, w, h);
+				offCanvas.toBlob(function(blob) {
+					blobs[index] = blob;
+					document.body.removeChild(offCanvas);
+				});
+			} else {
 				blobs[index] = blob;
-			});
-		} else {
-			croppers[imageID].getCroppedCanvas().toBlob(function(blob) {
-				blobs[index] = blob;
-			});
-		}
-		document.getElementById(targetID).src = dataUrl;
+			}
+			document.getElementById(targetID).src = dataUrl;
+		});
 	}
 
 	function Uint8ToBase64(u8Arr){
@@ -104,8 +123,9 @@
 	}
 
 	function download(filename, data) {
+		var blob = new Blob([new Uint8Array(data, 0, data.length)]);
 		var element = document.createElement('a');
-		var dataString = 'data:image/gif;base64,' + Uint8ToBase64(data);
+		var dataString = URL.createObjectURL(blob);
 		element.setAttribute('href', dataString);
 		element.setAttribute('download', filename);
 
@@ -122,13 +142,11 @@
 
 	function scale_canvas() {
 		var canvas = document.getElementById('canvas');
-		var canvas = document.getElementById('canvas');
 		var ctx = canvas.getContext("2d");
-
-
-		var container = document.getElementById("canvasrow");
-		var sx = container.clientWidth / 160;
-		var sy = container.clientHeight / 160;
+		var ccontainer = document.getElementById("canvasrow");
+		var hcontainer = document.getElementById("headerrow");
+		var sx = Math.max(ccontainer.clientWidth, hcontainer.clientWidth) / 160;
+		var sy = Math.max(ccontainer.clientHeight, hcontainer.clientHeight) / 160;
 		ctx.scale(sx, sy);
 	}
 
@@ -162,9 +180,9 @@
 			return document.getElementById('canvas');
 		})()
 	};
-	window.addEventListener("resize", function(e) {
-		scale_canvas();
-	}, true);
+// 	window.addEventListener("resize", function(e) {
+// 		scale_canvas();
+// 	}, true);
 	Module.doNotCaptureKeyboard = true;
 
 	function load_images() {

@@ -58,8 +58,9 @@ struct SDLWriter {
 			return;
 		Mat bgra;
 		cvtColor(mat, bgra, COLOR_RGB2BGRA);
-		if(gif_encoder != nullptr)
+		if(gif_encoder != nullptr) {
 			GifWriteFrame(gif_encoder, bgra.data, bgra.size().width, bgra.size().height, 100.0/poppy::Settings::instance().frame_rate);
+		}
 		Mat scaled;
 		auto size = canvas->getSize();
 		double w = size.first;
@@ -207,7 +208,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		if(canvas != nullptr)
 			delete canvas;
 
-		canvas = new poppy::Canvas(160, 160, false);
+		canvas = new poppy::Canvas(350, 350, false);
 		gif_encoder = new GifWriter();
 		GifBegin(gif_encoder, "current.gif", szUnion.width, szUnion.height, 100.0/poppy::Settings::instance().frame_rate);
 	}

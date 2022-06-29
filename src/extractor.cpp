@@ -26,7 +26,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const Mat &grey1, co
 	if (Settings::instance().max_keypoints == -1)
 		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
-
 	vector<KeyPoint> keypoints1, keypoints2;
 
 	Mat descriptors1, descriptors2;
@@ -70,18 +69,21 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const Mat &grey1, co
 
 void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
-	fgMask = Mat::ones(grey.rows, grey.cols, grey.type());
+	fgMask = Mat::zeros(grey.rows, grey.cols, grey.type());
 	Mat last = grey.clone();
 	Mat fgMaskBlur;
 	Mat med, flow;
 
 	//optical flow tracking works as well but is much slower
 	auto pBackSub1 = createBackgroundSubtractorMOG2();
+	pBackSub1->apply(grey, flow);
+	fgMask = fgMask + (flow * (1.0 / 6.0));
+
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub1->apply(med, flow);
 		fgMask = fgMask + (flow * (1.0 / 6.0));
-		GaussianBlur(fgMask, fgMaskBlur, { 23, 23 }, 1);
+		blur(fgMask, fgMaskBlur, { 23, 23 });
 		fgMask = fgMaskBlur.clone();
 		last = med.clone();
 		med.release();
@@ -194,6 +196,7 @@ void Extractor::foreground(const Mat &img1, const Mat &img2, Mat &foreground1, M
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);
 	foregroundMask(grey2, fgMask2);
+
 	Mat radialMaskFloat;
 	if (Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
