@@ -63,6 +63,31 @@ void scale_points(vector<Point2f> &pts, double coef) {
 	}
 }
 
+pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
+		{
+	//Construct a buffer used by the pca analysis
+	int sz = static_cast<int>(pts.size());
+	Mat data_pts = Mat(sz, 2, CV_64F);
+	for (int i = 0; i < data_pts.rows; i++)	{
+		data_pts.at<double>(i, 0) = pts[i].x;
+		data_pts.at<double>(i, 1) = pts[i].y;
+	}
+	//Perform PCA analysis
+	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW);
+	//Store the center of the object
+	Point2f cntr = Point2f(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
+	//Store the eigenvalues and eigenvectors
+	vector<Point2d> eigen_vecs(2);
+	vector<double> eigen_val(2);
+	for (int i = 0; i < 2; i++) {
+		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0), pca_analysis.eigenvectors.at<double>(i, 1));
+		eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+	}
+
+	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x) * RADIANS_TO_DEGREES, cntr};
+}
+
+
 void retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
 	vector<Point2f> left;
 	vector<Point2f> right;
@@ -154,8 +179,7 @@ void rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, ve
 			selectedAngle = i / 10.0;
 		}
 	}
-
-	cerr << "dist: " << lowestDist << " angle: " << selectedAngle << "°" << endl;
+	cerr << "dist: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate(corrected2, corrected2, center, -selectedAngle);
 	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPoints2, center, -selectedAngle);
@@ -270,7 +294,7 @@ double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& 
 		Point2f v = srcPoints2[i] - srcPoints1[i];
 		totalDistance += hypot(v.x, v.y);
 	}
-	return totalDistance / srcPoints1.size();
+	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
 }
 
 void show_image(const string &name, const Mat &img) {

@@ -177,30 +177,6 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
-		{
-	//Construct a buffer used by the pca analysis
-	int sz = static_cast<int>(pts.size());
-	Mat data_pts = Mat(sz, 2, CV_64F);
-	for (int i = 0; i < data_pts.rows; i++)	{
-		data_pts.at<double>(i, 0) = pts[i].x;
-		data_pts.at<double>(i, 1) = pts[i].y;
-	}
-	//Perform PCA analysis
-	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW);
-	//Store the center of the object
-	Point2f cntr = Point2f(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
-	//Store the eigenvalues and eigenvectors
-	vector<Point2d> eigen_vecs(2);
-	vector<double> eigen_val(2);
-	for (int i = 0; i < 2; i++) {
-		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0), pca_analysis.eigenvectors.at<double>(i, 1));
-		eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
-	}
-
-	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x), cntr};
-}
-
 double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &allContours1, Mat &allContours2, double shapeRatio, double maskRatio) {
 	Size SourceImgSize(origImg1.cols, origImg1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));

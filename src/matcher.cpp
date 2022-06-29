@@ -111,8 +111,8 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 
 void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
-	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
-	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
+//	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
+//	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
 
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
@@ -175,8 +175,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance))
-										 << endl;
+//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance)) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
