@@ -54,22 +54,18 @@ tolerance (--tolerance). If you want to tinker more,
 You could enable the gui (--gui) and play with the
 tolerance and maybe a little with contour sensitivity
 (--contour) and watch how it effects the algorithm.
-You probably shouldn't waste much time on the contour
-sensitivity parameter because it has little or even 
-detrimental effect, which makes it virtually obsolete
-and it will be removed in the near future.
+Anyway, you probably shouldn't waste much time on the
+contour sensitivity parameter because it has little or
+even detrimental effect, which makes it virtually
+obsolete and it will be removed in the near future.
 The key point limit (--maxkey) is useful for large
 images with lots of features which could easily yield
-too many keypoints for a particular machine. e.g. 
+too many keypoints for a particular system. e.g. 
 embedded systems. Please note that the feature extractor
 generates a larger number of key points than defined
 by this limit and only decides to retain that number
-in the end. The only means of reducing the number of
-generated key points at the moment is to denoise
-(--denoise) the source images. Obviously that is not
-optimal because you have no control over which
-features will be removed. Usually the parameter is used
-to enhance noisy images.
+in the end. Noisy images can be enhanced by denoising
+(--denoise).
 
 Options:
   -g [ --gui ]                        Show analysis windows.
@@ -91,9 +87,15 @@ Options:
   -f [ --frames ] arg (=60)           The number of frames to generate.
   -p [ --phase ] arg (=-1)            A value from 0 to 1 telling poppy how far
                                       into the morph to start from.
-  -t [ --tolerance ] arg (=5)         How tolerant poppy is when matching 
+  -y [ --pyramid ] arg (=32)          How many levels to use for the laplacian 
+                                      pyramid.
+  -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
   -c [ --contour ] arg (=1)           How sensitive poppy is to contours.
+  -u [ --fourcc ] arg (=FFV1)         The four letter fourcc identifier 
+                                      (https://en.wikipedia.org/wiki/FourCC) 
+                                      which selects the video format. e.g: 
+                                      "FFV1", "h264", "theo"
   -o [ --outfile ] arg (=output.mkv)  The name of the video file to write to.
   -h [ --help ]                       Print the help message.
 ```
