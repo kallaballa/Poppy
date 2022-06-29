@@ -51,8 +51,20 @@
 		document.getElementById('crop-bg').style.display = 'none';
 		croppers[imageID].crop();
 		var croppedCanvas = croppers[imageID].getCroppedCanvas();
-		var dataUrl = croppedCanvas.toDataURL('image/png');
+		//take apart data URL
+		var parts = croppedCanvas.toDataURL('image/png').match(/data:([^;]*)(;base64)?,([0-9A-Za-z+/]+)/);
 
+		//assume base64 encoding
+		var binStr = atob(parts[3]);
+
+		//convert to binary in ArrayBuffer
+		var buf = new ArrayBuffer(binStr.length);
+		var view = new Uint8Array(buf);
+		for(var i = 0; i < view.length; i++)
+		view[i] = binStr.charCodeAt(i);
+
+		var blob = new Blob([view], {'type': parts[1]});
+		var dataUrl = URL.createObjectURL(blob)
 		var maxWidth = is_mobile ? 768 : 2048;
 		var maxHeight = is_mobile ? 768 : 2048;
 		var srcWidth = croppedCanvas.width;
