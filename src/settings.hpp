@@ -17,7 +17,7 @@ public:
 	double contour_sensitivity = 1;
 	double match_tolerance = 1;
 	off_t max_keypoints = -1;
-	size_t pyramid_levels = 16;
+	size_t pyramid_levels = 32;
 	bool enable_auto_align = false;
 	bool enable_radial_mask = false;
 	bool enable_face_detection = false;
