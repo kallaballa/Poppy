@@ -3,24 +3,13 @@
 #include "util.hpp"
 #include "blend.hpp"
 #include "settings.hpp"
-#include "extractor.hpp"
-#include "experiments.hpp"
 #include <iostream>
-#include <random>
 #include <string>
 #include <vector>
 #include <cassert>
 #include <cmath>
-#include <algorithm>
-#include <map>
 
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/videoio/videoio.hpp>
-#include <opencv2/core/ocl.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/video/video.hpp>
 
 using namespace std;
 using namespace cv;

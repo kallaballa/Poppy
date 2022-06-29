@@ -14,10 +14,10 @@ class Extractor {
 public:
 	Extractor();
 	virtual ~Extractor();
-	pair<vector<Point2f>, vector<Point2f>> extractKeypoints(const Mat &grey1, const Mat &grey2);
-	void extractForegroundMask(const Mat &grey, Mat &fgMask);
-	void extractContours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2);
-	void extractForeground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2);
+	pair<vector<Point2f>, vector<Point2f>> keypoints(const Mat &grey1, const Mat &grey2);
+	void foregroundMask(const Mat &grey, Mat &fgMask);
+	void contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2);
+	void foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2);
 };
 
 } /* namespace poppy */

@@ -15,26 +15,24 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 	if (ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
-		extractor.extractForeground(orig1, orig2, goodFeatures1, goodFeatures2);
+		extractor.foreground(orig1, orig2, goodFeatures1, goodFeatures2);
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
 		Mat plainContours1;
 		Mat plainContours2;
-		extractor.extractContours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
 
 		show_image("gf1", goodFeatures1);
 		show_image("gf2", goodFeatures2);
 
-		cerr << "find matches..." << endl;
-
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 
 			srcPoints1.clear();
 			srcPoints2.clear();
-			auto matches = extractor.extractKeypoints(goodFeatures1, goodFeatures2);
+			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 			cerr << "collected keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
@@ -45,7 +43,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			srcPoints1.clear();
 			srcPoints2.clear();
 
-			auto matches = extractor.extractKeypoints(goodFeatures1, goodFeatures2);
+			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
@@ -57,7 +55,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		vector<Mat> contourLayers2;
 		Mat plainContours1;
 		Mat plainContours2;
-		extractor.extractContours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -85,7 +83,6 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			angle2 = angle2 * 180 / M_PI;
 			angle1 = angle1 < 0 ? angle1 + 360 : angle1;
 			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
-			std::cerr << "angle: " << angle1 << "/" << angle2 << endl;
 			double targetAng = angle2 - angle1;
 			Mat rotated2;
 			rotate(translated2, rotated2, center2, targetAng);
@@ -178,7 +175,8 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / ((mean * 1000.0 / total) * Settings::instance().match_tolerance))) << endl;
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance))
+										 << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
@@ -190,7 +188,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 			limit *= limitCoef;
 		}
 
-	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / ((mean * 1000.0 / total) * Settings::instance().match_tolerance))));
+	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance))));
 	bool compares = false;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		if(!(compares = (srcPoints1[i] == srcPoints2[i])))
@@ -201,13 +199,11 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
 }
 
-
-
 void Matcher::prepare(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	//edit matches
-	cerr << "prepare: " << srcPoints1.size() << endl;
+	cerr << "matching: " << srcPoints1.size() << endl;
 	match(srcPoints1, srcPoints2, img1.cols, img1.rows);
-	cerr << "match: " << srcPoints1.size() << endl;
+	cerr << "matched: " << srcPoints1.size() << endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;

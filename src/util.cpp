@@ -20,6 +20,7 @@ double feature_metric(const Mat &grey1) {
 
 	return stddev[0];
 }
+
 void translate(const Mat &src, Mat &dst, const Point2f& by) {
 	float warpValues[] = { 1.0, 0.0, by.x, 0.0, 1.0, by.y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);

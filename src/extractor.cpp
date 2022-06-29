@@ -22,7 +22,7 @@ Extractor::Extractor() {
 Extractor::~Extractor() {
 }
 
-pair<vector<Point2f>, vector<Point2f>> Extractor::extractKeypoints(const Mat &grey1, const Mat &grey2) {
+pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const Mat &grey1, const Mat &grey2) {
 	if (Settings::instance().max_keypoints == -1)
 		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
@@ -68,7 +68,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::extractKeypoints(const Mat &gr
 	return {points1,points2};
 }
 
-void Extractor::extractForegroundMask(const Mat &grey, Mat &fgMask) {
+void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
 	fgMask = Mat::ones(grey.rows, grey.cols, grey.type());
 	Mat last = grey.clone();
@@ -91,7 +91,7 @@ void Extractor::extractForegroundMask(const Mat &grey, Mat &fgMask) {
 	last.release();
 }
 
-void Extractor::extractContours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2) {
+void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2, Mat& plainContours1, Mat& plainContours2) {
 	Mat grey1, grey2;
 	vector<vector<vector<Point2f>>> collected1;
 	vector<vector<vector<Point2f>>> collected2;
@@ -183,7 +183,7 @@ void Extractor::extractContours(const Mat &img1, const Mat &img2, Mat &contourMa
 	assert(contourLayers1.size() == contourLayers2.size());
 }
 
-void Extractor::extractForeground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
+void Extractor::foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
 	cerr << "extract features" << endl;
 	Mat grey1, grey2, canny1, canny2;
 	cvtColor(img1, grey1, COLOR_RGB2GRAY);
@@ -192,8 +192,8 @@ void Extractor::extractForeground(const Mat &img1, const Mat &img2, Mat &foregro
 	Mat fgMask1;
 	Mat fgMask2;
 	//extract areas of interest (aka. foreground)
-	extractForegroundMask(grey1, fgMask1);
-	extractForegroundMask(grey2, fgMask2);
+	foregroundMask(grey1, fgMask1);
+	foregroundMask(grey2, fgMask2);
 	Mat radialMaskFloat;
 	if (Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
