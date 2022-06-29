@@ -50,10 +50,8 @@ Mat points_to_homogenous_mat(const vector<Point> &pts) {
 void morph_points(vector<Point2f> &srcPts1, vector<Point2f> &srcPts2, vector<Point2f> &dstPts, float s) {
 	assert(srcPts1.size() == srcPts2.size());
 	int numPts = srcPts1.size();
-	double totalDistance = 0;
 	dstPts.resize(numPts);
 	for (int i = 0; i < numPts; i++) {
-		totalDistance += hypot(srcPts2[i].x - srcPts1[i].x, srcPts2[i].y - srcPts1[i].y);
 		dstPts[i].x = round((1.0 - s) * srcPts1[i].x + s * srcPts2[i].x);
 		dstPts[i].y = round((1.0 - s) * srcPts1[i].y + s * srcPts2[i].y);
 	}
@@ -227,12 +225,12 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat trImg1;
 	Mat trans_map_x1, trans_map_y1;
 	create_map(triMap, morphHom1, trans_map_x1, trans_map_y1);
-	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_LINEAR);
+	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_CUBIC);
 
 	Mat trImg2;
 	Mat trMapX2, trMapY2;
 	create_map(triMap, morphHom2, trMapX2, trMapY2);
-	remap(origImg2, trImg2, trMapX2, trMapY2, INTER_LINEAR);
+	remap(origImg2, trImg2, trMapX2, trMapY2, INTER_CUBIC);
 
 	homographyMats.clear();
 	morphHom1.clear();
@@ -265,15 +263,15 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat mask;
 	m = ones * (1.0 - maskRatio) + m2 * maskRatio;
 	show_image("blend", m);
-	off_t kx = round(m.cols / 32.0);
-	off_t ky = round(m.rows / 32.0);
-	if (kx % 2 != 1)
-		kx -= 1;
-
-	if (ky % 2 != 1)
-		ky -= 1;
-	GaussianBlur(m, mask, Size(kx, ky), 12);
-
+//	off_t kx = round(m.cols / 32.0);
+//	off_t ky = round(m.rows / 32.0);
+//	if (kx % 2 != 1)
+//		kx -= 1;
+//
+//	if (ky % 2 != 1)
+//		ky -= 1;
+//	GaussianBlur(m, mask, Size(kx, ky), 12);
+	mask = m;
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);

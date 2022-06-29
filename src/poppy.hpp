@@ -20,7 +20,7 @@ double ease(double x) {
 	return 1.0 - pow(1.0 - x, 4.0);
 }
 
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().frame_rate = frameRate;
@@ -32,6 +32,8 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 	Settings::instance().enable_denoise = denoise;
 	Settings::instance().enable_src_scaling = srcScaling;
 	Settings::instance().enable_face_detection = faceDetect;
+	Settings::instance().pyramid_levels = pyramidLevels;
+	Settings::instance().fourcc = fourcc;
 }
 
 template<typename Twriter>

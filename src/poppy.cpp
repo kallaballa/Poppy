@@ -192,8 +192,11 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 
 #ifndef _WASM
-	VideoWriter output(outputFile, VideoWriter::fourcc('F', 'F', 'V', '1'), poppy::Settings::instance().frame_rate, Size(szUnion.width, szUnion.height));
+	string fourcc = poppy::Settings::instance().fourcc;
+	if(fourcc.size() != 4)
+		throw std::runtime_error("The fourcc identifier needs to be exactly four characters long.");
 
+	VideoWriter output(outputFile, VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]), poppy::Settings::instance().frame_rate, Size(szUnion.width, szUnion.height));
 #else
 
 	{
@@ -270,6 +273,7 @@ int main(int argc, char **argv) {
 #ifndef _WASM
 	bool showGui = poppy::Settings::instance().show_gui;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
+	size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
 	double frameRate = poppy::Settings::instance().frame_rate;
 	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
@@ -281,6 +285,7 @@ int main(int argc, char **argv) {
 	bool srcScaling = true;
 	bool denoise = poppy::Settings::instance().enable_denoise;
 	bool distance = false;
+	string fourcc = poppy::Settings::instance().fourcc;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
 
@@ -297,8 +302,10 @@ int main(int argc, char **argv) {
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
+	("pyramid,y", po::value<size_t>(&pyramidLevels)->default_value(pyramidLevels), "How many levels to use for the laplacian pyramid.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
 	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours.")
+	("fourcc,u", po::value<string>(&fourcc)->default_value(fourcc), "The four letter fourcc identifier (https://en.wikipedia.org/wiki/FourCC) which selects the video format. e.g: \"FFV1\", \"h264\", \"theo\"")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to.")
 	("help,h", "Print the help message.");
 
@@ -339,22 +346,18 @@ int main(int argc, char **argv) {
 		cerr << "You could enable the gui (--gui) and play with the" << endl;
 		cerr << "tolerance and maybe a little with contour sensitivity" << endl;
 		cerr << "(--contour) and watch how it effects the algorithm." << endl;
-		cerr << "You probably shouldn't waste much time on the contour" << endl;
-		cerr << "sensitivity parameter because it has little or even " << endl;
-		cerr << "detrimental effect, which makes it virtually obsolete" << endl;
-		cerr << "and it will be removed in the near future." << endl;
+		cerr << "Anyway, you probably shouldn't waste much time on the" << endl;
+		cerr << "contour sensitivity parameter because it has little or" << endl;
+		cerr << "even detrimental effect, which makes it virtually" << endl;
+		cerr << "obsolete and it will be removed in the near future." << endl;
 		cerr << "The key point limit (--maxkey) is useful for large" << endl;
 		cerr << "images with lots of features which could easily yield" << endl;
 		cerr << "too many keypoints for a particular system. e.g. " << endl;
 		cerr << "embedded systems. Please note that the feature extractor" << endl;
 		cerr << "generates a larger number of key points than defined" << endl;
 		cerr << "by this limit and only decides to retain that number" << endl;
-		cerr << "in the end. The only means of reducing the number of" << endl;
-		cerr << "generated key points at the moment is to denoise" << endl;
-		cerr << "(--denoise) the source images. Obviously that is not" << endl;
-		cerr << "optimal because you have no control over which" << endl;
-		cerr << "features will be removed. Usually the parameter is used" << endl;
-		cerr << "to enhance noisy images." << endl;
+		cerr << "in the end. Noisy images can be enhanced by denoising" << endl;
+		cerr << "(--denoise)." << endl;
 		cerr << visible;
 		return 0;
 	}
@@ -369,7 +372,7 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc);
 	run(imageFiles, outputFile, phase, distance);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
@@ -387,6 +390,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		std::vector<string> imageFiles;
 		bool showGui = poppy::Settings::instance().show_gui;
 		double frameRate = poppy::Settings::instance().frame_rate;
+		size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
 		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 		off_t maxKeypoints = 200;
@@ -398,7 +402,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 
 		imageFiles.push_back(string(file_path1));
 		imageFiles.push_back(string(file_path2));
-		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate);
+		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, "");
 		std::thread t([=](){
 				try {
 				running = true;

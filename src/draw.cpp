@@ -40,12 +40,10 @@ void draw_radial_gradiant(Mat &grad) {
 
 void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {
 	dst = Mat::zeros(rows, cols, type);
-	size_t cnt = 0;
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
 		double shade = 32.0 + 223.0 * (double(i) / collected.size());
 
-		cnt += contours.size();
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
