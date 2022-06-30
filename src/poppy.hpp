@@ -49,7 +49,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 	Mat corrected1, corrected2;
 	Mat contourMap1, contourMap2;
-	Mat plainContours1, plainContours2;
+	Mat edges1, edges2;
 	Features ft1;
 	Features ft2;
 
@@ -61,7 +61,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, plainContours1, plainContours2);
+	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2, edges1, edges2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -118,9 +118,9 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 			linear = 1.0;
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
-		shape = ease(progress);
+		shape = progress;
 		color = shape;
-		morph_images(image1, image2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, contourMap1, contourMap2, shape, color);
+		morph_images(image1, image2, contourMap1, contourMap2, edges1, edges2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);

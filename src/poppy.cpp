@@ -68,7 +68,7 @@ struct SDLWriter {
 		double sx = w / bgra.size().width;
 		double sy = h / bgra.size().height;
 		double factor = std::min(sx, sy);
-		resize(bgra, scaled, Size(0, 0), factor, factor, INTER_CUBIC);
+		resize(bgra, scaled, Size(0, 0), factor, factor, INTER_LINEAR);
 		if(factor < 1.0) {
 			Mat background(h, w, CV_8UC4, Scalar(0,0,0,0));
 			double borderX = (w - scaled.size().width) / 2.0;
@@ -185,7 +185,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 0, 0, 0 });
 	if (poppy::Settings::instance().enable_src_scaling) {
 		Mat clone = image1.clone();
-		resize(clone, image1, szUnion, INTER_CUBIC);
+		resize(clone, image1, szUnion, INTER_LINEAR);
 	} else {
 		Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
 		image1.copyTo(mUnion(centerRect));
@@ -232,7 +232,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 
 			if (poppy::Settings::instance().enable_src_scaling) {
 				Mat clone = image2.clone();
-				resize(clone, image2, szUnion, INTER_CUBIC);
+				resize(clone, image2, szUnion, INTER_LINEAR);
 			} else {
 				mUnion = Scalar::all(0);
 				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);

@@ -18,7 +18,7 @@ Transformer::~Transformer() {
 void Transformer::translate(const Mat &src, Mat &dst, const Point2f& by) {
 	float warpValues[] = { 1.0, 0.0, by.x, 0.0, 1.0, by.y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
-	warpAffine(src, dst, translation_matrix, src.size(), INTER_CUBIC, BORDER_CONSTANT, Scalar(0, 0, 0));
+	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
 }
 
 void Transformer::rotate(const Mat &src, Mat &dst, Point2f center, double angle, double scale) {

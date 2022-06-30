@@ -10,17 +10,19 @@ namespace poppy {
 Matcher::~Matcher(){
 }
 
-void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, Mat& plainContours1, Mat& plainContours2) {
+void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, Mat& edges1, Mat& edges2) {
 	Extractor extractor;
 	Transformer trafo;
+
 	if (ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
 		Mat goodFeatures1, goodFeatures2;
 		extractor.foreground(orig1, orig2, goodFeatures1, goodFeatures2);
+
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, edges1, edges2, contourLayers1, contourLayers2);
 
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
 
@@ -32,7 +34,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 
 			srcPoints1.clear();
 			srcPoints2.clear();
-			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
+			auto matches = extractor.keypointsFlann(goodFeatures1, goodFeatures2);
 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
@@ -86,11 +88,18 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 				globalDist = lastDist;
 			} while(true);
 			cerr << "final dist: " << globalDist << endl;
+
+			Mat tf = getPerspectiveTransform(srcPoints1.data(), srcPoints2.data());
+			srcPoints1.clear();
+			srcPoints2.clear();
+			matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
+			perspectiveTransform(matches.first, srcPoints1, tf);
+			perspectiveTransform(matches.second, srcPoints2, tf);
 		} else {
 			srcPoints1.clear();
 			srcPoints2.clear();
 
-			auto matches = extractor.keypoints(goodFeatures1, goodFeatures2);
+			auto matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
@@ -100,9 +109,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		assert(!ft1.empty() && !ft2.empty());
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		Mat plainContours1;
-		Mat plainContours2;
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2, plainContours1, plainContours2);
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, edges1, edges2, contourLayers1, contourLayers2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;

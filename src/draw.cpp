@@ -19,9 +19,7 @@ void plot(Mat &img, vector<Point2f> points, Scalar color, int radius) {
 }
 
 double euclidean_distance(cv::Point center, cv::Point point) {
-	double distance = std::sqrt(
-			std::pow(center.x - point.x, 2) + std::pow(center.y - point.y, 2));
-	return distance;
+	return hypot(center.x - point.x, center.y - point.y);
 }
 
 void draw_radial_gradiant(Mat &grad) {
@@ -47,13 +45,14 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 	dst = Mat::zeros(rows, cols, type);
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
+		double step = 223.0 * (double(1) / collected.size());
 		double shade = 255 - (32.0 + 223.0 * (double(i) / collected.size()));
 		cerr << i + 1 << "/" << collected.size() << '\r';
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
-			drawContours(layer, tmp, tmp.size() - 1 - j, { shade }, 1.0, LINE_4, hierarchy, 0);
-			drawContours(dst, tmp, tmp.size() - 1 - j, { shade }, 1.0, LINE_4, hierarchy, 0);
+			drawContours(layer, tmp, j, { shade + step * (double(j) / tmp.size())}, 1.0, LINE_4, hierarchy, 0);
+			drawContours(dst, tmp, j, { shade + step * (double(j) / tmp.size()) }, 1.0, LINE_4, hierarchy, 0);
 		}
 		contourLayers.push_back(layer);
 	}

@@ -175,7 +175,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, Mat &contourMap1, Mat &contourMap2, double shapeRatio, double maskRatio) {
+double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, Mat &contourMap2, Mat &edges1, Mat &edges2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
 	Size SourceImgSize(origImg1.cols, origImg1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -225,12 +225,12 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat trImg1;
 	Mat trans_map_x1, trans_map_y1;
 	create_map(triMap, morphHom1, trans_map_x1, trans_map_y1);
-	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_CUBIC);
+	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_LINEAR);
 
 	Mat trImg2;
 	Mat trans_map_x2, trans_map_y2;
 	create_map(triMap, morphHom2, trans_map_x2, trans_map_y2);
-	remap(origImg2, trImg2, trans_map_x2, trans_map_y2, INTER_CUBIC);
+	remap(origImg2, trImg2, trans_map_x2, trans_map_y2, INTER_LINEAR);
 
 	homographyMats.clear();
 	morphHom1.clear();
@@ -244,34 +244,35 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-	equalizeHist(contourMap1, contourMap1);
-	equalizeHist(contourMap2, contourMap2);
+//	equalizeHist(contourMap1, contourMap1);
+//	equalizeHist(contourMap2, contourMap2);
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y, x) = contourMap1.at<uint8_t>(y, x) / 255.0;
+			m1.at<float>(y, x) = edges1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y, x) = contourMap2.at<uint8_t>(y, x) / 255.0;
+			m2.at<float>(y, x) = edges2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	Mat ones = Mat::ones(m1.rows, m1.cols, m1.type());
 	Mat mask;
-	m = ones * (1.0 - maskRatio) + m2 * maskRatio;
+	m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
+
 	show_image("blend", m);
-	off_t kx = ceil(m.cols / 2.0);
-	off_t ky = ceil(m.rows / 2.0);
-	if (kx % 2 != 1)
-		kx -= 1;
-
-	if (ky % 2 != 1)
-		ky -= 1;
-	GaussianBlur(m, mask, Size(kx, ky), kx / 3.0);
-
+//	off_t kx = ceil(m.cols / 2.0);
+//	off_t ky = ceil(m.rows / 2.0);
+//	if (kx % 2 != 1)
+//		kx -= 1;
+//
+//	if (ky % 2 != 1)
+//		ky -= 1;
+//	GaussianBlur(m, mask, Size(kx, ky), kx / 3.0);
+	mask = m;
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
