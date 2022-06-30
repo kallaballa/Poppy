@@ -263,8 +263,8 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &dst, const Ma
 	Mat mask;
 	m = ones * (1.0 - maskRatio) + m2 * maskRatio;
 	show_image("blend", m);
-	off_t kx = ceil(m.cols / 4.0);
-	off_t ky = ceil(m.rows / 4.0);
+	off_t kx = ceil(m.cols / 2.0);
+	off_t ky = ceil(m.rows / 2.0);
 	if (kx % 2 != 1)
 		kx -= 1;
 

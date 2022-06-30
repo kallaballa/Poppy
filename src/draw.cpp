@@ -1,11 +1,16 @@
 #include "draw.hpp"
 #include "util.hpp"
 
+#include <iostream>
 #include <opencv2/videoio.hpp>
 #include <opencv2/video.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/core/ocl.hpp>
+
+using std::cerr;
+using std::cout;
+using std::endl;
 
 namespace poppy {
 void plot(Mat &img, vector<Point2f> points, Scalar color, int radius) {
@@ -42,16 +47,17 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 	dst = Mat::zeros(rows, cols, type);
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
-		double shade = 32.0 + 223.0 * (double(i) / collected.size());
-
+		double shade = 255 - (32.0 + 223.0 * (double(i) / collected.size()));
+		cerr << i + 1 << "/" << collected.size() << '\r';
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
-			drawContours(layer, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
-			drawContours(dst, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
+			drawContours(layer, tmp, tmp.size() - 1 - j, { shade }, 1.0, LINE_4, hierarchy, 0);
+			drawContours(dst, tmp, tmp.size() - 1 - j, { shade }, 1.0, LINE_4, hierarchy, 0);
 		}
 		contourLayers.push_back(layer);
 	}
+	cerr << endl;
 }
 
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
@@ -66,11 +72,10 @@ void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay
 		pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
 		pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
 
-		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2]))
-				{
-			line(dst, pt[0], pt[1], delaunay_color, 1, cv::LINE_AA, 0);
-			line(dst, pt[1], pt[2], delaunay_color, 1, cv::LINE_AA, 0);
-			line(dst, pt[2], pt[0], delaunay_color, 1, cv::LINE_AA, 0);
+		if (rect.contains(pt[0]) && rect.contains(pt[1]) && rect.contains(pt[2])) {
+			line(dst, pt[0], pt[1], delaunay_color, 1, cv::LINE_4, 0);
+			line(dst, pt[1], pt[2], delaunay_color, 1, cv::LINE_4, 0);
+			line(dst, pt[2], pt[0], delaunay_color, 1, cv::LINE_4, 0);
 		}
 	}
 }
@@ -170,7 +175,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<Poin
 	for (size_t i = 0; i < std::min(ptv1.size(), ptv2.size()); ++i) {
 		Point2f pt2 = ptv2[i];
 		pt2.x += grey1.cols;
-		line(lines, ptv1[i], pt2, { 127 }, 1, cv::LINE_AA, 0);
+		line(lines, ptv1[i], pt2, { 127 }, 1, cv::LINE_4, 0);
 	}
 
 	Mat result = images * 0.5 + lines * 0.5;
@@ -187,7 +192,7 @@ void draw_matches(const Mat &grey1, const Mat &grey2, Mat &dst, std::vector<KeyP
 	for (size_t i = 0; i < kpv1.size(); ++i) {
 		Point2f pt2 = kpv2[i].pt;
 		pt2.x += grey1.cols;
-		line(lines, kpv1[i].pt, pt2, { 127 }, 1, cv::LINE_AA, 0);
+		line(lines, kpv1[i].pt, pt2, { 127 }, 1, cv::LINE_4, 0);
 	}
 
 	images += 1;

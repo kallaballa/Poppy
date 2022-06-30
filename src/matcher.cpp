@@ -37,8 +37,55 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
 			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
 
-			trafo.retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
-			trafo.rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+			double lastDist = numeric_limits<double>::max();
+			double dist = numeric_limits<double>::max();
+			double globalDist = numeric_limits<double>::max();
+
+			Mat lastCorrected2, lastContourMap2;
+			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
+
+			do {
+				do {
+					lastDist = dist;
+					lastCorrected2 = corrected2.clone();
+					lastContourMap2 = contourMap2.clone();
+					lastSrcPoints1 = srcPoints1;
+					lastSrcPoints2 = srcPoints2;
+					dist = trafo.retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+					cerr << "retranslate dist: " << dist << endl;
+				} while(dist < lastDist);
+
+				cerr << "final retranslate dist: " << lastDist << endl;
+				corrected2 = lastCorrected2.clone();
+				contourMap2  = lastContourMap2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				if(lastDist >= globalDist)
+					break;
+
+				globalDist = lastDist;
+
+				lastDist = numeric_limits<double>::max();
+				dist = numeric_limits<double>::max();
+				do {
+					lastDist = dist;
+					lastCorrected2 = corrected2.clone();
+					lastContourMap2 = contourMap2.clone();
+					lastSrcPoints1 = srcPoints1;
+					lastSrcPoints2 = srcPoints2;
+					dist = trafo.rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+					cerr << "rerotate dist: " << dist << endl;
+				} while(dist < lastDist);
+				cerr << "final rerotate dist: " << lastDist << endl;
+				corrected2 = lastCorrected2.clone();
+				contourMap2  = lastContourMap2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				if(lastDist >= globalDist)
+					break;
+				globalDist = lastDist;
+			} while(true);
+			cerr << "final dist: " << globalDist << endl;
 		} else {
 			srcPoints1.clear();
 			srcPoints2.clear();
@@ -62,10 +109,13 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 
 			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
 			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
-			double scale2 = w1 / w2;
-			Mat scaled2;
-			resize(orig2, scaled2, Size { int(std::round(orig2.cols * scale2)), int(std::round(orig2.rows * scale2)) });
-			srcPoints1 = ft1.getAllPoints();
+			double scale = w1 / w2;
+			Mat scaledCorr2;
+			Mat scaledCM2;
+
+			resize(orig2, scaledCorr2, Size { int(std::round(orig2.cols * scale)), int(std::round(orig2.rows * scale)) });
+			resize(contourMap2, scaledCM2, Size { int(std::round(orig2.cols * scale)), int(std::round(orig2.rows * scale)) });
+
 
 			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
 			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
@@ -76,23 +126,36 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			double dy = center1.y - center2.y;
 			double dx = center1.x - center2.x;
 
-			Mat translated2;
-			trafo.translate(scaled2, translated2, {float(dx), float(dy)});
+			Mat translatedCorr2;
+			Mat translatedCM2;
+			trafo.translate(scaledCorr2, translatedCorr2, {float(dx), float(dy)});
+			trafo.translate(scaledCM2, translatedCM2, {float(dx), float(dy)});
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
 			angle1 = angle1 < 0 ? angle1 + 360 : angle1;
 			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
 			double targetAng = angle2 - angle1;
-			Mat rotated2;
-			trafo.rotate(translated2, rotated2, center2, targetAng);
-			ft2 = FaceDetector::instance().detect(rotated2);
-			srcPoints2 = ft2.getAllPoints();
+			Mat rotatedCorr2;
+			Mat rotatedCM2;
 
-			double dw = rotated2.cols - orig2.cols;
-			double dh = rotated2.rows - orig2.rows;
-			corrected2 = rotated2(Rect(dw / 2, dh / 2, orig2.cols, orig2.rows));
+			trafo.rotate(translatedCorr2, rotatedCorr2, center2, targetAng);
+			trafo.rotate(translatedCM2, rotatedCM2, center2, targetAng);
+
+			corrected2 = orig2.clone();
+			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
+			double dh = fabs(rotatedCorr2.rows - corrected2.rows);
+			if(rotatedCorr2.cols > corrected2.cols) {
+				rotatedCorr2(Rect(dw / 2, dh / 2, corrected2.cols, corrected2.rows)).copyTo(corrected2);
+				rotatedCM2(Rect(dw / 2,  dh / 2, corrected2.cols, corrected2.rows)).copyTo(contourMap2);
+			} else {
+				rotatedCorr2.copyTo(corrected2(Rect(dw / 2, dh / 2, rotatedCorr2.cols, rotatedCorr2.rows)));
+				rotatedCM2.copyTo(contourMap2(Rect(dw / 2,  dh / 2, rotatedCM2.cols, rotatedCM2.rows)));
+			}
 			corrected1 = orig1.clone();
+			srcPoints1 = ft1.getAllPoints();
+			ft2 = FaceDetector::instance().detect(corrected2);
+			srcPoints2 = ft2.getAllPoints();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
 			srcPoints1 = ft1.getAllPoints();
@@ -175,7 +238,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance)) << endl;
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance)) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
@@ -187,12 +250,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 			limit *= limitCoef;
 		}
 
-	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / ((deviation * 1000.0 / total) * Settings::instance().match_tolerance))));
-	bool compares = false;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
-		if(!(compares = (srcPoints1[i] == srcPoints2[i])))
-			break;
-	}
+	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))));
 
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());

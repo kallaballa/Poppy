@@ -234,7 +234,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Mat clone = image2.clone();
 				resize(clone, image2, szUnion, INTER_CUBIC);
 			} else {
-				mUnion = Scalar::all(255);
+				mUnion = Scalar::all(0);
 				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
 				image2.copyTo(mUnion(cr));
 				image2 = mUnion.clone();

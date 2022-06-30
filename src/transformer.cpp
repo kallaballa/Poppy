@@ -57,7 +57,7 @@ void Transformer::scale_points(vector<Point2f> &pts, double coef) {
 	}
 }
 
-void Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
+double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
 	vector<Point2f> left;
 	vector<Point2f> right;
 	vector<Point2f> top;
@@ -131,9 +131,10 @@ void Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f>
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
 	}
+	return morph_distance(srcPoints1, srcPoints2, width, height);
 }
 
-void Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
+double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, const size_t width, const size_t height) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
 	Point2f center = {float(corrected2.cols/2.0), float(corrected2.cols/2.0)};
@@ -151,7 +152,8 @@ void Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &s
 	cerr << "dist: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate(corrected2, corrected2, center, -selectedAngle);
 	rotate(contourMap2, contourMap2, center, -selectedAngle);
-	rotate_points(srcPoints2, center, -selectedAngle);
+	rotate_points(srcPoints2, center, selectedAngle);
+	return morph_distance(srcPoints1, srcPoints2, width, height);
 }
 
 } /* namespace poppy */
