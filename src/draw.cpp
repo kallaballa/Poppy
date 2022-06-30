@@ -51,7 +51,7 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
-			drawContours(layer, tmp, j, { shade + step * (double(j) / tmp.size())}, 1.0, LINE_4, hierarchy, 0);
+			drawContours(layer, tmp, j, { 255 }, 1.0, LINE_4, hierarchy, 0);
 			drawContours(dst, tmp, j, { shade + step * (double(j) / tmp.size()) }, 1.0, LINE_4, hierarchy, 0);
 		}
 		contourLayers.push_back(layer);

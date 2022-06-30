@@ -32,12 +32,10 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 
-			srcPoints1.clear();
-			srcPoints2.clear();
 			auto matches = extractor.keypointsFlann(goodFeatures1, goodFeatures2);
 
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			srcPoints1 = matches.first;
+			srcPoints2 = matches.second;
 
 			double lastDist = numeric_limits<double>::max();
 			double dist = numeric_limits<double>::max();
@@ -96,13 +94,9 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			perspectiveTransform(matches.first, srcPoints1, tf);
 			perspectiveTransform(matches.second, srcPoints2, tf);
 		} else {
-			srcPoints1.clear();
-			srcPoints2.clear();
-
 			auto matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
-
-			srcPoints1.insert(srcPoints1.end(), matches.first.begin(), matches.first.end());
-			srcPoints2.insert(srcPoints2.end(), matches.second.begin(), matches.second.end());
+			srcPoints1 = matches.first;
+			srcPoints2 = matches.second;
 		}
 	} else {
 		cerr << "face algorithm..." << endl;

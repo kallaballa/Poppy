@@ -136,6 +136,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 				break;
 			}
 		}
+
 #endif
 		std::cerr << int((j / double(Settings::instance().number_of_frames - 1)) * 100.0) << "%";
 #ifdef _WASM
