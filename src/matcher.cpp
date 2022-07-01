@@ -156,6 +156,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			srcPoints2 = ft2.getAllPoints();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
+			cerr << "no alignment" << endl;
 			srcPoints1 = ft1.getAllPoints();
 			srcPoints2 = ft2.getAllPoints();
 

@@ -110,8 +110,7 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		morphedPoints.clear();
 
 		if(phase != -1) {
-			linear = j * step * phase;
-			Settings::instance().number_of_frames = 1;
+			linear = (Settings::instance().number_of_frames - 1) * step;
 		} else {
 			linear = j * step;
 		}
@@ -120,7 +119,12 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 		shape = ease(progress);
+		if(phase != -1) {
+			shape *= phase;
+			Settings::instance().number_of_frames = 1;
+		}
 		color = shape;
+
 		morph_images(image1, image2, contourMap1, contourMap2, edges1, edges2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
