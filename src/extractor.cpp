@@ -124,6 +124,7 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	cerr << "extract contours..." << endl;
 
 	Mat grey1, grey2;
+	Mat blur1, blur2;
 	vector<vector<vector<Point2f>>> collected1;
 	vector<vector<vector<Point2f>>> collected2;
 
@@ -131,6 +132,9 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	cvtColor(img2, grey2, COLOR_RGB2GRAY);
 	equalizeHist(grey1, grey1);
 	equalizeHist(grey2, grey2);
+	GaussianBlur(grey1, blur1, {9,9}, 1);
+	GaussianBlur(grey2, blur2, {9,9}, 1);
+
 	edges1 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
 	edges2 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
 	Mat adjusted1;
@@ -140,8 +144,8 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	Canny( adjusted1, edges1, 0, 255 );
 	Canny( adjusted2, edges2, 0, 255 );
 
-	show_image("pc1", edges1);
-	show_image("pc2", edges2);
+	show_image("e1", edges1);
+	show_image("e2", edges2);
 
 	double t1 = 0;
 	double t2 = 255;
@@ -157,7 +161,7 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 		t2 = max(0, min(255, (int) round(((i + 1) * 16 * Settings::instance().contour_sensitivity))));
 		cerr << i + 1 << "/" << 16 << '\r';
 
-		threshold(grey1, thresh1, t1, t2, 0);
+		threshold(blur1, thresh1, t1, t2, 0);
 
 		vector<vector<Point>> contours1;
 		findContours(thresh1, contours1, hierarchy1, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
@@ -182,7 +186,7 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 		t2 = min(255, (int) round(((j + 1) * 16.0 * Settings::instance().contour_sensitivity)));
 		cerr << j + 1 << "/" << 16 << '\r';
 
-		threshold(grey2, thresh2, t1, t2, 0);
+		threshold(blur2, thresh2, t1, t2, 0);
 
 		vector<vector<Point>> contours2;
 		findContours(thresh2, contours2, hierarchy2, RETR_TREE, CHAIN_APPROX_TC89_KCOS);
