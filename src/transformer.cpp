@@ -85,7 +85,7 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 		ychange = -1;
 	else if (mdBottom < mdCurrent)
 		ychange = +1;
-	cerr << "current morph dist: " << mdCurrent << endl;
+//	cerr << "current morph dist: " << mdCurrent << endl;
 	off_t xProgress = 1;
 
 	if (xchange != 0) {
@@ -100,12 +100,11 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 //			cerr << "morph dist x: " << morphDist << endl;
 			if (morphDist > lastMorphDist)
 				break;
-			lastMorphDist = morphDist;
+			mdCurrent = lastMorphDist = morphDist;
 			++xProgress;
 		} while (true);
 	}
 	off_t yProgress = 1;
-
 	if (ychange != 0) {
 		double lastMorphDist = mdCurrent;
 		double morphDist = 0;
@@ -119,12 +118,12 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 //			cerr << "morph dist y: " << morphDist << endl;
 			if (morphDist > lastMorphDist)
 				break;
-			lastMorphDist = morphDist;
+			mdCurrent = lastMorphDist = morphDist;
 			++yProgress;
 		} while (true);
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
-	cerr << "retranslation: " << retranslation << endl;
+	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation);
 	translate(contourMap2, contourMap2, retranslation);
 	for (auto &pt : srcPointsFlann2) {
@@ -155,7 +154,7 @@ double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> 
 			selectedAngle = i / 10.0;
 		}
 	}
-	cerr << "dist: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
+	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate(corrected2, corrected2, center, -selectedAngle);
 	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPointsFlann2, center, selectedAngle);

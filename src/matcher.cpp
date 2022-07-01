@@ -55,7 +55,6 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
 					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
-					cerr << "retranslate dist: " << dist << endl;
 				} while(dist < lastDist);
 
 				cerr << "final retranslate dist: " << lastDist << endl;
@@ -77,7 +76,6 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
 					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
-					cerr << "rerotate dist: " << dist << endl;
 				} while(dist < lastDist);
 				cerr << "final rerotate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
@@ -168,7 +166,6 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 	filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
 	cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
-	cerr << "equal0: " << (srcPoints1 == srcPoints2) << endl;
 	check_points(srcPoints1, orig1.cols, orig1.rows);
 	check_points(srcPoints2, orig1.cols, orig1.rows);
 }
@@ -177,7 +174,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
 //	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
 //	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
-	cerr << "equal1: " << (srcPoints1 == srcPoints2) << endl;
+
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
 		double dist = 0;
@@ -205,7 +202,6 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	}
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
-	cerr << "equal2: " << (srcPoints1 == srcPoints2) << endl;
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	assert(!distanceMap.empty());
 	srcPoints1.clear();
@@ -214,15 +210,12 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	double total = get<0>(distribution);
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
-	cerr << "size: " << distanceMap.size() << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
+	cerr << "distance map size: " << distanceMap.size() << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
-		cerr << "equal3: " << (srcPoints1 == srcPoints2) << endl;
-
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
-		cerr << "equal4: " << (srcPoints1 == srcPoints2) << endl;
 
 		assert(srcPoints1.size() == srcPoints2.size());
 		assert(!srcPoints1.empty() && !srcPoints2.empty());
@@ -243,7 +236,6 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);
@@ -256,6 +248,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 		}
 
 	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))));
+	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))) << endl;
 
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());

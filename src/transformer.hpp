@@ -19,8 +19,8 @@ public:
 	void translate_points(vector<Point2f> &pts, const Point2f &by);
 	void rotate_points(vector<Point2f> &pts, const Point2f &center, const double &angDeg);
 	void scale_points(vector<Point2f> &pts, double coef);
-	double retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw1, const size_t width, const size_t height);
-	double rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw1, const size_t width, const size_t height);
+	double retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2, const size_t width, const size_t height);
+	double rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2, const size_t width, const size_t height);
 };
 
 } /* namespace poppy */
