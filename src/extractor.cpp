@@ -152,10 +152,10 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	t1 = 0;
 	t2 = 0;
 	cerr << "thresholding 1" << endl;
-	for (off_t i = 0; i < 32; ++i) {
-		t1 = max(0, min(255, (int) round((i * 8.0 * Settings::instance().contour_sensitivity))));
-		t2 = max(0, min(255, (int) round(((i + 1) * 8.0 * Settings::instance().contour_sensitivity))));
-		cerr << t2 << "/" << 255 << '\r';
+	for (off_t i = 0; i < 16; ++i) {
+		t1 = max(0, min(255, (int) round((i * 16 * Settings::instance().contour_sensitivity))));
+		t2 = max(0, min(255, (int) round(((i + 1) * 16 * Settings::instance().contour_sensitivity))));
+		cerr << i + 1 << "/" << 16 << '\r';
 
 		threshold(grey1, thresh1, t1, t2, 0);
 
@@ -177,10 +177,10 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 
 	cerr << "thresholding 2" << endl;
 	vector<Vec4i> hierarchy2;
-	for (off_t j = 0; j < 32; ++j) {
-		t1 = min(255, (int) round((j * 8 * Settings::instance().contour_sensitivity)));
-		t2 = min(255, (int) round(((j + 1) * 8 * Settings::instance().contour_sensitivity)));
-		cerr << t2 << "/" << 255 << '\r';
+	for (off_t j = 0; j < 16; ++j) {
+		t1 = min(255, (int) round((j * 16.0 * Settings::instance().contour_sensitivity)));
+		t2 = min(255, (int) round(((j + 1) * 16.0 * Settings::instance().contour_sensitivity)));
+		cerr << j + 1 << "/" << 16 << '\r';
 
 		threshold(grey2, thresh2, t1, t2, 0);
 

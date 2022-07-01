@@ -17,7 +17,7 @@
 namespace poppy {
 
 double ease(double x) {
-	return 1.0 - pow(1.0 - x, 4.0);
+	return 1.0 - pow(1.0 - x, 2.0);
 }
 
 double easeInOutSine(double x) {
@@ -109,24 +109,28 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 			srcPoints1 = lastMorphedPoints;
 		morphedPoints.clear();
 
-		if(phase != -1)
+		if(phase != -1) {
 			linear = j * step * phase;
-		else
+			Settings::instance().number_of_frames = 1;
+		} else {
 			linear = j * step;
-
+		}
 		if(linear > 1.0)
 			linear = 1.0;
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
-		shape = progress;
+		std::cerr << progress << "/" << ease(progress) << endl;
+		shape = ease(progress);
 		color = shape;
 		morph_images(image1, image2, contourMap1, contourMap2, edges1, edges2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 		image1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
-
 		show_image("morphed", morphed);
-#ifndef _WASM
+		if(phase != -1)
+			wait_key();
+
+	#ifndef _WASM
 		if (Settings::instance().show_gui) {
 			int key = waitKey(1);
 

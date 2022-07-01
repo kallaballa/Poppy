@@ -249,30 +249,20 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, 
 
 	for (off_t x = 0; x < m1.cols; ++x) {
 		for (off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y, x) = edges1.at<uint8_t>(y, x) / 255.0;
+			m1.at<float>(y, x) = contourMap1.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	for (off_t x = 0; x < m2.cols; ++x) {
 		for (off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y, x) = edges2.at<uint8_t>(y, x) / 255.0;
+			m2.at<float>(y, x) = contourMap2.at<uint8_t>(y, x) / 255.0;
 		}
 	}
 
 	Mat ones = Mat::ones(m1.rows, m1.cols, m1.type());
-	Mat mask;
-	m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
+	Mat mask = m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
+	show_image("blend", mask);
 
-	show_image("blend", m);
-//	off_t kx = ceil(m.cols / 2.0);
-//	off_t ky = ceil(m.rows / 2.0);
-//	if (kx % 2 != 1)
-//		kx -= 1;
-//
-//	if (ky % 2 != 1)
-//		ky -= 1;
-//	GaussianBlur(m, mask, Size(kx, ky), kx / 3.0);
-	mask = m;
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, origImg1.depth(), 255.0);

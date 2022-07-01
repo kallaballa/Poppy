@@ -42,21 +42,29 @@ void draw_radial_gradiant(Mat &grad) {
 }
 
 void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {
-	dst = Mat::zeros(rows, cols, type);
+	Mat map = Mat::zeros(rows, cols, type);
+	const double step = 223.0 * (double(1) / collected.size());
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
-		double step = 223.0 * (double(1) / collected.size());
-		double shade = 255 - (32.0 + 223.0 * (double(i) / collected.size()));
+		double shade = (32.0 + 223.0 * (double(i) / collected.size()));
 		cerr << i + 1 << "/" << collected.size() << '\r';
 		vector<vector<Point>> tmp = convertContourFrom2f(contours);
 		Mat layer = Mat::zeros(rows, cols, type);
 		for (size_t j = 0; j < tmp.size(); ++j) {
 			drawContours(layer, tmp, j, { 255 }, 1.0, LINE_4, hierarchy, 0);
-			drawContours(dst, tmp, j, { shade + step * (double(j) / tmp.size()) }, 1.0, LINE_4, hierarchy, 0);
+			drawContours(map, tmp, j, { shade }, 1.0, LINE_4, hierarchy, 0);
 		}
 		contourLayers.push_back(layer);
 	}
-	cerr << endl;
+
+	off_t kx = ceil(map.cols / 100.0);
+	off_t ky = ceil(map.rows / 100.0);
+	if (kx % 2 != 1)
+		kx -= 1;
+
+	if (ky % 2 != 1)
+		ky -= 1;
+	GaussianBlur(map, dst, Size(kx, ky), kx / 3.0);
 }
 
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {
