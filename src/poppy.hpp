@@ -119,7 +119,6 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 			linear = 1.0;
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
-		std::cerr << progress << "/" << ease(progress) << endl;
 		shape = ease(progress);
 		color = shape;
 		morph_images(image1, image2, contourMap1, contourMap2, edges1, edges2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
