@@ -32,10 +32,13 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 
-			auto matches = extractor.keypointsFlann(goodFeatures1, goodFeatures2);
-
-			srcPoints1 = matches.first;
-			srcPoints2 = matches.second;
+			auto matchesFlann = extractor.keypointsFlann(goodFeatures1, goodFeatures2);
+			auto matchesRaw = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
+			Mat dummy;
+			vector<Point2f> srcPointsRaw1 = matchesRaw.first;
+			vector<Point2f> srcPointsRaw2 = matchesRaw.second;
+			vector<Point2f> srcPointsFlann1 = matchesFlann.first;
+			vector<Point2f> srcPointsFlann2 = matchesFlann.second;
 
 			double lastDist = numeric_limits<double>::max();
 			double dist = numeric_limits<double>::max();
@@ -49,17 +52,17 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastDist = dist;
 					lastCorrected2 = corrected2.clone();
 					lastContourMap2 = contourMap2.clone();
-					lastSrcPoints1 = srcPoints1;
-					lastSrcPoints2 = srcPoints2;
-					dist = trafo.retranslate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+					lastSrcPoints1 = srcPointsFlann1;
+					lastSrcPoints2 = srcPointsFlann2;
+					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
 					cerr << "retranslate dist: " << dist << endl;
 				} while(dist < lastDist);
 
 				cerr << "final retranslate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
+				srcPointsFlann1 = lastSrcPoints1;
+				srcPointsFlann2 = lastSrcPoints2;
 				if(lastDist >= globalDist)
 					break;
 
@@ -71,28 +74,24 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastDist = dist;
 					lastCorrected2 = corrected2.clone();
 					lastContourMap2 = contourMap2.clone();
-					lastSrcPoints1 = srcPoints1;
-					lastSrcPoints2 = srcPoints2;
-					dist = trafo.rerotate(corrected2, contourMap2, srcPoints1, srcPoints2, contourMap1.cols, contourMap1.rows);
+					lastSrcPoints1 = srcPointsFlann1;
+					lastSrcPoints2 = srcPointsFlann2;
+					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
 					cerr << "rerotate dist: " << dist << endl;
 				} while(dist < lastDist);
 				cerr << "final rerotate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
+				srcPointsFlann1 = lastSrcPoints1;
+				srcPointsFlann2 = lastSrcPoints2;
 				if(lastDist >= globalDist)
 					break;
 				globalDist = lastDist;
 			} while(true);
 			cerr << "final dist: " << globalDist << endl;
+			srcPoints1 = srcPointsRaw1;
+			srcPoints2 = srcPointsRaw2;
 
-			Mat tf = getPerspectiveTransform(srcPoints1.data(), srcPoints2.data());
-			srcPoints1.clear();
-			srcPoints2.clear();
-			matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
-			perspectiveTransform(matches.first, srcPoints1, tf);
-			perspectiveTransform(matches.second, srcPoints2, tf);
 		} else {
 			auto matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
 			srcPoints1 = matches.first;
@@ -169,6 +168,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 	filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
 
 	cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+	cerr << "equal0: " << (srcPoints1 == srcPoints2) << endl;
 	check_points(srcPoints1, orig1.cols, orig1.rows);
 	check_points(srcPoints2, orig1.cols, orig1.rows);
 }
@@ -177,7 +177,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
 //	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
 //	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
-
+	cerr << "equal1: " << (srcPoints1 == srcPoints2) << endl;
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
 		double dist = 0;
@@ -205,7 +205,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	}
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
-
+	cerr << "equal2: " << (srcPoints1 == srcPoints2) << endl;
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	assert(!distanceMap.empty());
 	srcPoints1.clear();
@@ -216,10 +216,14 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 	double deviation = get<2>(distribution);
 	cerr << "size: " << distanceMap.size() << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
+		cerr << "equal3: " << (srcPoints1 == srcPoints2) << endl;
+
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
+		cerr << "equal4: " << (srcPoints1 == srcPoints2) << endl;
+
 		assert(srcPoints1.size() == srcPoints2.size());
 		assert(!srcPoints1.empty() && !srcPoints2.empty());
 
@@ -239,7 +243,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 				srcPoints2.push_back((*it).second.second);
 			}
 		}
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance)) << endl;
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))) << endl;
 		assert(srcPoints1.size() == srcPoints2.size());
 		check_points(srcPoints1, cols, rows);
 		check_points(srcPoints2, cols, rows);

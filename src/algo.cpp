@@ -176,6 +176,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 }
 
 double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, Mat &contourMap2, Mat &edges1, Mat &edges2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
+	cerr << "morphing: " << shapeRatio << " " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 	Size SourceImgSize(origImg1.cols, origImg1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
