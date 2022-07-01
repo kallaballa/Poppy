@@ -146,6 +146,11 @@ Mat read_image(const string &path) {
 	return result;
 }
 
+Size preserveAspect(const Size& origSize, const Size& extends) {
+	double scale = std::min(extends.width / origSize.width, extends.height / origSize.height);
+	return {origSize.width * scale, origSize.height * scale};
+}
+
 void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
@@ -185,12 +190,12 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 0, 0, 0 });
 	if (poppy::Settings::instance().enable_src_scaling) {
 		Mat clone = image1.clone();
-		resize(clone, image1, szUnion, INTER_LINEAR);
-	} else {
-		Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
-		image1.copyTo(mUnion(centerRect));
-		image1 = mUnion.clone();
+		resize(clone, image1, preserveAspect(image1.size(), szUnion), INTER_LINEAR);
 	}
+
+	Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
+	image1.copyTo(mUnion(centerRect));
+	image1 = mUnion.clone();
 
 #ifndef _WASM
 	string fourcc = poppy::Settings::instance().fourcc;
