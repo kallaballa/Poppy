@@ -43,7 +43,6 @@ void draw_radial_gradiant(Mat &grad) {
 
 void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {
 	Mat map = Mat::zeros(rows, cols, type);
-	const double step = 223.0 * (double(1) / collected.size());
 	for (size_t i = 0; i < collected.size(); ++i) {
 		auto &contours = collected[i];
 		double shade = (32.0 + 223.0 * (double(i) / collected.size()));
@@ -65,6 +64,7 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 	if (ky % 2 != 1)
 		ky -= 1;
 	GaussianBlur(map, dst, Size(kx, ky), kx / 3.0);
+	dst = map.clone();
 }
 
 void draw_delaunay(Mat &dst, const Size &size, Subdiv2D &subdiv, Scalar delaunay_color) {

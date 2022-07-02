@@ -260,7 +260,8 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, 
 	}
 
 	Mat ones = Mat::ones(m1.rows, m1.cols, m1.type());
-	Mat mask = m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
+//	Mat mask = m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
+	Mat mask = m = ones * (1.0 - maskRatio) + m2 * maskRatio;
 	show_image("blend", mask);
 
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);

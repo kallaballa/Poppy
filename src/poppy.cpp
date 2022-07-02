@@ -123,35 +123,39 @@ Mat read_image(const string &path) {
 	} else {
 		if (loadedSurface->w == 0 && loadedSurface->h == 0) {
 			std::cerr << "Empty image loaded" << std::endl;
+			SDL_FreeSurface(loadedSurface);
 			return Mat();
 		}
 		if(loadedSurface->format->BytesPerPixel == 1) {
-			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC1, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC1, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch).clone();
 			cvtColor(result,result, COLOR_GRAY2BGR);
 		} else if(loadedSurface->format->BytesPerPixel == 3) {
-			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC3, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC3, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch).clone();
 			if(loadedSurface->format->Rmask == 0x0000ff)
 				cvtColor(result,result, COLOR_RGB2BGR);
 		} else if(loadedSurface->format->BytesPerPixel == 4) {
-			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC4, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch);
+			result = Mat(loadedSurface->h, loadedSurface->w, CV_8UC4, (unsigned char*) loadedSurface->pixels, loadedSurface->pitch).clone();
 			if(loadedSurface->format->Rmask == 0x000000ff)
 				cvtColor(result,result, COLOR_RGBA2BGR);
 			else
 				cvtColor(result,result, COLOR_RGBA2RGB);
 		} else {
 			std::cerr << "Unsupported image depth" << std::endl;
+			SDL_FreeSurface(loadedSurface);
 			return Mat();
 		}
+		SDL_FreeSurface(loadedSurface);
 	}
 	return result;
 }
 
 Size preserveAspect(const Size& origSize, const Size& extends) {
 	double scale = std::min(extends.width / origSize.width, extends.height / origSize.height);
-	return {origSize.width * scale, origSize.height * scale};
+	return {int(origSize.width * scale), int(origSize.height * scale)};
 }
 
 void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
+	cerr << "run" << endl;
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -159,6 +163,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 
 	Mat image1, denoise1;
 	try {
+		cerr << "denoising: " << imageFiles[0] << endl;
 		image1 = read_image(imageFiles[0]);
 		if (poppy::Settings::instance().enable_denoise) {
 			fastNlMeansDenoising(image1, denoise1, 10, 7, 21);
@@ -174,6 +179,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 
 	Mat image2;
+	cerr << "building union" << endl;
 
 	Size szUnion(0, 0);
 	for (size_t i = 0; i < imageFiles.size(); ++i) {
@@ -185,6 +191,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		if (szUnion.height < img.rows) {
 			szUnion.height = img.rows;
 		}
+		img.release();
 	}
 	cerr << "union: " << szUnion << endl;
 	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 0, 0, 0 });
@@ -219,6 +226,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 	ChannelWriter output;
 #endif
+	cerr << "main loop..." << endl;
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat image2, denoise2;
@@ -238,6 +246,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			if (poppy::Settings::instance().enable_src_scaling) {
 				Mat clone = image2.clone();
 				resize(clone, image2, szUnion, INTER_LINEAR);
+				clone.release();
 			} else {
 				mUnion = Scalar::all(0);
 				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
@@ -257,6 +266,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 
 		poppy::morph(image1, image2, phase, distance, output);
 		image1 = image2.clone();
+		image2.release();
 	}
 #ifdef _WASM
 	cerr << "gif flush" << endl;

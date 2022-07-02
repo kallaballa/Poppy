@@ -44,14 +44,15 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat img = frame.clone();
 
 	vector<Rect> faces;
-	double scale = 0.25;
-	double width = img.cols * scale;
-	double height = img.rows * scale;
-	resize(img,img,Size(width,height),0,0,INTER_LINEAR_EXACT);
+	double scale = 1;
+//	double scale = 0.25;
+//	double width = img.cols * scale;
+//	double height = img.rows * scale;
+//	resize(img,img,Size(width,height),0,0,INTER_LINEAR_EXACT);
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	face_detector.detectMultiScale( gray, faces, 1.1, 3, 0, Size(30, 30) );
+	face_detector.detectMultiScale( gray, faces, 1.1, 4, 0, Size(30, 30) );
 
 	cerr << "Number of faces detected: " << faces.size() << endl;
 	if (faces.empty())

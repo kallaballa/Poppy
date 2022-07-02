@@ -196,7 +196,7 @@
 		var tolerance  = 1;//document.getElementById('tolerance').value;
 		var autoalign = document.getElementById('autoalign').checked;
 //		var face = document.getElementById('face').checked;
-		var face = false;
+		var face = true;
 		var autoscale = document.getElementById('autoscale').checked;
 		var numberOfFrames  = document.getElementById('frames').value;
 		fileReader1.onload = function(event) {
