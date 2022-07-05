@@ -41,6 +41,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
+			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
 			for(size_t i = 0; i < 30; ++i) {
 				do {
@@ -52,7 +53,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
 
-				cerr << "final retranslate dist: " << lastDist << endl;
+				cerr << "retranslate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
 				srcPointsFlann1 = lastSrcPoints1;
@@ -72,7 +73,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastSrcPoints2 = srcPointsFlann2;
 					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
-				cerr << "final rerotate dist: " << lastDist << endl;
+				cerr << "rerotate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
 				srcPointsFlann1 = lastSrcPoints1;

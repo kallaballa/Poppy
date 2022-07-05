@@ -112,8 +112,6 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	double shape = 0;
 	double progress = 0;
 	double color = 0;
-	img1 = corrected1.clone();
-	img2 = corrected2.clone();
 
 	for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
 		if (!lastMorphedPoints.empty())
@@ -136,8 +134,8 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		}
 		color = shape;
 
-		morph_images(img1, img2, contourMap1, contourMap2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
-		img1 = morphed.clone();
+		morph_images(corrected1, corrected2, contourMap1, contourMap2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+		corrected1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
 		show_image("morphed", morphed);

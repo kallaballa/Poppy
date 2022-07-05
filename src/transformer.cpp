@@ -159,7 +159,7 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 		} while (true);
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
-	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
+//	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation);
 	translate(contourMap2, contourMap2, retranslation);
 	for (auto &pt : srcPointsFlann2) {
@@ -190,7 +190,7 @@ double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> 
 			selectedAngle = i / 10.0;
 		}
 	}
-	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
+//	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate(corrected2, corrected2, center, -selectedAngle);
 	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPointsFlann2, center, selectedAngle);
