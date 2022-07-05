@@ -163,9 +163,10 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 
 	Mat image1, denoise1;
 	try {
-		cerr << "denoising: " << imageFiles[0] << endl;
+
 		image1 = read_image(imageFiles[0]);
 		if (poppy::Settings::instance().enable_denoise) {
+			cerr << "denoising: " << imageFiles[0] << endl;
 			fastNlMeansDenoising(image1, denoise1, 10, 7, 21);
 			denoise1.copyTo(image1);
 		}
@@ -244,8 +245,15 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			}
 
 			if (poppy::Settings::instance().enable_src_scaling) {
+				Mat bg = Mat::zeros(szUnion, image2.type());
 				Mat clone = image2.clone();
-				resize(clone, image2, szUnion, INTER_LINEAR);
+				Size aspect = preserveAspect(image2.size(), szUnion);
+				resize(clone, image2, aspect, INTER_LINEAR);
+				double dx = fabs(aspect.width - szUnion.width);
+				double dy = fabs(aspect.height - szUnion.height);
+				image2.copyTo(bg(Rect(dx / 2.0, dy / 2.0, aspect.width, aspect.height)));
+				image2 = bg.clone();
+				bg.release();
 				clone.release();
 			} else {
 				mUnion = Scalar::all(0);

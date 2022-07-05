@@ -92,7 +92,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann(const Mat &grey
 	return {points1,points2};
 }
 
-void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
+void Extractor::foregroundMask(const Mat &grey, Mat &fgMask, const size_t& iterations) {
 	cerr << "extract foreground mask..." << endl;
 
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
@@ -104,12 +104,13 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
 	//optical flow tracking works as well but is much slower
 	auto pBackSub1 = createBackgroundSubtractorMOG2();
 	pBackSub1->apply(grey, flow);
-	fgMask = fgMask + (flow * (1.0 / 6.0));
+	fgMask += (flow * (1.0 / (iterations / 2.0)));
 
 	for (size_t i = 0; i < 12; ++i) {
 		medianBlur(last, med, i * 8 + 1);
 		pBackSub1->apply(med, flow);
-		fgMask = fgMask + (flow * (1.0 / 6.0));
+		fgMask += (flow * (1.0 / (iterations / 2.0)));
+		//FIXME do we really need to blur here?
 		GaussianBlur(fgMask, fgMaskBlur, { 23, 23 }, 1);
 		fgMask = fgMaskBlur.clone();
 		last = med.clone();
@@ -120,7 +121,7 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask) {
 	last.release();
 }
 
-void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, Mat& edges1, Mat& edges2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
+void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
 	cerr << "extract contours..." << endl;
 
 	Mat grey1, grey2;
@@ -135,17 +136,10 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	GaussianBlur(grey1, blur1, {9,9}, 1);
 	GaussianBlur(grey2, blur2, {9,9}, 1);
 
-	edges1 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
-	edges2 = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
 	Mat adjusted1;
 	Mat adjusted2;
 	adjust_contrast_and_brightness(grey1, adjusted1, 2, 1);
 	adjust_contrast_and_brightness(grey2, adjusted2, 2, 1);
-	Canny( adjusted1, edges1, 0, 255 );
-	Canny( adjusted2, edges2, 0, 255 );
-
-	show_image("e1", edges1);
-	show_image("e2", edges2);
 
 	double t1 = 0;
 	double t2 = 255;

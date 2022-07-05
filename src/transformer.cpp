@@ -57,6 +57,42 @@ void Transformer::scale_points(vector<Point2f> &pts, double coef) {
 	}
 }
 
+void Transformer::translate_features(Features& ft, const Point2f &by) {
+	translate_points(ft.chin_, by);
+	translate_points(ft.top_nose_, by);
+	translate_points(ft.bottom_nose_, by);
+	translate_points(ft.left_eyebrow_, by);
+	translate_points(ft.right_eyebrow_, by);
+	translate_points(ft.left_eye_, by);
+	translate_points(ft.right_eye_, by);
+	translate_points(ft.outer_lips_, by);
+	translate_points(ft.inside_lips_, by);
+}
+
+void Transformer::scale_features(Features& ft, double coef) {
+	scale_points(ft.chin_, coef);
+	scale_points(ft.top_nose_, coef);
+	scale_points(ft.bottom_nose_, coef);
+	scale_points(ft.left_eyebrow_, coef);
+	scale_points(ft.right_eyebrow_, coef);
+	scale_points(ft.left_eye_, coef);
+	scale_points(ft.right_eye_, coef);
+	scale_points(ft.outer_lips_, coef);
+	scale_points(ft.inside_lips_, coef);
+}
+
+void Transformer::rotate_features(Features& ft, const cv::Point2f &center, const double &angDeg) {
+	rotate_points(ft.chin_, center, angDeg);
+	rotate_points(ft.top_nose_, center, angDeg);
+	rotate_points(ft.bottom_nose_, center, angDeg);
+	rotate_points(ft.left_eyebrow_, center, angDeg);
+	rotate_points(ft.right_eyebrow_, center, angDeg);
+	rotate_points(ft.left_eye_, center, angDeg);
+	rotate_points(ft.right_eye_, center, angDeg);
+	rotate_points(ft.outer_lips_, center, angDeg);
+	rotate_points(ft.inside_lips_, center, angDeg);
+}
+
 double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2, const size_t width, const size_t height) {
 	vector<Point2f> left;
 	vector<Point2f> right;

@@ -19,7 +19,7 @@ public:
 	Matcher() : rd(), g(rd()) {
 	}
 	virtual ~Matcher();
-	void find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, Mat& edges1, Mat& edges2);
+	void find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2);
 	void match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows);
 	void prepare(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 };

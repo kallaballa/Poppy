@@ -10,7 +10,7 @@ namespace poppy {
 Matcher::~Matcher(){
 }
 
-void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2, Mat& edges1, Mat& edges2) {
+void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	Extractor extractor;
 	Transformer trafo;
 
@@ -21,7 +21,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, edges1, edges2, contourLayers1, contourLayers2);
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
@@ -47,7 +47,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
 
-			do {
+			for(size_t i = 0; i < 30; ++i) {
 				do {
 					lastDist = dist;
 					lastCorrected2 = corrected2.clone();
@@ -85,11 +85,10 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 				if(lastDist >= globalDist)
 					break;
 				globalDist = lastDist;
-			} while(true);
+			}
 			cerr << "final dist: " << globalDist << endl;
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
-
 		} else {
 			auto matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
 			srcPoints1 = matches.first;
@@ -100,7 +99,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		assert(!ft1.empty() && !ft2.empty());
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, edges1, edges2, contourLayers1, contourLayers2);
+		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -143,6 +142,8 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			corrected2 = orig2.clone();
 			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
 			double dh = fabs(rotatedCorr2.rows - corrected2.rows);
+			corrected2 = Scalar::all(0);
+			contourMap2 = Scalar::all(0);
 			if(rotatedCorr2.cols > corrected2.cols) {
 				rotatedCorr2(Rect(dw / 2, dh / 2, corrected2.cols, corrected2.rows)).copyTo(corrected2);
 				rotatedCM2(Rect(dw / 2,  dh / 2, corrected2.cols, corrected2.rows)).copyTo(contourMap2);
@@ -152,6 +153,8 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			}
 			corrected1 = orig1.clone();
 			srcPoints1 = ft1.getAllPoints();
+//			show_image("corr", corrected2);
+//			wait_key()
 			ft2 = FaceDetector::instance().detect(corrected2);
 			srcPoints2 = ft2.getAllPoints();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
