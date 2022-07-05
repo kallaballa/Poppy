@@ -17,23 +17,28 @@ using std::endl;
 
 namespace poppy {
 
-Extractor::Extractor() {
+Extractor::Extractor(const Mat& img1, const Mat& img2) : img1_(img1), img2_(img2) {
+	cvtColor(img1_, grey1_, COLOR_RGB2GRAY);
+	cvtColor(img2_, grey2_, COLOR_RGB2GRAY);
+	foreground(goodFeatures1_, goodFeatures2_);
+	show_image("gf1", goodFeatures1_);
+	show_image("gf2", goodFeatures2_);
 }
 
 Extractor::~Extractor() {
 }
 
-pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw(const Mat &grey1, const Mat &grey2) {
+pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	cerr << "extract keypoints raw..." << endl;
 
 	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
+		Settings::instance().max_keypoints = sqrt(goodFeatures1_.cols * goodFeatures1_.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	vector<KeyPoint> keypoints1, keypoints2;
 
 //	Mat descriptors1, descriptors2;
-	detector->detect(grey1, keypoints1);
-	detector->detect(grey2, keypoints2);
+	detector->detect(goodFeatures1_, keypoints1);
+	detector->detect(goodFeatures2_, keypoints2);
 
 //	detector->compute(grey1, keypoints1, descriptors1);
 //	detector->compute(grey2, keypoints2, descriptors2);
@@ -54,20 +59,20 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw(const Mat &grey1,
 	return {points1,points2};
 }
 
-pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann(const Mat &grey1, const Mat &grey2) {
+pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 	cerr << "extract keypoints flann..." << endl;
 
 	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = sqrt(grey1.cols * grey1.rows);
+		Settings::instance().max_keypoints = sqrt(grey1_.cols * grey1_.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	vector<KeyPoint> keypoints1, keypoints2;
 
 	Mat descriptors1, descriptors2;
-	detector->detect(grey1, keypoints1);
-	detector->detect(grey2, keypoints2);
+	detector->detect(goodFeatures1_, keypoints1);
+	detector->detect(goodFeatures2_, keypoints2);
 
-	detector->compute(grey1, keypoints1, descriptors1);
-	detector->compute(grey2, keypoints2, descriptors2);
+	detector->compute(goodFeatures1_, keypoints1, descriptors1);
+	detector->compute(goodFeatures2_, keypoints2, descriptors2);
 
 
 	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(6, 12, 1);
@@ -121,16 +126,16 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask, const size_t& itera
 	last.release();
 }
 
-void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
+void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
 	cerr << "extract contours..." << endl;
 
-	Mat grey1, grey2;
+	Mat grey1 = grey1_.clone();
+	Mat grey2 = grey2_.clone();
 	Mat blur1, blur2;
+
 	vector<vector<vector<Point2f>>> collected1;
 	vector<vector<vector<Point2f>>> collected2;
 
-	cvtColor(img1, grey1, COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, COLOR_RGB2GRAY);
 	equalizeHist(grey1, grey1);
 	equalizeHist(grey2, grey2);
 	GaussianBlur(grey1, blur1, {9,9}, 1);
@@ -202,11 +207,11 @@ void Extractor::contours(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat
 	assert(contourLayers1.size() == contourLayers2.size());
 }
 
-void Extractor::foreground(const Mat &img1, const Mat &img2, Mat &foreground1, Mat &foreground2) {
+void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	cerr << "extract foreground..." << endl;
-	Mat grey1, grey2, canny1, canny2;
-	cvtColor(img1, grey1, COLOR_RGB2GRAY);
-	cvtColor(img2, grey2, COLOR_RGB2GRAY);
+	Mat grey1 = grey1_.clone();
+	Mat grey2 = grey2_.clone();
+	Mat canny1, canny2;
 
 	Mat fgMask1;
 	Mat fgMask2;

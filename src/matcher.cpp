@@ -11,29 +11,24 @@ Matcher::~Matcher(){
 }
 
 void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
-	Extractor extractor;
+	Extractor extractor(orig1, orig2);
 	Transformer trafo;
 
 	if (ft1.empty() || ft2.empty()) {
 		cerr << "general algorithm..." << endl;
-		Mat goodFeatures1, goodFeatures2;
-		extractor.foreground(orig1, orig2, goodFeatures1, goodFeatures2);
 
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2);
+		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		corrected1 = orig1.clone();
 		corrected2 = orig2.clone();
 
-		show_image("gf1", goodFeatures1);
-		show_image("gf2", goodFeatures2);
-
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 
-			auto matchesFlann = extractor.keypointsFlann(goodFeatures1, goodFeatures2);
-			auto matchesRaw = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
+			auto matchesFlann = extractor.keypointsFlann();
+			auto matchesRaw = extractor.keypointsRaw();
 			Mat dummy;
 			vector<Point2f> srcPointsRaw1 = matchesRaw.first;
 			vector<Point2f> srcPointsRaw2 = matchesRaw.second;
@@ -90,7 +85,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
 		} else {
-			auto matches = extractor.keypointsRaw(goodFeatures1, goodFeatures2);
+			auto matches = extractor.keypointsRaw();
 			srcPoints1 = matches.first;
 			srcPoints2 = matches.second;
 		}
@@ -99,7 +94,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		assert(!ft1.empty() && !ft2.empty());
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
-		extractor.contours(orig1, orig2, contourMap1, contourMap2, contourLayers1, contourLayers2);
+		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
