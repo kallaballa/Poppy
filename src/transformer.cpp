@@ -127,10 +127,10 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 	if (xchange != 0) {
 		double lastMorphDist = mdCurrent;
 		double morphDist = 0;
+		vector<Point2f> tmp = srcPointsFlann2;
 		do {
-			vector<Point2f> tmp;
-			for (auto &pt : srcPointsFlann2) {
-				tmp.push_back( { pt.x + xchange * xProgress, pt.y });
+			for (auto &pt : tmp) {
+				pt.x += (xchange * xProgress);
 			}
 			morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
 //			cerr << "morph dist x: " << morphDist << endl;
@@ -144,11 +144,10 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 	if (ychange != 0) {
 		double lastMorphDist = mdCurrent;
 		double morphDist = 0;
-
+		vector<Point2f> tmp = srcPointsFlann2;
 		do {
-			vector<Point2f> tmp;
-			for (auto &pt : srcPointsFlann2) {
-				tmp.push_back( { pt.x, pt.y + ychange * yProgress});
+			for (auto &pt : tmp) {
+				pt.y += (ychange * yProgress);
 			}
 			morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
 //			cerr << "morph dist y: " << morphDist << endl;
@@ -178,7 +177,7 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
-	Point2f center = {float(corrected2.cols/2.0), float(corrected2.cols/2.0)};
+	Point2f center = average(srcPointsFlann2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
 	for(size_t i = 0; i < 3600; ++i) {

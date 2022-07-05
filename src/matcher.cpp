@@ -38,12 +38,11 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double lastDist = numeric_limits<double>::max();
 			double dist = numeric_limits<double>::max();
 			double globalDist = numeric_limits<double>::max();
-
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
-			for(size_t i = 0; i < 30; ++i) {
+			do {
 				do {
 					lastDist = dist;
 					lastCorrected2 = corrected2.clone();
@@ -51,21 +50,9 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
 					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-				} while(dist < lastDist);
+					if(dist >= lastDist)
+						break;
 
-				cerr << "retranslate dist: " << lastDist << endl;
-				corrected2 = lastCorrected2.clone();
-				contourMap2  = lastContourMap2.clone();
-				srcPointsFlann1 = lastSrcPoints1;
-				srcPointsFlann2 = lastSrcPoints2;
-				if(lastDist >= globalDist)
-					break;
-
-				globalDist = lastDist;
-
-				lastDist = numeric_limits<double>::max();
-				dist = numeric_limits<double>::max();
-				do {
 					lastDist = dist;
 					lastCorrected2 = corrected2.clone();
 					lastContourMap2 = contourMap2.clone();
@@ -73,15 +60,17 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastSrcPoints2 = srcPointsFlann2;
 					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
-				cerr << "rerotate dist: " << lastDist << endl;
+
+				cerr << "retransform dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
 				srcPointsFlann1 = lastSrcPoints1;
 				srcPointsFlann2 = lastSrcPoints2;
 				if(lastDist >= globalDist)
 					break;
+
 				globalDist = lastDist;
-			}
+			} while(true);
 			cerr << "final dist: " << globalDist << endl;
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
@@ -108,7 +97,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 			resize(img2_, scaledCorr2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
 			resize(contourMap2, scaledCM2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
-
 
 			Point2f eyeVec1 = ft1_.right_eye_[0] - ft1_.left_eye_[0];
 			Point2f eyeVec2 = ft2_.right_eye_[0] - ft2_.left_eye_[0];
@@ -149,8 +137,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			}
 			corrected1 = img1_.clone();
 			srcPoints1 = ft1_.getAllPoints();
-//			show_image("corr", corrected2);
-//			wait_key()
 			ft2_ = FaceDetector::instance().detect(corrected2);
 			srcPoints2 = ft2_.getAllPoints();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);

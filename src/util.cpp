@@ -148,7 +148,7 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const double width, const double height) {
+double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const double& width, const double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	double totalDistance = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
@@ -275,5 +275,17 @@ bool operator==(const KeyPoint &kp1, const KeyPoint &kp2) {
 
 double distance(const Point2f &p1, const Point2f &p2) {
 	return hypot(p2.x - p1.x, p2.y - p1.y);
+}
+
+cv::Point2f average(const std::vector<cv::Point2f> &pts) {
+	Point2f result;
+	for(const auto& pt : pts) {
+		result += pt;
+	}
+
+	result.x /= pts.size();
+	result.y /= pts.size();
+
+	return result;
 }
 }

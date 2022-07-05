@@ -95,7 +95,7 @@ void adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double con
 std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
 std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
-double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const double width, const double height);
+double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const double& width, const double& height);
 void show_image(const std::string &name, const cv::Mat &img);
 void wait_key(int timeout = 0);
 void clip_points(std::vector<cv::Point2f> &pts, int cols, int rows);
@@ -108,5 +108,6 @@ void make_uniq(const std::vector<cv::Point2f> &pts, std::vector<cv::Point2f> &ou
 bool operator==(const cv::Point2f &pt1, const cv::Point2f &pt2);
 bool operator==(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2);
 double distance(const cv::Point2f &p1, const cv::Point2f &p2);
+cv::Point2f average(const std::vector<cv::Point2f> &pts);
 }
 #endif

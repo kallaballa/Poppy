@@ -52,11 +52,13 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 
 	if(phase == 0) {
 		cerr << "zero phase. inserting image 1" << endl;
-		output.write(img1);
+		Mat cl1 = img1.clone();
+		output.write(cl1);
 		return;
 	} else if (phase == 1 && !Settings::instance().enable_auto_align) {
 		cerr << "full phase. inserting image 2" << endl;
-		output.write(img2);
+		Mat cl2 = img2.clone();
+		output.write(cl2);
 		return;
 	}
 
@@ -79,8 +81,9 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 			output.write(blend);
 			blend.release();
 		} else {
+			Mat cl1 = img1.clone();
 			for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
-				output.write(img1);
+				output.write(cl1);
 			}
 		}
 		return;
