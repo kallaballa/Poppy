@@ -82,7 +82,7 @@ double weightedAngle(const C& c) {
     return atan2(y, x);
 }
 
-
+void color_reduce(cv::Mat& image, int div);
 struct LessPointOp {
 	bool operator()(const cv::Point2f &lhs, const cv::Point2f &rhs) const {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);

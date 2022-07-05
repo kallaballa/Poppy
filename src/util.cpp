@@ -11,6 +11,18 @@ using namespace std;
 using namespace cv;
 
 namespace poppy {
+inline uchar reduceVal(const uchar val) {
+    if (val < 192) return uchar(val / 64.0 + 0.5) * 64;
+    return 255;
+}
+
+void color_reduce(cv::Mat& image, int div) {
+    for (int y = 0; y < image.rows; y++) {
+        for (int x = 0; x < image.cols; x++) {
+        	image.at<float>(y * image.cols + x) = reduceVal(image.at<float>(y * image.cols + x) * 255) / 255.0;
+        }
+    }
+}
 
 double feature_metric(const Mat &grey1) {
 	Mat corners;
@@ -213,7 +225,6 @@ void filter_invalid_points(vector<Point2f>& srcPoints1, vector<Point2f>& srcPoin
 		}
 	}
 }
-
 
 void check_uniq(const std::vector<Point2f> &pts) {
 #ifndef NDEBUG

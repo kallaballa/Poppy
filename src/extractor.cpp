@@ -20,12 +20,16 @@ namespace poppy {
 Extractor::Extractor(const Mat& img1, const Mat& img2) : img1_(img1), img2_(img2) {
 	cvtColor(img1_, grey1_, COLOR_RGB2GRAY);
 	cvtColor(img2_, grey2_, COLOR_RGB2GRAY);
-	foreground(goodFeatures1_, goodFeatures2_);
-	show_image("gf1", goodFeatures1_);
-	show_image("gf2", goodFeatures2_);
 }
 
 Extractor::~Extractor() {
+}
+
+pair<Mat, Mat> Extractor::prepareFeatures() {
+	foreground(goodFeatures1_, goodFeatures2_);
+	show_image("gf1", goodFeatures1_);
+	show_image("gf2", goodFeatures2_);
+	return { goodFeatures1_, goodFeatures2_};
 }
 
 pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
@@ -98,8 +102,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 }
 
 void Extractor::foregroundMask(const Mat &grey, Mat &fgMask, const size_t& iterations) {
-	cerr << "extract foreground mask..." << endl;
-
 	// create a foreground mask by blurring the image over again and tracking the flow of pixels.
 	fgMask = Mat::zeros(grey.rows, grey.cols, grey.type());
 	Mat last = grey.clone();

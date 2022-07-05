@@ -6,6 +6,7 @@
 #include "settings.hpp"
 #include "face.hpp"
 #include "matcher.hpp"
+#include "extractor.hpp"
 
 #include <iostream>
 #include <string>
@@ -69,7 +70,8 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
-
+	Extractor extractor(img1, img2);
+	auto goodFeatures = extractor.prepareFeatures();
 	Matcher matcher(img1, img2, ft1, ft2);
 	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
 
@@ -110,7 +112,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		exit(0);
 	}
 
-	float step = 1.0 / Settings::instance().number_of_frames;
+	float step = 1.0 / (Settings::instance().number_of_frames + 1);
 	double linear = 0;
 	double shape = 0;
 	double progress = 0;
@@ -137,7 +139,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		}
 		color = shape;
 
-		morph_images(corrected1, corrected2, contourMap1, contourMap2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+		morph_images(corrected1, corrected2, contourMap1, contourMap2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 		corrected1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);

@@ -175,7 +175,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
+double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, Mat &goodFeatures1, Mat &goodFeatures2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
 	Size SourceImgSize(img1.cols, img1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -241,30 +241,34 @@ double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &con
 	Mat_<Vec3f> r;
 	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
 	trImg2.convertTo(r, CV_32F, 1.0 / 255.0);
-	Mat_<float> m(l.rows, l.cols, 0.0);
 	Mat_<float> m1(l.rows, l.cols, 0.0);
 	Mat_<float> m2(l.rows, l.cols, 0.0);
-//	equalizeHist(contourMap1, contourMap1);
-//	equalizeHist(contourMap2, contourMap2);
+	equalizeHist(contourMap1, contourMap1);
+	equalizeHist(contourMap2, contourMap2);
 
-	for (off_t x = 0; x < m1.cols; ++x) {
-		for (off_t y = 0; y < m1.rows; ++y) {
-			m1.at<float>(y, x) = contourMap1.at<uint8_t>(y, x) / 255.0;
-		}
-	}
-
-	for (off_t x = 0; x < m2.cols; ++x) {
-		for (off_t y = 0; y < m2.rows; ++y) {
-			m2.at<float>(y, x) = contourMap2.at<uint8_t>(y, x) / 255.0;
-		}
-	}
+	contourMap1.convertTo(m1, CV_32F, 1.0 / 255);
+	contourMap2.convertTo(m2, CV_32F, 1.0 / 255);
 
 	Mat ones = Mat::ones(m1.rows, m1.cols, m1.type());
-//	Mat mask = m = ones * (1.0 - maskRatio) + (m1 * (1.0 - maskRatio) + m2 * maskRatio) * maskRatio;
-	Mat mask = m = ones * (1.0 - maskRatio) + m2 * maskRatio;
-	show_image("blend", mask);
+	Mat invMask1, invMask2;
+	threshold(m1, invMask1, 1.0/255, 1.0, THRESH_BINARY);
+	threshold(m2, invMask2, 1.0/255, 1.0, THRESH_BINARY);
 
-	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
+	Mat inv1 = 1.0 - m1;
+	Mat inv2 = 1.0 - m2;
+	Mat maskedInv1, maskedInv2;
+	multiply(inv1, invMask1, maskedInv1);
+	multiply(inv2, invMask2, maskedInv2);
+
+	Mat lap1, lap2;
+
+	Laplacian(maskedInv1,lap1, CV_32F);
+	Laplacian(maskedInv2,lap2, CV_32F);
+	lap1 *= 0.25;
+	lap2 *= 0.25;
+	Mat lbmask = ((lap2 * maskRatio) + (lap1 * (1.0 - maskRatio)) * maskRatio) + (ones * (1.0 - maskRatio));
+	show_image("lbmask", lbmask);
+	LaplacianBlending lb(l, r, lbmask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, img1.depth(), 255.0);
 	Mat analysis = dst.clone();

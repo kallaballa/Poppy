@@ -12,6 +12,7 @@ Matcher::~Matcher(){
 
 void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
 	Extractor extractor(img1_, img2_);
+	extractor.prepareFeatures();
 	Transformer trafo(img2_.cols, img2_.rows);
 
 	if (ft1_.empty() || ft2_.empty()) {
