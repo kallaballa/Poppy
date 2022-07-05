@@ -41,69 +41,69 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 }
 
 template<typename Twriter>
-void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &output) {
+void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twriter &output) {
 	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
-	Matcher matcher;
-	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
-
 	Mat corrected1, corrected2;
 	Mat contourMap1, contourMap2;
+	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 	Features ft1;
 	Features ft2;
+
 	if(phase == 0) {
 		cerr << "zero phase. inserting image 1" << endl;
-		output.write(image1);
+		output.write(img1);
 		return;
 	} else if (phase == 1 && !Settings::instance().enable_auto_align) {
 		cerr << "full phase. inserting image 2" << endl;
-		output.write(image2);
+		output.write(img2);
 		return;
 	}
 
 	if (Settings::instance().enable_face_detection) {
-		ft1 = FaceDetector::instance().detect(image1);
-		ft2 = FaceDetector::instance().detect(image2);
+		ft1 = FaceDetector::instance().detect(img1);
+		ft2 = FaceDetector::instance().detect(img2);
 	}
 
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	matcher.find(image1, image2, ft1, ft2, corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
+	Matcher matcher(img1, img2, ft1, ft2);
+	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
 		if(phase != -1) {
 			//linear interpolation as fallback
-			Mat blend = ((image2 * phase) + (image1 * (1.0 - phase)));
+			Mat blend = ((img2 * phase) + (img1 * (1.0 - phase)));
 			output.write(blend);
 			blend.release();
 		} else {
 			for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
-				output.write(image1);
+				output.write(img1);
 			}
 		}
 		return;
 	}
 	if(!Settings::instance().enable_face_detection) {
-		matcher.prepare(corrected1, corrected2, image1, image2, srcPoints1, srcPoints2);
+		matcher.prepare(corrected1, corrected2, srcPoints1, srcPoints2);
 	} else {
-		add_corners(srcPoints1, srcPoints2, image1.size);
+		add_corners(srcPoints1, srcPoints2, img1.size);
 	}
 	if(distance) {
 		vector<Point2f> uniq1;
-		clip_points(srcPoints1, image1.cols, image1.rows);
-		check_points(srcPoints1, image1.cols, image1.rows);
+		clip_points(srcPoints1, img1.cols, img1.rows);
+		check_points(srcPoints1, img1.cols, img1.rows);
 		make_uniq(srcPoints1, uniq1);
 		check_uniq(uniq1);
 
 		vector<Point2f> uniq2;
-		clip_points(srcPoints2, image1.cols, image1.rows);
-		check_points(srcPoints2, image1.cols, image1.rows);
+		clip_points(srcPoints2, img1.cols, img1.rows);
+		check_points(srcPoints2, img1.cols, img1.rows);
 		make_uniq(srcPoints2, uniq2);
 		check_uniq(uniq2);
 
-		cerr << morph_distance(srcPoints1, srcPoints2, image1.cols, image1.rows) << endl;
+		cerr << morph_distance(srcPoints1, srcPoints2, img1.cols, img1.rows) << endl;
 		exit(0);
 	}
 
@@ -112,8 +112,8 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 	double shape = 0;
 	double progress = 0;
 	double color = 0;
-	image1 = corrected1.clone();
-	image2 = corrected2.clone();
+	img1 = corrected1.clone();
+	img2 = corrected2.clone();
 
 	for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
 		if (!lastMorphedPoints.empty())
@@ -136,8 +136,8 @@ void morph(Mat &image1, Mat &image2, double phase, bool distance, Twriter &outpu
 		}
 		color = shape;
 
-		morph_images(image1, image2, contourMap1, contourMap2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
-		image1 = morphed.clone();
+		morph_images(img1, img2, contourMap1, contourMap2, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+		img1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
 		show_image("morphed", morphed);

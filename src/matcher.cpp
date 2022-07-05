@@ -10,19 +10,19 @@ namespace poppy {
 Matcher::~Matcher(){
 }
 
-void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
-	Extractor extractor(orig1, orig2);
-	Transformer trafo;
+void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
+	Extractor extractor(img1_, img2_);
+	Transformer trafo(img2_.cols, img2_.rows);
 
-	if (ft1.empty() || ft2.empty()) {
+	if (ft1_.empty() || ft2_.empty()) {
 		cerr << "general algorithm..." << endl;
 
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
 		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
-		corrected1 = orig1.clone();
-		corrected2 = orig2.clone();
+		corrected1 = img1_.clone();
+		corrected2 = img2_.clone();
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -49,7 +49,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastContourMap2 = contourMap2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
+					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
 
 				cerr << "final retranslate dist: " << lastDist << endl;
@@ -70,7 +70,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 					lastContourMap2 = contourMap2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2, contourMap1.cols, contourMap1.rows);
+					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
 				cerr << "final rerotate dist: " << lastDist << endl;
 				corrected2 = lastCorrected2.clone();
@@ -91,7 +91,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		}
 	} else {
 		cerr << "face algorithm..." << endl;
-		assert(!ft1.empty() && !ft2.empty());
+		assert(!ft1_.empty() && !ft2_.empty());
 		vector<Mat> contourLayers1;
 		vector<Mat> contourLayers2;
 		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
@@ -99,20 +99,20 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 
-			double w1 = fabs(ft1.right_eye_[0].x - ft1.left_eye_[0].x);
-			double w2 = fabs(ft2.right_eye_[0].x - ft2.left_eye_[0].x);
+			double w1 = fabs(ft1_.right_eye_[0].x - ft1_.left_eye_[0].x);
+			double w2 = fabs(ft2_.right_eye_[0].x - ft2_.left_eye_[0].x);
 			double scale = w1 / w2;
 			Mat scaledCorr2;
 			Mat scaledCM2;
 
-			resize(orig2, scaledCorr2, Size { int(std::round(orig2.cols * scale)), int(std::round(orig2.rows * scale)) });
-			resize(contourMap2, scaledCM2, Size { int(std::round(orig2.cols * scale)), int(std::round(orig2.rows * scale)) });
+			resize(img2_, scaledCorr2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
+			resize(contourMap2, scaledCM2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
 
 
-			Point2f eyeVec1 = ft1.right_eye_[0] - ft1.left_eye_[0];
-			Point2f eyeVec2 = ft2.right_eye_[0] - ft2.left_eye_[0];
-			Point2f center1(ft1.left_eye_[0].x + (eyeVec1.x / 2.0), ft1.left_eye_[0].y + (eyeVec1.y / 2.0));
-			Point2f center2(ft2.left_eye_[0].x + (eyeVec2.x / 2.0), ft2.left_eye_[0].y + (eyeVec2.y / 2.0));
+			Point2f eyeVec1 = ft1_.right_eye_[0] - ft1_.left_eye_[0];
+			Point2f eyeVec2 = ft2_.right_eye_[0] - ft2_.left_eye_[0];
+			Point2f center1(ft1_.left_eye_[0].x + (eyeVec1.x / 2.0), ft1_.left_eye_[0].y + (eyeVec1.y / 2.0));
+			Point2f center2(ft2_.left_eye_[0].x + (eyeVec2.x / 2.0), ft2_.left_eye_[0].y + (eyeVec2.y / 2.0));
 			double angle1 = atan2(eyeVec1.y, eyeVec1.x);
 			double angle2 = atan2(eyeVec2.y, eyeVec2.x);
 			double dy = center1.y - center2.y;
@@ -134,7 +134,7 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 			trafo.rotate(translatedCorr2, rotatedCorr2, center2, targetAng);
 			trafo.rotate(translatedCM2, rotatedCM2, center2, targetAng);
 
-			corrected2 = orig2.clone();
+			corrected2 = img2_.clone();
 			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
 			double dh = fabs(rotatedCorr2.rows - corrected2.rows);
 			corrected2 = Scalar::all(0);
@@ -146,30 +146,30 @@ void Matcher::find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& 
 				rotatedCorr2.copyTo(corrected2(Rect(dw / 2, dh / 2, rotatedCorr2.cols, rotatedCorr2.rows)));
 				rotatedCM2.copyTo(contourMap2(Rect(dw / 2,  dh / 2, rotatedCM2.cols, rotatedCM2.rows)));
 			}
-			corrected1 = orig1.clone();
-			srcPoints1 = ft1.getAllPoints();
+			corrected1 = img1_.clone();
+			srcPoints1 = ft1_.getAllPoints();
 //			show_image("corr", corrected2);
 //			wait_key()
-			ft2 = FaceDetector::instance().detect(corrected2);
-			srcPoints2 = ft2.getAllPoints();
+			ft2_ = FaceDetector::instance().detect(corrected2);
+			srcPoints2 = ft2_.getAllPoints();
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
 			cerr << "no alignment" << endl;
-			srcPoints1 = ft1.getAllPoints();
-			srcPoints2 = ft2.getAllPoints();
+			srcPoints1 = ft1_.getAllPoints();
+			srcPoints2 = ft2_.getAllPoints();
 
-			corrected1 = orig1.clone();
-			corrected2 = orig2.clone();
+			corrected1 = img1_.clone();
+			corrected2 = img2_.clone();
 		}
 	}
-	filter_invalid_points(srcPoints1, srcPoints2, orig1.cols, orig1.rows);
+	filter_invalid_points(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
 
 	cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
-	check_points(srcPoints1, orig1.cols, orig1.rows);
-	check_points(srcPoints2, orig1.cols, orig1.rows);
+	check_points(srcPoints1, img1_.cols, img1_.rows);
+	check_points(srcPoints2, img1_.cols, img1_.rows);
 }
 
-void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows) {
+void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
 //	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
 //	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
@@ -222,7 +222,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 		return;
 	}
 	double value = 0;
-	double limit = (mean / hypot(cols, rows)) * 1000;
+	double limit = (mean / hypot(img1_.cols, img1_.rows)) * 1000;
 	double limitCoef = 0.9;
 	do {
 		srcPoints1.clear();
@@ -236,8 +236,8 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 			}
 		}
 		assert(srcPoints1.size() == srcPoints2.size());
-		check_points(srcPoints1, cols, rows);
-		check_points(srcPoints2, cols, rows);
+		check_points(srcPoints1, img1_.cols, img1_.rows);
+		check_points(srcPoints2, img1_.cols, img1_.rows);
 		if(srcPoints1.empty()) {
 			limit *= (1.5 / limitCoef);
 			limitCoef += ((1.0 - limitCoef) / 4.0);
@@ -246,23 +246,23 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, in
 			limit *= limitCoef;
 		}
 
-	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))));
-	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(cols, rows)) / total) * Settings::instance().match_tolerance))) << endl;
+	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / (((deviation * hypot(img1_.cols, img1_.rows)) / total) * Settings::instance().match_tolerance))));
+	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(img1_.cols, img1_.rows)) / total) * Settings::instance().match_tolerance))) << endl;
 
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
 }
 
-void Matcher::prepare(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+void Matcher::prepare(const Mat &corrected1, const Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	//edit matches
 	cerr << "matching: " << srcPoints1.size() << endl;
-	match(srcPoints1, srcPoints2, img1.cols, img1.rows);
+	match(srcPoints1, srcPoints2);
 	cerr << "matched: " << srcPoints1.size() << endl;
 
 	Mat matMatches;
 	Mat grey1, grey2;
-	cvtColor(src1, grey1, COLOR_RGB2GRAY);
-	cvtColor(src2, grey2, COLOR_RGB2GRAY);
+	cvtColor(corrected1, grey1, COLOR_RGB2GRAY);
+	cvtColor(corrected2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
 	show_image("matched", matMatches);
 
@@ -271,6 +271,6 @@ void Matcher::prepare(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, ve
 	else
 		srcPoints2.resize(srcPoints1.size());
 
-	add_corners(srcPoints1, srcPoints2, src1.size);
+	add_corners(srcPoints1, srcPoints2, corrected1.size);
 }
 } /* namespace poppy */

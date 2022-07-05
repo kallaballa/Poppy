@@ -13,15 +13,20 @@ namespace poppy {
 
 class Matcher {
 private:
+	const Mat& img1_;
+	const Mat& img2_;
+	Features ft1_;
+	Features ft2_;
 	std::random_device rd;
 	std::mt19937 g;
 public:
-	Matcher() : rd(), g(rd()) {
+	Matcher(const Mat& img1, const Mat& img2, const Features& ft1, const Features& ft2) :
+		img1_(img1), img2_(img2), ft1_(ft1), ft2_(ft2), rd(), g(rd()) {
 	}
 	virtual ~Matcher();
-	void find(const Mat &orig1, const Mat &orig2, Features& ft1, Features& ft2, Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2);
-	void match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, int cols, int rows);
-	void prepare(Mat &src1, Mat &src2, const Mat &img1, const Mat &img2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
+	void find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2);
+	void match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
+	void prepare(const Mat &corrected1, const Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 };
 
 } /* namespace poppy */
