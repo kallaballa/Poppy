@@ -175,21 +175,21 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, Mat &contourMap2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
-	Size SourceImgSize(origImg1.cols, origImg1.rows);
+double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &contourMap2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
+	Size SourceImgSize(img1.cols, img1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDivMorph(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 
 	vector<Point2f> uniq1, uniq2, uniqMorph;
-	clip_points(srcPoints1, origImg1.cols, origImg1.rows);
-	check_points(srcPoints1, origImg1.cols, origImg1.rows);
+	clip_points(srcPoints1, img1.cols, img1.rows);
+	check_points(srcPoints1, img1.cols, img1.rows);
 	make_uniq(srcPoints1, uniq1);
 	check_uniq(uniq1);
 	subDiv1.insert(uniq1);
 
-	clip_points(srcPoints2, origImg2.cols, origImg2.rows);
-	check_points(srcPoints2, origImg2.cols, origImg2.rows);
+	clip_points(srcPoints2, img2.cols, img2.rows);
+	check_points(srcPoints2, img2.cols, img2.rows);
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
 	subDiv2.insert(uniq2);
@@ -197,8 +197,8 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, 
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 
-	clip_points(morphedPoints, origImg1.cols, origImg1.rows);
-	check_points(morphedPoints, origImg1.cols, origImg1.rows);
+	clip_points(morphedPoints, img1.cols, img1.rows);
+	check_points(morphedPoints, img1.cols, img1.rows);
 	make_uniq(morphedPoints, uniqMorph);
 	check_uniq(uniqMorph);
 	subDivMorph.insert(uniqMorph);
@@ -225,12 +225,12 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, 
 	Mat trImg1;
 	Mat trans_map_x1, trans_map_y1;
 	create_map(triMap, morphHom1, trans_map_x1, trans_map_y1);
-	remap(origImg1, trImg1, trans_map_x1, trans_map_y1, INTER_LINEAR);
+	remap(img1, trImg1, trans_map_x1, trans_map_y1, INTER_LINEAR);
 
 	Mat trImg2;
 	Mat trans_map_x2, trans_map_y2;
 	create_map(triMap, morphHom2, trans_map_x2, trans_map_y2);
-	remap(origImg2, trImg2, trans_map_x2, trans_map_y2, INTER_LINEAR);
+	remap(img2, trImg2, trans_map_x2, trans_map_y2, INTER_LINEAR);
 
 	homographyMats.clear();
 	morphHom1.clear();
@@ -266,7 +266,7 @@ double morph_images(const Mat &origImg1, const Mat &origImg2, Mat &contourMap1, 
 
 	LaplacianBlending lb(l, r, mask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
-	lapBlend.convertTo(dst, origImg1.depth(), 255.0);
+	lapBlend.convertTo(dst, img1.depth(), 255.0);
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())
