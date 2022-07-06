@@ -198,6 +198,8 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
 	double density = total/hypot(img1_.cols, img1_.rows);
+	double meanPerArea = mean/hypot(img1_.cols, img1_.rows);
+
 	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
@@ -238,7 +240,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 				break;
 			limit *= limitCoef;
 		}
-		thresh = ((distanceMap.size() * 4) / density)  * Settings::instance().match_tolerance;
+		thresh = ((distanceMap.size() * 4) / density) * (mean / 24.0) * Settings::instance().match_tolerance;
 		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
 	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
