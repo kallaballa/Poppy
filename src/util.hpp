@@ -91,6 +91,7 @@ struct LessPointOp {
 double feature_metric(const Mat &grey1);
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, pair<Point2f, Point2f>> distanceMap);
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
+void normalize(const Mat &src, Mat &dst);
 void adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double contrast, double lowcut);
 std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
 std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);

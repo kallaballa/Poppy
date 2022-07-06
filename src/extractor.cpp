@@ -257,12 +257,7 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 
 	show_image("mask1", finalMask1Float);
 	show_image("mask2", finalMask2Float);
-	/*
-	 * create the final masked image. uses gaussian blur to sharpen the image.
-	 * But before the blurred image is subtracted from the image (to sharpen)
-	 * it is divided by the blurred mask. That way features in the center will
-	 * be emphasized
-	 */
+
 	Mat masked1, masked2;
 	Mat blurred1Float, blurredMask1Float, maskedSharp1Float;
 

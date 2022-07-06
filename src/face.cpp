@@ -52,9 +52,22 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	face_detector.detectMultiScale( gray, faces, 1.1, 4, 0, Size(30, 30) );
+	face_detector.detectMultiScale( gray, faces, 1.1, 6, 0, Size(30, 30) );
 
 	cerr << "Number of faces detected: " << faces.size() << endl;
+	if(faces.size() > 1) {
+		double maxArea = 0;
+		size_t candidate = 0;
+		for(size_t i = 0; i < faces.size(); ++i) {
+			double area = faces[i].area();
+			if(area > maxArea) {
+				maxArea = area;
+				candidate = i;
+			}
+		}
+		faces = { faces[candidate] };
+	}
+
 	if (faces.empty())
 		return {};
 

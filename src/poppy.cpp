@@ -161,16 +161,16 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			throw std::runtime_error("File doesn't exist: " + p);
 	}
 
-	Mat image1, denoise1;
+	Mat img1, denoise1;
 	try {
 
-		image1 = read_image(imageFiles[0]);
+		img1 = read_image(imageFiles[0]);
 		if (poppy::Settings::instance().enable_denoise) {
 			cerr << "denoising: " << imageFiles[0] << endl;
-			fastNlMeansDenoising(image1, denoise1, 10, 7, 21);
-			denoise1.copyTo(image1);
+			fastNlMeansDenoising(img1, denoise1, 10, 7, 21);
+			denoise1.copyTo(img1);
 		}
-		if (image1.empty()) {
+		if (img1.empty()) {
 			std::cerr << "Can't read (invalid?) image file: " + imageFiles[0] << std::endl;
 			exit(2);
 		}
@@ -179,7 +179,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		exit(2);
 	}
 
-	Mat image2;
+	Mat img2;
 	cerr << "building union" << endl;
 
 	Size szUnion(0, 0);
@@ -195,15 +195,15 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		img.release();
 	}
 	cerr << "union: " << szUnion << endl;
-	Mat mUnion(szUnion.height, szUnion.width, image1.type(), { 0, 0, 0 });
+	Mat mUnion(szUnion.height, szUnion.width, img1.type(), { 0, 0, 0 });
 	if (poppy::Settings::instance().enable_src_scaling) {
-		Mat clone = image1.clone();
-		resize(clone, image1, preserveAspect(image1.size(), szUnion), INTER_LINEAR);
+		Mat clone = img1.clone();
+		resize(clone, img1, preserveAspect(img1.size(), szUnion), INTER_LINEAR);
 	}
 
-	Rect centerRect((szUnion.width - image1.cols) / 2.0, (szUnion.height - image1.rows) / 2.0, image1.cols, image1.rows);
-	image1.copyTo(mUnion(centerRect));
-	image1 = mUnion.clone();
+	Rect centerRect((szUnion.width - img1.cols) / 2.0, (szUnion.height - img1.rows) / 2.0, img1.cols, img1.rows);
+	img1.copyTo(mUnion(centerRect));
+	img1 = mUnion.clone();
 
 #ifndef _WASM
 	string fourcc = poppy::Settings::instance().fourcc;
@@ -230,40 +230,172 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	cerr << "main loop..." << endl;
 
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
-		Mat image2, denoise2;
+		Mat img2, denoise2;
 		try {
-			image2 = read_image(imageFiles[i]);
+			img2 = read_image(imageFiles[i]);
 			if (poppy::Settings::instance().enable_denoise) {
 				std::cerr << "Denoising -> " << endl;
-				fastNlMeansDenoising(image2, denoise2, 10, 7, 21);
-				denoise2.copyTo(image2);
+				fastNlMeansDenoising(img2, denoise2, 10, 7, 21);
+				denoise2.copyTo(img2);
 			}
 
-			if (image2.empty()) {
+			if (0) {
+				Mat grey1, grey2;
+				Mat finalMask1Float, finalMask2Float;
+				cvtColor(img1, grey1, COLOR_BGR2GRAY);
+				cvtColor(img2, grey2, COLOR_BGR2GRAY);
+				Mat fillMask1(grey1.rows + 2, grey1.cols + 2, grey1.type());
+				Mat fillMask2(grey2.rows + 2, grey2.cols + 2, grey2.type());
+				cv::Canny(grey1, fillMask1, 0, 255);
+				cv::Canny(grey2, fillMask2, 0, 255);
+				cv::copyMakeBorder(fillMask1, fillMask1, 1, 1, 1, 1, cv::BORDER_REPLICATE);
+				cv::copyMakeBorder(fillMask2, fillMask2, 1, 1, 1, 1, cv::BORDER_REPLICATE);
+				uchar fillValue = 127;
+				cv::floodFill(grey1, fillMask1, { 1, 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey1, fillMask1, { 1, grey1.rows - 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey1, fillMask1, { grey1.cols - 1, 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey1, fillMask1, { grey1.cols - 1, grey1.rows - 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+
+				cv::floodFill(grey2, fillMask2, { 1, 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey2, fillMask2, { 1, grey2.rows - 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey2, fillMask2, { grey2.cols - 1, 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+				cv::floodFill(grey2, fillMask2, { grey2.cols - 1, grey2.rows - 1 }, cv::Scalar(127), 0, cv::Scalar(), cv::Scalar(), 4 | cv::FLOODFILL_MASK_ONLY | (fillValue << 8));
+
+				Mat fillThresh1, fillThresh2;
+				inRange(fillMask1, { 126 }, { 128 }, fillThresh1);
+				inRange(fillMask2, { 126 }, { 128 }, fillThresh2);
+
+				Mat test1, test2;
+				threshold(fillThresh1, test1, 0, 1, THRESH_BINARY);
+				threshold(fillThresh2, test2, 0, 1, THRESH_BINARY);
+				fillThresh1 = 255.0 - fillThresh1;
+				fillThresh2 = 255.0 - fillThresh2;
+
+				if (countNonZero(test1) > (test1.cols * test1.rows * 0.2)) {
+					fillThresh1(Rect(1, 1, img1.cols, img1.rows)).convertTo(finalMask1Float, CV_32F, 1.0 / 255.0);
+				} else {
+					Mat hue;
+					int bins = 6;
+					Mat hsv;
+					cvtColor(img1, hsv, COLOR_BGR2HSV);
+					hue.create(hsv.size(), hsv.depth());
+					int ch[] = { 0, 0 };
+					mixChannels(&hsv, 1, &hue, 1, ch, 1);
+					int histSize = MAX(bins, 2);
+					float hue_range[] = { 0, 180 };
+					const float *ranges[] = { hue_range };
+					Mat hist;
+					calcHist(&hue, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false);
+					normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat());
+					Mat backproj;
+					calcBackProject(&hue, 1, 0, hist, backproj, ranges, 1, true);
+					Mat filtered;
+					Mat filteredFloat;
+					inRange(backproj, { 254 }, { 255 }, filtered);
+					filtered.convertTo(finalMask1Float, CV_32F, 1 / 255.0);
+				}
+
+				if (countNonZero(test2) > (test2.cols * test2.rows * 0.2)) {
+					fillThresh2(Rect(1, 1, img2.cols, img2.rows)).convertTo(finalMask2Float, CV_32F, 1.0 / 255.0);
+				} else {
+					Mat hue;
+					int bins = 6;
+					Mat hsv;
+					cvtColor(img2, hsv, COLOR_BGR2HSV);
+					hue.create(hsv.size(), hsv.depth());
+					int ch[] = { 0, 0 };
+					mixChannels(&hsv, 1, &hue, 1, ch, 1);
+					int histSize = MAX(bins, 2);
+					float hue_range[] = { 0, 180 };
+					const float *ranges[] = { hue_range };
+					Mat hist;
+					calcHist(&hue, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false);
+					normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat());
+					Mat backproj;
+					calcBackProject(&hue, 1, 0, hist, backproj, ranges, 1, true);
+					Mat filtered;
+					Mat filteredFloat;
+					inRange(backproj, { 254 }, { 255 }, filtered);
+					filtered.convertTo(finalMask2Float, CV_32F, 1 / 255.0);
+				}
+				Mat img1Float, img2Float;
+				img1.convertTo(img1Float, CV_32F, 1 / 255.0);
+				img2.convertTo(img2Float, CV_32F, 1 / 255.0);
+
+				Mat finalMask1FloatC3 = Mat::zeros(grey1.rows, grey1.cols, CV_32FC3);
+				Mat finalMask2FloatC3 = Mat::zeros(grey2.rows, grey2.cols, CV_32FC3);
+				Mat dilated1, dilated2;
+				dilate(finalMask1Float, dilated1, getStructuringElement(MORPH_ELLIPSE, Size(11, 11)));
+				dilate(finalMask2Float, dilated2, getStructuringElement(MORPH_ELLIPSE, Size(11, 11)));
+				GaussianBlur(dilated1, finalMask1Float, { 127, 127 }, 12);
+				GaussianBlur(dilated2, finalMask2Float, { 127, 127 }, 12);
+
+				vector<Mat> planes1, planes2;
+				for (int i = 0; i < 3; i++) {
+					planes1.push_back(finalMask1Float);
+					planes2.push_back(finalMask2Float);
+				}
+				merge(planes1, finalMask1FloatC3);
+				merge(planes2, finalMask2FloatC3);
+
+				Mat blurred1Float, blurred2Float;
+				Mat maskedBlur1Float, maskedBlur2Float;
+				Mat masked1Float, masked2Float;
+				Mat invFinalMask1 = Scalar(1.0, 1.0, 1.0) - finalMask1FloatC3;
+				Mat invFinalMask2 = Scalar(1.0, 1.0, 1.0) - finalMask2FloatC3;
+				Mat combined1, combined2;
+				GaussianBlur(img1Float, blurred1Float, { 63, 63 }, 5);
+				GaussianBlur(img2Float, blurred2Float, { 63, 63 }, 5);
+				multiply(blurred1Float, invFinalMask1, maskedBlur1Float);
+				multiply(blurred2Float, invFinalMask2, maskedBlur2Float);
+				multiply(img1Float, finalMask1FloatC3, masked1Float);
+				multiply(img2Float, finalMask2FloatC3, masked2Float);
+				add(masked1Float, maskedBlur1Float, combined1);
+				add(masked2Float, maskedBlur2Float, combined2);
+
+//			poppy::show_image("fm1", finalMask1FloatC3);
+//			poppy::show_image("fm2", finalMask2FloatC3);
+//			poppy::show_image("iv1", invFinalMask1);
+//			poppy::show_image("iv2", invFinalMask2);
+//			poppy::show_image("b1", blurred1Float);
+//			poppy::show_image("b2", blurred2Float);
+//			poppy::show_image("mb1", maskedBlur1Float);
+//			poppy::show_image("mb2", maskedBlur2Float);
+//			poppy::show_image("ig1", img1Float);
+//			poppy::show_image("ig2", img2Float);
+//			poppy::show_image("mf1", masked1Float);
+//			poppy::show_image("mf2", masked2Float);
+//			poppy::show_image("c1", combined1);
+//			poppy::show_image("c2", combined2);
+//			poppy::wait_key();
+				combined1.convertTo(img1, CV_8UC3, 255);
+				combined2.convertTo(img2, CV_8UC3, 255);
+			}
+			if (img2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 				exit(2);
 			}
 
 			if (poppy::Settings::instance().enable_src_scaling) {
-				Mat bg = Mat::zeros(szUnion, image2.type());
-				Mat clone = image2.clone();
-				Size aspect = preserveAspect(image2.size(), szUnion);
-				resize(clone, image2, aspect, INTER_LINEAR);
+				Mat bg = Mat::zeros(szUnion, img2.type());
+				Mat clone = img2.clone();
+				Size aspect = preserveAspect(img2.size(), szUnion);
+				resize(clone, img2, aspect, INTER_LINEAR);
 				double dx = fabs(aspect.width - szUnion.width);
 				double dy = fabs(aspect.height - szUnion.height);
-				image2.copyTo(bg(Rect(dx / 2.0, dy / 2.0, aspect.width, aspect.height)));
-				image2 = bg.clone();
+				img2.copyTo(bg(Rect(dx / 2.0, dy / 2.0, aspect.width, aspect.height)));
+				img2 = bg.clone();
 				bg.release();
 				clone.release();
 			} else {
 				mUnion = Scalar::all(0);
-				Rect cr((szUnion.width - image2.cols) / 2.0, (szUnion.height - image2.rows) / 2.0, image2.cols, image2.rows);
-				image2.copyTo(mUnion(cr));
-				image2 = mUnion.clone();
+				Rect cr((szUnion.width - img2.cols) / 2.0, (szUnion.height - img2.rows) / 2.0, img2.cols, img2.rows);
+				img2.copyTo(mUnion(cr));
+				img2 = mUnion.clone();
 			}
 
-			if (image1.cols != image2.cols || image1.rows != image2.rows) {
-				std::cerr << "Image file sizes don't match: " << image1.size() << "/" << image2.size() << "/" << szUnion << std::endl;
+			if (img1.cols != img2.cols || img1.rows != img2.rows) {
+				std::cerr << "Image file sizes don't match: " << img1.size() << "/" << img2.size() << "/" << szUnion << std::endl;
 				exit(3);
 			}
 		} catch (std::exception& ex) {
@@ -272,9 +404,9 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 
-		poppy::morph(image1, image2, phase, distance, output);
-		image1 = image2.clone();
-		image2.release();
+		poppy::morph(img1, img2, phase, distance, output);
+		img1 = img2.clone();
+		img2.release();
 	}
 #ifdef _WASM
 	cerr << "gif flush" << endl;

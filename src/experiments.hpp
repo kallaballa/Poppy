@@ -233,6 +233,7 @@ void fft_filter(Mat &scr, Mat &dst, Mat &H)
 	merge(planes_out, 2, dst);
 
 }
+
 double dft_detail(const Mat& src, Mat& dst) {
 	Mat imgIn;
 	src.convertTo(imgIn, CV_32F);

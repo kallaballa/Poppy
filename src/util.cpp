@@ -87,6 +87,27 @@ void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, MatSi
 	srcPoints2.push_back(Point2f(w, h));
 }
 
+void normalize(const Mat &src, Mat &dst) {
+	dst = src.clone();
+	int minV = numeric_limits<int>::max();
+	int maxV = numeric_limits<int>::min();
+	double val = 0;
+	for (int y = 0; y < src.rows; y++) {
+		for (int x = 0; x < src.cols; x++) {
+			val = double(dst.at<uchar>(y, x));
+			maxV = max(double(maxV), val);
+			minV = min(double(minV), val);
+		}
+	}
+
+	for (int y = 0; y < src.rows; y++) {
+		for (int x = 0; x < src.cols; x++) {
+			val = dst.at<uchar>(y, x);
+			dst.at<uchar>(y, x) = ((val - minV) / (maxV - minV)) * 255;
+		}
+	}
+}
+
 void adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contrast, double lowcut) {
 	dst = src.clone();
 	int minV = numeric_limits<int>::max();
@@ -114,7 +135,6 @@ void adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contrast, d
 	dst.convertTo(hc, -1, contrast, brightness);
 	hc.copyTo(dst);
 }
-
 
 std::vector<std::vector<Point2f>> convertContourTo2f(const std::vector<std::vector<Point>> &contours1) {
 	std::vector<std::vector<Point2f>> tmp;
@@ -182,7 +202,10 @@ void show_image(const string &name, const Mat &img) {
 void wait_key(int timeout) {
 #ifndef _WASM
 	if(Settings::instance().show_gui) {
-		waitKey(timeout);
+		int key = waitKey(timeout);
+		while(key != (int) ('q')) {
+			 key = waitKey(timeout);
+		}
 	}
 #endif
 }
