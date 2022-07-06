@@ -238,8 +238,8 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 				break;
 			limit *= limitCoef;
 		}
-		thresh = std::max(distanceMap.size() / density, distanceMap.size() / (8192 / ((mean * density) * Settings::instance().match_tolerance)));
-//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
+		thresh = std::max(distanceMap.size() * 4 / density, distanceMap.size() / (8192 / ((mean / density) * Settings::instance().match_tolerance)));
+		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
 	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
 	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
