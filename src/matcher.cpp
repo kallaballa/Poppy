@@ -197,7 +197,8 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double total = get<0>(distribution);
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
-	cerr << "distance map size: " << distanceMap.size() << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
+	double density = total/hypot(img1_.cols, img1_.rows);
+	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
 		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
 			srcPoints1.push_back((*it).second.first);
@@ -212,6 +213,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double value = 0;
 	double limit = (mean / hypot(img1_.cols, img1_.rows)) * 1000;
 	double limitCoef = 0.9;
+	double thresh = 0;
 	do {
 		srcPoints1.clear();
 		srcPoints2.clear();
@@ -227,15 +229,20 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 		check_points(srcPoints1, img1_.cols, img1_.rows);
 		check_points(srcPoints2, img1_.cols, img1_.rows);
 		if(srcPoints1.empty()) {
-			limit *= (1.5 / limitCoef);
-			limitCoef += ((1.0 - limitCoef) / 4.0);
-			continue;
+			limit /= limitCoef;
+			limitCoef += (1.0 - limitCoef) / 128.0;
+			if(limitCoef > 0.999)
+				limitCoef = 0;
 		} else {
+			if(limitCoef == 0)
+				break;
 			limit *= limitCoef;
 		}
+		thresh = std::max(distanceMap.size() / density, distanceMap.size() / (8192 / ((mean * density) * Settings::instance().match_tolerance)));
+//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
-	} while (srcPoints1.empty() || srcPoints1.size() > (distanceMap.size() / (16.0 / (((deviation * hypot(img1_.cols, img1_.rows)) / total) * Settings::instance().match_tolerance))));
-	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << (distanceMap.size() / (16.0 / (((deviation * hypot(img1_.cols, img1_.rows)) / total) * Settings::instance().match_tolerance))) << endl;
+	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
+	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
@@ -262,3 +269,4 @@ void Matcher::prepare(const Mat &corrected1, const Mat &corrected2, vector<Point
 	add_corners(srcPoints1, srcPoints2, corrected1.size);
 }
 } /* namespace poppy */
+
