@@ -11,6 +11,58 @@ using namespace std;
 using namespace cv;
 
 namespace poppy {
+void triple_channel(const Mat &src, Mat &dst) {
+	vector<Mat> planes;
+	for (int i = 0; i < 3; i++) {
+		planes.push_back(src);
+	}
+	merge(planes, dst);
+}
+
+Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold)
+{
+    // work using floating point images to avoid overflows
+    cv::Mat input;
+    original.convertTo(input, CV_32FC3);
+
+    // copy original for our return value
+    Mat retbuf = input.clone();
+
+    // create the blurred copy
+    Mat blurred;
+    cv::GaussianBlur(input, blurred, cv::Size(0, 0), radius);
+
+    // subtract blurred from original, pixel-by-pixel to make unsharp mask
+    Mat unsharpMask;
+    cv::subtract(input, blurred, unsharpMask);
+
+    // --- filter on the mask ---
+
+    //cv::medianBlur(unsharpMask, unsharpMask, 3);
+    cv::blur(unsharpMask, unsharpMask, {3,3});
+
+    // --- end filter ---
+
+    // apply mask to image
+    for (int row = 0; row < original.rows; row++)
+    {
+        for (int col = 0; col < original.cols; col++)
+        {
+            Vec3f origColor = input.at<Vec3f>(row, col);
+            Vec3f difference = unsharpMask.at<Vec3f>(row, col);
+
+            if(cv::norm(difference) >= threshold) {
+//            	cerr << "hit" << endl;
+                retbuf.at<Vec3f>(row, col) = origColor + amount * difference;
+            }
+        }
+    }
+
+    Mat one_channel;
+    cvtColor(retbuf, one_channel, COLOR_BGR2GRAY);
+    return one_channel;
+}
+
 inline uchar reduceVal(const uchar val) {
     if (val < 192) return uchar(val / 64.0 + 0.5) * 64;
     return 255;

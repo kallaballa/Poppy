@@ -88,6 +88,8 @@ struct LessPointOp {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
 	}
 };
+void triple_channel(const Mat& src, Mat& dst);
+Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold);
 double feature_metric(const Mat &grey1);
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, pair<Point2f, Point2f>> distanceMap);
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
