@@ -38,7 +38,7 @@ void draw_radial_gradiant(Mat &grad) {
 
 	cv::normalize(grad, grad, 0, 255, cv::NORM_MINMAX, CV_8U);
 	cv::bitwise_not(grad, grad);
-	show_image("grad", grad);
+//	show_image("grad", grad);
 }
 
 void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {

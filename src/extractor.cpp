@@ -27,8 +27,6 @@ Extractor::~Extractor() {
 
 pair<Mat, Mat> Extractor::prepareFeatures() {
 	foreground(goodFeatures1_, goodFeatures2_);
-	show_image("gf1", goodFeatures1_);
-	show_image("gf2", goodFeatures2_);
 	return { goodFeatures1_, goodFeatures2_};
 }
 
