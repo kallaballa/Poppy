@@ -77,6 +77,8 @@ Options:
                                       translate) the source material to match.
   -d [ --denoise ]                    Denoise images before morphing.
   -n [ --distance ]                   Calculate the morph distance and return.
+  -w [ --wait ]                       Wait at defined breakpoints for key 
+                                      input. specifically the character q.
   -s [ --scaling ]                    Instead of extending the source images, 
                                       to match in size, use scaling.
   -m [ --maxkey ] arg (=-1)           Manual override for the number of 
@@ -84,10 +86,13 @@ Options:
                                       default is automatic determination of 
                                       that number.
   -b [ --rate ] arg (=30)             The frame rate of the output video.
+  -i [ --neighbors ] arg (=6)         Face detection parameter, specifying how 
+                                      many neighbors each candidate rectangle 
+                                      should have to retain it.
   -f [ --frames ] arg (=60)           The number of frames to generate.
   -p [ --phase ] arg (=-1)            A value from 0 to 1 telling poppy how far
                                       into the morph to start from.
-  -y [ --pyramid ] arg (=32)          How many levels to use for the laplacian 
+  -y [ --pyramid ] arg (=64)          How many levels to use for the laplacian 
                                       pyramid.
   -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
