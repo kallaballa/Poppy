@@ -63,15 +63,15 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
     return one_channel;
 }
 
-inline uchar reduceVal(const uchar val) {
-    if (val < 192) return uchar(val / 64.0 + 0.5) * 64;
+inline uchar reduceVal(const uchar val, int div) {
+    if (val < 255.0 - (255.0 / div)) return uchar(val / div + 0.5) * div;
     return 255;
 }
 
 void color_reduce(cv::Mat& image, int div) {
     for (int y = 0; y < image.rows; y++) {
         for (int x = 0; x < image.cols; x++) {
-        	image.at<float>(y * image.cols + x) = reduceVal(image.at<float>(y * image.cols + x) * 255) / 255.0;
+        	image.at<float>(y * image.cols + x) = reduceVal(image.at<float>(y * image.cols + x) * 255, div) / 255.0;
         }
     }
 }

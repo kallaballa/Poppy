@@ -310,6 +310,7 @@ int main(int argc, char **argv) {
 	bool face = poppy::Settings::instance().enable_face_detection;
 	bool srcScaling = true;
 	bool denoise = poppy::Settings::instance().enable_denoise;
+	size_t faceNeighbors = poppy::Settings::instance().face_neighbors;
 	bool distance = false;
 	string fourcc = poppy::Settings::instance().fourcc;
 	std::vector<string> imageFiles;
@@ -327,6 +328,7 @@ int main(int argc, char **argv) {
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
+	("neighbors,i", po::value<size_t>(&faceNeighbors)->default_value(faceNeighbors), "Face detection parameter, specifying how many neighbors each candidate rectangle should have to retain it.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
 	("pyramid,y", po::value<size_t>(&pyramidLevels)->default_value(pyramidLevels), "How many levels to use for the laplacian pyramid.")
@@ -400,7 +402,7 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
 	run(imageFiles, outputFile, phase, distance);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
@@ -430,7 +432,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 
 		imageFiles.push_back(string(file_path1));
 		imageFiles.push_back(string(file_path2));
-		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false);
+		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false, 6);
 		std::thread t([=](){
 				try {
 				running = true;

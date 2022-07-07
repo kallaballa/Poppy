@@ -264,7 +264,6 @@ double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &con
 
 	Laplacian(maskedInv1,lap1, CV_32F);
 	Laplacian(maskedInv2,lap2, CV_32F);
-	Mat dilated1, dilated2;
 	Mat triple1, triple2;
 	triple_channel(lap1, triple1);
 	triple_channel(lap2, triple2);
@@ -276,10 +275,11 @@ double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &con
 	unsharp2 = unsharp_mask(triple2, 0.8, 12.0, 0);
 	unsharp1 *= 0.05;
 	unsharp2 *= 0.05;
+	unsharp1 += 0.25;
+	unsharp2 += 0.25;
 	show_image("us1", unsharp1);
 	show_image("us2", unsharp2);
-
-	Mat lbmask = ((unsharp1 * maskRatio) + (unsharp2 * (1.0 - maskRatio)) * maskRatio) + (ones * (1.0 - maskRatio));
+	Mat lbmask = (unsharp2 * maskRatio) + (ones * (1.0 - maskRatio));
 	show_image("lbmask", lbmask);
 	LaplacianBlending lb(l, r, lbmask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();

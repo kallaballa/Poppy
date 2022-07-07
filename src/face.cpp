@@ -1,5 +1,6 @@
 #include "face.hpp"
 #include "util.hpp"
+#include "settings.hpp"
 
 #include <sstream>
 #include <vector>
@@ -52,8 +53,8 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	Mat gray;
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
-	face_detector.detectMultiScale( gray, faces, 1.1, 6, 0, Size(30, 30) );
-
+	face_detector.detectMultiScale( gray, faces, 1.1, Settings::instance().face_neighbors, 0, Size(30, 30) );
+//neigbour
 	cerr << "Number of faces detected: " << faces.size() << endl;
 	if(faces.size() > 1) {
 		double maxArea = 0;

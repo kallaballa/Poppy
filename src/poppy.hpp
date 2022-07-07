@@ -25,7 +25,7 @@ double easeInOutSine(double x) {
 	return -(cos(M_PI * x) - 1.0) / 2.0;
 }
 
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc, bool enableWait) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc, bool enableWait, size_t faceNeighbors) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().enable_wait = enableWait;
 	Settings::instance().number_of_frames = numberOfFrames;
@@ -40,6 +40,7 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 	Settings::instance().enable_face_detection = faceDetect;
 	Settings::instance().pyramid_levels = pyramidLevels;
 	Settings::instance().fourcc = fourcc;
+	Settings::instance().face_neighbors = faceNeighbors;
 }
 
 template<typename Twriter>
@@ -136,12 +137,26 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 
-		shape = ease(progress);
+		shape = log(progress * 3.0 + 1.0) / log(3.0);
 		if(phase != -1) {
 			shape *= phase;
 			Settings::instance().number_of_frames = 1;
 		}
-		color = shape;
+		if(shape > 1)
+			shape = 1;
+
+		color = log(ease(progress) * 3.0 + 1.0) / log(3.0);
+		if(color > 1)
+			color = 1;
+//		if(color - 0.1 > shape)
+//			color = shape + 0.1;
+//
+//		if(shape > 0.3)
+//			color = shape - 0.05;
+//
+//		if(color > 0.125)
+//				color = 0.125;
+		cerr << shape << " | " << color << endl;
 
 		morph_images(corrected1, corrected2, contourMap1, contourMap2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 		corrected1 = morphed.clone();
