@@ -12,6 +12,7 @@ private:
 	Settings() {};
 public:
 	bool show_gui = false;
+	bool enable_wait = false;
 	double number_of_frames = 60;
 	double frame_rate = 30;
 	double contour_sensitivity = 1;

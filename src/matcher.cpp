@@ -30,7 +30,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 			auto matchesFlann = extractor.keypointsFlann();
 			auto matchesRaw = extractor.keypointsRaw();
-			Mat dummy;
 			vector<Point2f> srcPointsRaw1 = matchesRaw.first;
 			vector<Point2f> srcPointsRaw2 = matchesRaw.second;
 			vector<Point2f> srcPointsFlann1 = matchesFlann.first;
@@ -42,7 +41,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-
 			do {
 				do {
 					lastDist = dist;
@@ -50,7 +48,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastContourMap2 = contourMap2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 					if(dist >= lastDist)
 						break;
 
@@ -59,7 +57,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastContourMap2 = contourMap2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 				} while(dist < lastDist);
 
 				cerr << "retransform dist: " << lastDist << endl;
@@ -198,7 +196,6 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
 	double density = total/hypot(img1_.cols, img1_.rows);
-	double meanPerArea = mean/hypot(img1_.cols, img1_.rows);
 
 	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
@@ -241,7 +238,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 			limit *= limitCoef;
 		}
 		thresh = ((distanceMap.size() * 4) / density) * (mean / 24.0) * Settings::instance().match_tolerance;
-		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
+//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
 	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
 	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;

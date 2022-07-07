@@ -253,7 +253,7 @@ void show_image(const string &name, const Mat &img) {
 
 void wait_key(int timeout) {
 #ifndef _WASM
-	if(Settings::instance().show_gui) {
+	if(Settings::instance().show_gui && Settings::instance().enable_wait) {
 		int key = waitKey(timeout);
 		while(key != (int) ('q')) {
 			 key = waitKey(timeout);

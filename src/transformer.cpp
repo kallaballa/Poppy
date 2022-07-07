@@ -9,13 +9,14 @@ using std::endl;
 
 namespace poppy {
 
-Transformer::Transformer(const size_t& width, const size_t& height) : width_(width), height_(height) {
+Transformer::Transformer(const size_t &width, const size_t &height) :
+		width_(width), height_(height) {
 }
 
 Transformer::~Transformer() {
 }
 
-void Transformer::translate(const Mat &src, Mat &dst, const Point2f& by) {
+void Transformer::translate(const Mat &src, Mat &dst, const Point2f &by) {
 	float warpValues[] = { 1.0, 0.0, by.x, 0.0, 1.0, by.y };
 	Mat translation_matrix = Mat(2, 3, CV_32F, warpValues);
 	warpAffine(src, dst, translation_matrix, src.size(), INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
@@ -57,7 +58,7 @@ void Transformer::scale_points(vector<Point2f> &pts, double coef) {
 	}
 }
 
-void Transformer::translate_features(Features& ft, const Point2f &by) {
+void Transformer::translate_features(Features &ft, const Point2f &by) {
 	translate_points(ft.chin_, by);
 	translate_points(ft.top_nose_, by);
 	translate_points(ft.bottom_nose_, by);
@@ -69,7 +70,7 @@ void Transformer::translate_features(Features& ft, const Point2f &by) {
 	translate_points(ft.inside_lips_, by);
 }
 
-void Transformer::scale_features(Features& ft, double coef) {
+void Transformer::scale_features(Features &ft, double coef) {
 	scale_points(ft.chin_, coef);
 	scale_points(ft.top_nose_, coef);
 	scale_points(ft.bottom_nose_, coef);
@@ -81,7 +82,7 @@ void Transformer::scale_features(Features& ft, double coef) {
 	scale_points(ft.inside_lips_, coef);
 }
 
-void Transformer::rotate_features(Features& ft, const cv::Point2f &center, const double &angDeg) {
+void Transformer::rotate_features(Features &ft, const cv::Point2f &center, const double &angDeg) {
 	rotate_points(ft.chin_, center, angDeg);
 	rotate_points(ft.top_nose_, center, angDeg);
 	rotate_points(ft.bottom_nose_, center, angDeg);
@@ -123,14 +124,16 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 		ychange = +1;
 //	cerr << "current morph dist: " << mdCurrent << endl;
 	off_t xProgress = 1;
+	off_t yProgress = 1;
 
-	if (xchange != 0) {
+	if (xchange != 0 && ychange != 0) {
 		double lastMorphDist = mdCurrent;
 		double morphDist = 0;
 		vector<Point2f> tmp = srcPointsFlann2;
 		do {
 			for (auto &pt : tmp) {
-				pt.x += (xchange * xProgress);
+				pt.x += xchange;
+				pt.y += ychange;
 			}
 			morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
 //			cerr << "morph dist x: " << morphDist << endl;
@@ -138,24 +141,42 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 				break;
 			mdCurrent = lastMorphDist = morphDist;
 			++xProgress;
-		} while (true);
-	}
-	off_t yProgress = 1;
-	if (ychange != 0) {
-		double lastMorphDist = mdCurrent;
-		double morphDist = 0;
-		vector<Point2f> tmp = srcPointsFlann2;
-		do {
-			for (auto &pt : tmp) {
-				pt.y += (ychange * yProgress);
-			}
-			morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
-//			cerr << "morph dist y: " << morphDist << endl;
-			if (morphDist > lastMorphDist)
-				break;
-			mdCurrent = lastMorphDist = morphDist;
 			++yProgress;
 		} while (true);
+	} else {
+		if (xchange != 0) {
+			double lastMorphDist = mdCurrent;
+			double morphDist = 0;
+			vector<Point2f> tmp = srcPointsFlann2;
+			do {
+				for (auto &pt : tmp) {
+					pt.x += xchange;
+				}
+				morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+//			cerr << "morph dist x: " << morphDist << endl;
+				if (morphDist > lastMorphDist)
+					break;
+				mdCurrent = lastMorphDist = morphDist;
+				++xProgress;
+			} while (true);
+		}
+
+		if (ychange != 0) {
+			double lastMorphDist = mdCurrent;
+			double morphDist = 0;
+			vector<Point2f> tmp = srcPointsFlann2;
+			do {
+				for (auto &pt : tmp) {
+					pt.y += ychange;
+				}
+				morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+//			cerr << "morph dist y: " << morphDist << endl;
+				if (morphDist > lastMorphDist)
+					break;
+				mdCurrent = lastMorphDist = morphDist;
+				++yProgress;
+			} while (true);
+		}
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
 //	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
@@ -180,17 +201,19 @@ double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> 
 	Point2f center = average(srcPointsFlann2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
-	for(size_t i = 0; i < 3600; ++i) {
+
+	for (size_t i = 0; i < 3600; ++i) {
 		tmp = srcPointsFlann2;
 		rotate_points(tmp, center, i / 10.0);
-		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
-		if(morphDist < lowestDist) {
+		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_); //+ (pow(i / 3600.0, 2) * 3600);
+		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
 			selectedAngle = i / 10.0;
 		}
 	}
-//	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
+
 	rotate(corrected2, corrected2, center, -selectedAngle);
+//	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPointsFlann2, center, selectedAngle);
 	rotate_points(srcPointsRaw2, center, selectedAngle);

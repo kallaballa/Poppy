@@ -56,14 +56,6 @@ void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<
 		contourLayers.push_back(layer);
 	}
 
-	off_t kx = ceil(map.cols / 100.0);
-	off_t ky = ceil(map.rows / 100.0);
-	if (kx % 2 != 1)
-		kx -= 1;
-
-	if (ky % 2 != 1)
-		ky -= 1;
-	GaussianBlur(map, dst, Size(kx, ky), kx / 3.0);
 	dst = map.clone();
 }
 

@@ -25,8 +25,9 @@ double easeInOutSine(double x) {
 	return -(cos(M_PI * x) - 1.0) / 2.0;
 }
 
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc, bool enableWait) {
 	Settings::instance().show_gui = showGui;
+	Settings::instance().enable_wait = enableWait;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().frame_rate = frameRate;
 	Settings::instance().match_tolerance = matchTolerance;
@@ -122,16 +123,18 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		if (!lastMorphedPoints.empty())
 			srcPoints1 = lastMorphedPoints;
 		morphedPoints.clear();
+		linear = j * step;
 
-		if(phase != -1) {
-			linear = (Settings::instance().number_of_frames - 1) * step;
-		} else {
-			linear = j * step;
+		if(Settings::instance().number_of_frames == 1) {
+			phase = 0.5;
 		}
-		if(linear > 1.0)
-			linear = 1.0;
+
+		if(phase == 1) {
+			linear = (Settings::instance().number_of_frames - 1) * step;
+		}
 
 		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
+
 		shape = ease(progress);
 		if(phase != -1) {
 			shape *= phase;
