@@ -317,7 +317,7 @@ void Extractor::reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1
 
 void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	cerr << "extract foreground..." << endl;
-	Mat reduced1, reduced2;
+//	Mat reduced1, reduced2;
 //	reduceBackground(img1_.clone(), img2_.clone(), reduced1, reduced2);
 //	poppy::show_image("r1", reduced1);
 //	poppy::show_image("r2", reduced2);
