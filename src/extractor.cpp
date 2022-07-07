@@ -249,6 +249,15 @@ void Extractor::reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1
 		finalMask2Float = 1.0 - finalMask2Float;
 	}
 
+
+	if(countNonZero(finalMask1Float) == 0) {
+		finalMask1Float = Scalar::all(1);
+	}
+
+	if(countNonZero(finalMask2Float) == 0) {
+		finalMask2Float = Scalar::all(1);
+	}
+
 	show_image("fin1",finalMask1Float);
 	show_image("fin2",finalMask2Float);
 
@@ -309,17 +318,17 @@ void Extractor::reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1
 void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	cerr << "extract foreground..." << endl;
 	Mat reduced1, reduced2;
-	reduceBackground(img1_.clone(), img2_.clone(), reduced1, reduced2);
-	poppy::show_image("r1", reduced1);
-	poppy::show_image("r2", reduced2);
+//	reduceBackground(img1_.clone(), img2_.clone(), reduced1, reduced2);
+//	poppy::show_image("r1", reduced1);
+//	poppy::show_image("r2", reduced2);
 
 	Mat canny1, canny2;
 	Mat grey1, grey2;
 	Mat fgMask1;
 	Mat fgMask2;
 
-	cvtColor(reduced1, grey1, COLOR_BGR2GRAY);
-	cvtColor(reduced2, grey2, COLOR_BGR2GRAY);
+	cvtColor(img1_, grey1, COLOR_BGR2GRAY);
+	cvtColor(img2_, grey2, COLOR_BGR2GRAY);
 
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);

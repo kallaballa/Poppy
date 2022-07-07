@@ -75,6 +75,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	auto goodFeatures = extractor.prepareFeatures();
 	Matcher matcher(img1, img2, ft1, ft2);
 	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
+	wait_key();
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -147,8 +148,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
 		show_image("morphed", morphed);
-		if(phase != -1)
-			wait_key();
+		wait_key();
 
 	#ifndef _WASM
 		if (Settings::instance().show_gui) {

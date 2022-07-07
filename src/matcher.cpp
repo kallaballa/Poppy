@@ -231,7 +231,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 				break;
 			limit *= limitCoef;
 		}
-		thresh = ((distanceMap.size() * 4) / density) * (mean / 24.0) * Settings::instance().match_tolerance;
+		thresh = ((distanceMap.size() * 3) / density) * (mean / 24.0) * Settings::instance().match_tolerance;
 //		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
 
 	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
