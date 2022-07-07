@@ -274,8 +274,8 @@ double morph_images(const Mat &img1, const Mat &img2, Mat &contourMap1, Mat &con
 	triple_channel(unsharp2, triple2);
 	unsharp1 = unsharp_mask(triple1, 0.8, 12.0, 0);
 	unsharp2 = unsharp_mask(triple2, 0.8, 12.0, 0);
-	unsharp1 *= 0.1;
-	unsharp2 *= 0.1;
+	unsharp1 *= 0.05;
+	unsharp2 *= 0.05;
 	show_image("us1", unsharp1);
 	show_image("us2", unsharp2);
 

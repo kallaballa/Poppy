@@ -18,6 +18,8 @@ private:
 	Mat grey2_;
 	Mat goodFeatures1_;
 	Mat goodFeatures2_;
+	Mat contourMap1_;
+	Mat contourMap2_;
 public:
 	Extractor(const Mat& img1, const Mat& img2);
 	virtual ~Extractor();
@@ -26,6 +28,7 @@ public:
 	pair<vector<Point2f>, vector<Point2f>> keypointsFlann();
 	void contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2);
 	void foregroundMask(const Mat &grey, Mat &fgMask, const size_t& iterations = 12);
+	void reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1, Mat& reduced2);
 	void foreground(Mat &foreground1, Mat &foreground2);
 };
 

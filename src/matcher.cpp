@@ -37,40 +37,34 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 			double lastDist = numeric_limits<double>::max();
 			double dist = numeric_limits<double>::max();
-			double globalDist = numeric_limits<double>::max();
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			do {
-				do {
-					lastDist = dist;
-					lastCorrected2 = corrected2.clone();
-					lastContourMap2 = contourMap2.clone();
-					lastSrcPoints1 = srcPointsFlann1;
-					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-					if(dist >= lastDist)
-						break;
+				lastDist = dist;
+				lastCorrected2 = corrected2.clone();
+				lastContourMap2 = contourMap2.clone();
+				lastSrcPoints1 = srcPointsFlann1;
+				lastSrcPoints2 = srcPointsFlann2;
+				dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+			} while(dist < lastDist);
 
-					lastDist = dist;
-					lastCorrected2 = corrected2.clone();
-					lastContourMap2 = contourMap2.clone();
-					lastSrcPoints1 = srcPointsFlann1;
-					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-				} while(dist < lastDist);
+			lastDist = dist;
+			lastCorrected2 = corrected2.clone();
+			lastContourMap2 = contourMap2.clone();
+			lastSrcPoints1 = srcPointsFlann1;
+			lastSrcPoints2 = srcPointsFlann2;
+			dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 
-				cerr << "retransform dist: " << lastDist << endl;
+			cerr << "retransform dist: " << dist << endl;
+
+			if(dist > lastDist) {
 				corrected2 = lastCorrected2.clone();
 				contourMap2  = lastContourMap2.clone();
 				srcPointsFlann1 = lastSrcPoints1;
 				srcPointsFlann2 = lastSrcPoints2;
-				if(lastDist >= globalDist)
-					break;
+			}
 
-				globalDist = lastDist;
-			} while(true);
-			cerr << "final dist: " << globalDist << endl;
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
 		} else {

@@ -128,7 +128,6 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask, const size_t& itera
 
 void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
 	cerr << "extract contours..." << endl;
-
 	Mat grey1 = grey1_.clone();
 	Mat grey2 = grey2_.clone();
 	Mat blur1, blur2;
@@ -140,11 +139,6 @@ void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contou
 	equalizeHist(grey2, grey2);
 	GaussianBlur(grey1, blur1, {9,9}, 1);
 	GaussianBlur(grey2, blur2, {9,9}, 1);
-
-	Mat adjusted1;
-	Mat adjusted2;
-	adjust_contrast_and_brightness(grey1, adjusted1, 2, 1);
-	adjust_contrast_and_brightness(grey2, adjusted2, 2, 1);
 
 	double t1 = 0;
 	double t2 = 255;
@@ -199,7 +193,8 @@ void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contou
 
 	cerr << "draw map 2: " << numContours << endl;
 	draw_contour_map(cmap2, contourLayers2, collected2, hierarchy2, grey2.cols, grey2.rows, grey2.type());
-
+	contourMap1_ = cmap1.clone();
+	contourMap2_ = cmap2.clone();
 	contourMap1 = cmap1.clone();
 	contourMap2 = cmap2.clone();
 	show_image("cmap1", cmap1);
@@ -207,14 +202,125 @@ void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contou
 	assert(contourLayers1.size() == contourLayers2.size());
 }
 
+void Extractor::reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1, Mat& reduced2) {
+	Mat finalMask1Float, finalMask2Float;
+	{
+		Mat hue;
+		int bins = 6;
+		Mat hsv;
+		cvtColor(img1, hsv, COLOR_BGR2HSV);
+		hue.create(hsv.size(), hsv.depth());
+		int ch[] = { 0, 0 };
+		mixChannels(&hsv, 1, &hue, 1, ch, 1);
+		int histSize = MAX(bins, 2);
+		float hue_range[] = { 0, 180 };
+		const float *ranges[] = { hue_range };
+		Mat hist;
+		calcHist(&hue, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false);
+		normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat());
+		Mat backproj;
+		calcBackProject(&hue, 1, 0, hist, backproj, ranges, 1, true);
+		Mat filtered;
+		Mat filteredFloat;
+		inRange(backproj, { 254 }, { 255 }, filtered);
+		backproj.convertTo(finalMask1Float, CV_32F, 1 / 255.0);
+		finalMask1Float = 1.0 - finalMask1Float;
+	}
+	{
+		Mat hue;
+		int bins = 6;
+		Mat hsv;
+		cvtColor(img2, hsv, COLOR_BGR2HSV);
+		hue.create(hsv.size(), hsv.depth());
+		int ch[] = { 0, 0 };
+		mixChannels(&hsv, 1, &hue, 1, ch, 1);
+		int histSize = MAX(bins, 2);
+		float hue_range[] = { 0, 180 };
+		const float *ranges[] = { hue_range };
+		Mat hist;
+		calcHist(&hue, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false);
+		normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat());
+		Mat backproj;
+		calcBackProject(&hue, 1, 0, hist, backproj, ranges, 1, true);
+		Mat filtered;
+		Mat filteredFloat;
+		inRange(backproj, { 254 }, { 255 }, filtered);
+		backproj.convertTo(finalMask2Float, CV_32F, 1 / 255.0);
+		finalMask2Float = 1.0 - finalMask2Float;
+	}
+
+	show_image("fin1",finalMask1Float);
+	show_image("fin2",finalMask2Float);
+
+	Mat img1Float, img2Float;
+	img1.convertTo(img1Float, CV_32F, 1 / 255.0);
+	img2.convertTo(img2Float, CV_32F, 1 / 255.0);
+
+	Mat finalMask1FloatC3 = Mat::zeros(img1.rows, img1.cols, CV_32FC3);
+	Mat finalMask2FloatC3 = Mat::zeros(img2.rows, img2.cols, CV_32FC3);
+	Mat dilated1, dilated2;
+	dilate(finalMask1Float, dilated1, getStructuringElement(MORPH_ELLIPSE, Size(11, 11)));
+	dilate(finalMask2Float, dilated2, getStructuringElement(MORPH_ELLIPSE, Size(11, 11)));
+	GaussianBlur(dilated1, finalMask1Float, { 127, 127 }, 12);
+	GaussianBlur(dilated2, finalMask2Float, { 127, 127 }, 12);
+
+	vector<Mat> planes1, planes2;
+	for (int i = 0; i < 3; i++) {
+		planes1.push_back(finalMask1Float);
+		planes2.push_back(finalMask2Float);
+	}
+	merge(planes1, finalMask1FloatC3);
+	merge(planes2, finalMask2FloatC3);
+
+	Mat blurred1Float, blurred2Float;
+	Mat maskedBlur1Float, maskedBlur2Float;
+	Mat masked1Float, masked2Float;
+	Mat invFinalMask1 = Scalar(1.0, 1.0, 1.0) - finalMask1FloatC3;
+	Mat invFinalMask2 = Scalar(1.0, 1.0, 1.0) - finalMask2FloatC3;
+	Mat combined1, combined2;
+	GaussianBlur(img1Float, blurred1Float, { 63, 63 }, 5);
+	GaussianBlur(img2Float, blurred2Float, { 63, 63 }, 5);
+	multiply(blurred1Float, invFinalMask1, maskedBlur1Float);
+	multiply(blurred2Float, invFinalMask2, maskedBlur2Float);
+	multiply(img1Float, finalMask1FloatC3, masked1Float);
+	multiply(img2Float, finalMask2FloatC3, masked2Float);
+	add(masked1Float, maskedBlur1Float, combined1);
+	add(masked2Float, maskedBlur2Float, combined2);
+
+//	poppy::show_image("fmf1", finalMask1FloatC3);
+//	poppy::show_image("fmf2", finalMask2FloatC3);
+//	poppy::show_image("iv1", invFinalMask1);
+//	poppy::show_image("iv2", invFinalMask2);
+//	poppy::show_image("b1", blurred1Float);
+//	poppy::show_image("b2", blurred2Float);
+//	poppy::show_image("mb1", maskedBlur1Float);
+//	poppy::show_image("mb2", maskedBlur2Float);
+//	poppy::show_image("ig1", img1Float);
+//	poppy::show_image("ig2", img2Float);
+//	poppy::show_image("mf1", masked1Float);
+//	poppy::show_image("mf2", masked2Float);
+//	poppy::show_image("c1", combined1);
+//	poppy::show_image("c2", combined2);
+//	poppy::wait_key();
+	combined1.convertTo(reduced1, CV_8UC3, 255);
+	combined2.convertTo(reduced2, CV_8UC3, 255);
+}
+
 void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	cerr << "extract foreground..." << endl;
-	Mat grey1 = grey1_.clone();
-	Mat grey2 = grey2_.clone();
-	Mat canny1, canny2;
+	Mat reduced1, reduced2;
+	reduceBackground(img1_.clone(), img2_.clone(), reduced1, reduced2);
+	poppy::show_image("r1", reduced1);
+	poppy::show_image("r2", reduced2);
 
+	Mat canny1, canny2;
+	Mat grey1, grey2;
 	Mat fgMask1;
 	Mat fgMask2;
+
+	cvtColor(reduced1, grey1, COLOR_BGR2GRAY);
+	cvtColor(reduced2, grey2, COLOR_BGR2GRAY);
+
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);
 	foregroundMask(grey2, fgMask2);
@@ -234,11 +340,6 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	fgMask1.convertTo(fgMask1Float, CV_32F, 1.0 / 255.0);
 	fgMask2.convertTo(fgMask2Float, CV_32F, 1.0 / 255.0);
 
-	grey1.release();
-	grey2.release();
-	fgMask1.release();
-	fgMask2.release();
-
 	//multiply the fg mask with the radial mask to emphasize features in the center of the image
 	Mat finalMask1Float, finalMask2Float;
 	if (Settings::instance().enable_radial_mask) {
@@ -249,38 +350,25 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 		fgMask2Float.copyTo(finalMask2Float);
 	}
 
-	radialMaskFloat.release();
-	fgMask1Float.release();
-	fgMask2Float.release();
-
-	show_image("mask1", finalMask1Float);
-	show_image("mask2", finalMask2Float);
-
+	//binarize the mask
 	Mat masked1, masked2;
-	Mat blurred1Float, blurredMask1Float, maskedSharp1Float;
+	Mat finalMask1, finalMask2;
 
-	GaussianBlur(grey1Float, blurred1Float, Size(23, 23), 3);
-	GaussianBlur(finalMask1Float, blurredMask1Float, Size(23, 23), 3);
-	maskedSharp1Float = blurred1Float / blurredMask1Float;
-	addWeighted(grey1Float, 1.1, maskedSharp1Float, -0.1, 0, masked1);
-	blurred1Float.release();
-	blurredMask1Float.release();
-	maskedSharp1Float.release();
-	grey1Float.release();
-	fgMask1Float.release();
-	finalMask1Float.release();
+	finalMask1Float.convertTo(finalMask1, CV_8U, 255.0);
+	finalMask2Float.convertTo(finalMask2, CV_8U, 255.0);
+	equalizeHist(finalMask1, finalMask1);
+	equalizeHist(finalMask2, finalMask2);
+	finalMask1.convertTo(finalMask1Float, CV_32F, 1.0/255.0);
+	finalMask2.convertTo(finalMask2Float, CV_32F, 1.0/255.0);
 
-	Mat blurred2Float, blurredMask2Float, maskedBlur2Float;
-	GaussianBlur(grey2Float, blurred2Float, Size(23, 23), 3);
-	GaussianBlur(finalMask2Float, blurredMask2Float, Size(23, 23), 3);
-	maskedBlur2Float = blurred2Float / blurredMask2Float;
-	addWeighted(grey2Float, 1.1, maskedBlur2Float, -0.1, 0, masked2);
-	grey2Float.release();
-	fgMask2Float.release();
-	blurred2Float.release();
-	blurredMask2Float.release();
-	maskedBlur2Float.release();
-	finalMask2Float.release();
+    dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
+	dilate( finalMask2Float, finalMask2Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
+	GaussianBlur(finalMask1Float, finalMask1Float, {11,11}, 5);
+	GaussianBlur(finalMask2Float, finalMask2Float, {11,11}, 5);
+	show_image("mk1", finalMask1Float);
+	show_image("mk2", finalMask2Float);
+	multiply(grey1Float, finalMask1Float, masked1);
+	multiply(grey2Float, finalMask2Float, masked2);
 
 	//convert back to 8-bit grey scale
 	masked1.convertTo(masked1, CV_8U, 255.0);
