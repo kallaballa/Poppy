@@ -24,7 +24,7 @@ public:
 		img1_(img1), img2_(img2), ft1_(ft1), ft2_(ft2), rd(), g(rd()) {
 	}
 	virtual ~Matcher();
-	void find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2);
+	void find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 	void match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 	void prepare(const Mat &corrected1, const Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 };

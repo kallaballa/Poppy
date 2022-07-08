@@ -175,7 +175,7 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, const Mat &corrected2, Mat &contourMap1, Mat &contourMap2, Mat &goodFeatures1, Mat &goodFeatures2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio, double linear) {
+double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, const Mat &corrected2, const Mat& gabor2, Mat &goodFeatures1, Mat &goodFeatures2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio, double linear) {
 	Size SourceImgSize(corrected1.cols, corrected1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
@@ -242,14 +242,6 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
 	trImg2.convertTo(r, CV_32F, 1.0 / 255.0);
 	Mat m2;
-
-	Mat img2Float;
-	corrected2.convertTo(img2Float, CV_32F, 1.0 / 255);
-
-	Mat gabor2;
-	gabor_filter(img2Float, gabor2);
-	show_image("gabor2", gabor2);
-
 	cvtColor(gabor2, m2, COLOR_BGR2GRAY);
 	m2 = 1.0 - m2;
 	show_image("m2", m2);

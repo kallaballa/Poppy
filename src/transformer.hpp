@@ -26,8 +26,8 @@ public:
 	void translate_features(Features& ft, const Point2f &by);
 	void scale_features(Features& ft, double coef);
 	void rotate_features(Features& ft, const cv::Point2f &center, const double &angDeg);
-	double retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
-	double rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
+	double retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
+	double rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
 };
 
 } /* namespace poppy */

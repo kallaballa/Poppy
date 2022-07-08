@@ -10,7 +10,7 @@ namespace poppy {
 Matcher::~Matcher(){
 }
 
-void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, Mat &contourMap1, Mat &contourMap2) {
+void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	Extractor extractor(img1_, img2_);
 	extractor.prepareFeatures();
 	Transformer trafo(img2_.cols, img2_.rows);
@@ -18,9 +18,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	if (ft1_.empty() || ft2_.empty()) {
 		cerr << "general algorithm..." << endl;
 
-		vector<Mat> contourLayers1;
-		vector<Mat> contourLayers2;
-		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
+//		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
@@ -43,24 +41,21 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			do {
 				lastDist = dist;
 				lastCorrected2 = corrected2.clone();
-				lastContourMap2 = contourMap2.clone();
 				lastSrcPoints1 = srcPointsFlann1;
 				lastSrcPoints2 = srcPointsFlann2;
-				dist = trafo.retranslate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+				dist = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 			} while(dist < lastDist);
 
 			lastDist = dist;
 			lastCorrected2 = corrected2.clone();
-			lastContourMap2 = contourMap2.clone();
 			lastSrcPoints1 = srcPointsFlann1;
 			lastSrcPoints2 = srcPointsFlann2;
-			dist = trafo.rerotate(corrected2, contourMap2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+			dist = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 
 			cerr << "retransform dist: " << dist << endl;
 
 			if(dist > lastDist) {
 				corrected2 = lastCorrected2.clone();
-				contourMap2  = lastContourMap2.clone();
 				srcPointsFlann1 = lastSrcPoints1;
 				srcPointsFlann2 = lastSrcPoints2;
 			}
@@ -75,9 +70,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
-		vector<Mat> contourLayers1;
-		vector<Mat> contourLayers2;
-		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
+//		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -86,10 +79,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double w2 = fabs(ft2_.right_eye_[0].x - ft2_.left_eye_[0].x);
 			double scale = w1 / w2;
 			Mat scaledCorr2;
-			Mat scaledCM2;
 
 			resize(img2_, scaledCorr2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
-			resize(contourMap2, scaledCM2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
 
 			Point2f eyeVec1 = ft1_.right_eye_[0] - ft1_.left_eye_[0];
 			Point2f eyeVec2 = ft2_.right_eye_[0] - ft2_.left_eye_[0];
@@ -101,9 +92,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double dx = center1.x - center2.x;
 
 			Mat translatedCorr2;
-			Mat translatedCM2;
 			trafo.translate(scaledCorr2, translatedCorr2, {float(dx), float(dy)});
-			trafo.translate(scaledCM2, translatedCM2, {float(dx), float(dy)});
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
@@ -111,22 +100,17 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			angle2 = angle2 < 0 ? angle2 + 360 : angle2;
 			double targetAng = angle2 - angle1;
 			Mat rotatedCorr2;
-			Mat rotatedCM2;
 
 			trafo.rotate(translatedCorr2, rotatedCorr2, center2, targetAng);
-			trafo.rotate(translatedCM2, rotatedCM2, center2, targetAng);
 
 			corrected2 = img2_.clone();
 			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
 			double dh = fabs(rotatedCorr2.rows - corrected2.rows);
 			corrected2 = Scalar::all(0);
-			contourMap2 = Scalar::all(0);
 			if(rotatedCorr2.cols > corrected2.cols) {
 				rotatedCorr2(Rect(dw / 2, dh / 2, corrected2.cols, corrected2.rows)).copyTo(corrected2);
-				rotatedCM2(Rect(dw / 2,  dh / 2, corrected2.cols, corrected2.rows)).copyTo(contourMap2);
 			} else {
 				rotatedCorr2.copyTo(corrected2(Rect(dw / 2, dh / 2, rotatedCorr2.cols, rotatedCorr2.rows)));
-				rotatedCM2.copyTo(contourMap2(Rect(dw / 2,  dh / 2, rotatedCM2.cols, rotatedCM2.rows)));
 			}
 			corrected1 = img1_.clone();
 			srcPoints1 = ft1_.getAllPoints();

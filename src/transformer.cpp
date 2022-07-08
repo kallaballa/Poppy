@@ -94,7 +94,7 @@ void Transformer::rotate_features(Features &ft, const cv::Point2f &center, const
 	rotate_points(ft.inside_lips_, center, angDeg);
 }
 
-double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
 	vector<Point2f> left;
 	vector<Point2f> right;
 	vector<Point2f> top;
@@ -181,7 +181,6 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
 //	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation);
-	translate(contourMap2, contourMap2, retranslation);
 	for (auto &pt : srcPointsFlann2) {
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
@@ -195,7 +194,7 @@ double Transformer::retranslate(Mat &corrected2, Mat &contourMap2, vector<Point2
 	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
 }
 
-double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
 	Point2f center = average(srcPointsFlann2);
@@ -214,7 +213,6 @@ double Transformer::rerotate(Mat &corrected2, Mat &contourMap2, vector<Point2f> 
 
 	rotate(corrected2, corrected2, center, -selectedAngle);
 //	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
-	rotate(contourMap2, contourMap2, center, -selectedAngle);
 	rotate_points(srcPointsFlann2, center, selectedAngle);
 	rotate_points(srcPointsRaw2, center, selectedAngle);
 

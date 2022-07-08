@@ -48,7 +48,6 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	bool savedefd = Settings::instance().enable_face_detection;
 	Mat morphed;
 	Mat corrected1, corrected2;
-	Mat contourMap1, contourMap2;
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 	Features ft1;
 	Features ft2;
@@ -75,8 +74,12 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	Extractor extractor(img1, img2);
 	auto goodFeatures = extractor.prepareFeatures();
 	Matcher matcher(img1, img2, ft1, ft2);
-	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2, contourMap1, contourMap2);
-	wait_key();
+	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2);
+	Mat corr2Float;
+	corrected2.convertTo(corr2Float, CV_32F, 1.0 / 255);
+	Mat gabor2;
+	gabor_filter(corr2Float, gabor2);
+	show_image("gabor2", gabor2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting dups." << endl;
@@ -149,8 +152,8 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		if(color > 1)
 			color = 1;
 
-		cerr << shape << " | " << color << endl;
-		morph_images(img1, img2, corrected1, corrected2, contourMap1, contourMap2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
+//		cerr << shape << " | " << color << endl;
+		morph_images(img1, img2, corrected1, corrected2, gabor2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
 		corrected1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
