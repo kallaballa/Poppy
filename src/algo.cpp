@@ -241,13 +241,18 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 	Mat_<Vec3f> r;
 	trImg1.convertTo(l, CV_32F, 1.0 / 255.0);
 	trImg2.convertTo(r, CV_32F, 1.0 / 255.0);
+
 	Mat m2;
 	cvtColor(gabor2, m2, COLOR_BGR2GRAY);
 	m2 = 1.0 - m2;
 	show_image("m2", m2);
+
 	Mat ones = Mat::ones(m2.size(), m2.type());
 	Mat lbmask = (ones * (1.0 - maskRatio)) - (m2 * maskRatio);
+	lbmask.setTo(0.0, lbmask < 0);
+	lbmask.setTo(1.0, lbmask > 1);
 	show_image("lbmask2", lbmask);
+
 	LaplacianBlending lb(l, r, lbmask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
 	lapBlend.convertTo(dst, corrected1.depth(), 255.0);
@@ -257,7 +262,7 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	show_image("mesh", analysis);
-//	wait_key();
+	wait_key();
 	return 0;
 }
 }

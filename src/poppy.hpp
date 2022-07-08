@@ -142,12 +142,13 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		else
 			progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 
-		shape = log(ease(progress) * 2.0 + 1.0) / log(3.0);
+		shape = ease(ease(progress));
+//		shape = log(ease(progress) * 2.0 + 1.0) / log(3.0);
 
 		if(shape > 1)
 			shape = 1;
-
-		color = log(ease(progress) * 2.0 + 1.0) / log(3.0);
+		color = shape;
+//		color = log(ease(progress) * 2.0 + 1.0) / log(3.0);
 
 		if(color > 1)
 			color = 1;

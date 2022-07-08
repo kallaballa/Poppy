@@ -87,19 +87,6 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
     return one_channel;
 }
 
-inline uchar reduceVal(const uchar val, int div) {
-    if (val < 255.0 - (255.0 / div)) return uchar(val / div + 0.5) * div;
-    return 255;
-}
-
-void color_reduce(cv::Mat& image, int div) {
-    for (int y = 0; y < image.rows; y++) {
-        for (int x = 0; x < image.cols; x++) {
-        	image.at<float>(y * image.cols + x) = reduceVal(image.at<float>(y * image.cols + x) * 255, div) / 255.0;
-        }
-    }
-}
-
 double feature_metric(const Mat &grey1) {
 	Mat corners;
 	cornerHarris(grey1, corners, 2, 3, 0.04);
@@ -109,8 +96,7 @@ double feature_metric(const Mat &grey1) {
 	return stddev[0];
 }
 
-pair<double, Point2f> get_orientation(const vector<Point2f> &pts)
-		{
+pair<double, Point2f> get_orientation(const vector<Point2f> &pts) {
 	//Construct a buffer used by the pca analysis
 	int sz = static_cast<int>(pts.size());
 	Mat data_pts = Mat(sz, 2, CV_64F);
@@ -237,6 +223,7 @@ std::vector<std::vector<Point>> convertContourFrom2f(const std::vector<std::vect
 	}
 	return tmp;
 }
+
 void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	assert(hull.size() > 1);
 	off_t diff = minPoints - hull.size();
