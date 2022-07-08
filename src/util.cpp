@@ -11,6 +11,32 @@ using namespace std;
 using namespace cv;
 
 namespace poppy {
+
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles) {
+	int kernel_size = 9;
+    double sig = 5, lm = 10, gm = 0.04, ps = CV_PI/4;
+    vector<double> theta(numAngles);
+
+    float step = (180 / numAngles);
+    for (int i = 0; i< numAngles; i++) {
+        theta[i] = i * step;
+    }
+
+    dst = Mat::zeros(src.size(), src.type());
+
+    for (int i = 0; i<numAngles; i++)
+    {
+        Mat plane;
+        Mat kernel = cv::getGaborKernel(cv::Size(kernel_size,kernel_size), sig, theta[i], lm, gm, ps, CV_32F);
+        filter2D(src, plane, CV_32F, kernel);
+        plane.setTo(1.0, plane > 1.0);
+        plane.setTo(0.0, plane < 0.0);
+        dst += plane;
+    }
+
+    dst /= (numAngles);
+}
+
 void triple_channel(const Mat &src, Mat &dst) {
 	vector<Mat> planes;
 	for (int i = 0; i < 3; i++) {
@@ -22,8 +48,7 @@ void triple_channel(const Mat &src, Mat &dst) {
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold)
 {
     // work using floating point images to avoid overflows
-    cv::Mat input;
-    original.convertTo(input, CV_32FC3);
+    cv::Mat input = original;
 
     // copy original for our return value
     Mat retbuf = input.clone();
@@ -160,7 +185,7 @@ void normalize(const Mat &src, Mat &dst) {
 	}
 }
 
-void adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contrast, double lowcut) {
+void auto_adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contrast) {
 	dst = src.clone();
 	int minV = numeric_limits<int>::max();
 	int maxV = numeric_limits<int>::min();

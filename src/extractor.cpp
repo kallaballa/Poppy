@@ -384,8 +384,8 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	masked2.convertTo(masked2, CV_8U, 255.0);
 
 	//adjust contrast and brightness
-	adjust_contrast_and_brightness(masked1, foreground1, 2, 5);
-	adjust_contrast_and_brightness(masked2, foreground2, 2, 5);
+	auto_adjust_contrast_and_brightness(masked1, foreground1, 2);
+	auto_adjust_contrast_and_brightness(masked2, foreground2, 2);
 	masked1.release();
 	masked2.release();
 

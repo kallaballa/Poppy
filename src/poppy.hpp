@@ -93,11 +93,13 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		}
 		return;
 	}
+
 	if(!Settings::instance().enable_face_detection) {
 		matcher.prepare(corrected1, corrected2, srcPoints1, srcPoints2);
 	} else {
 		add_corners(srcPoints1, srcPoints2, img1.size);
 	}
+
 	if(distance) {
 		vector<Point2f> uniq1;
 		clip_points(srcPoints1, img1.cols, img1.rows);
@@ -115,7 +117,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		exit(0);
 	}
 
-	float step = 1.0 / (Settings::instance().number_of_frames + 1);
+	float step = 1.0 / (Settings::instance().number_of_frames);
 	double linear = 0;
 	double shape = 0;
 	double progress = 0;
@@ -127,38 +129,28 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		morphedPoints.clear();
 		linear = j * step;
 
-		if(Settings::instance().number_of_frames == 1) {
-			phase = 0.5;
-		}
+//		if(Settings::instance().number_of_frames == 1)
+//			phase = 0.5;
 
-		if(phase == 1) {
-			linear = (Settings::instance().number_of_frames - 1) * step;
-		}
+		if(phase >= 1.0)
+			progress = 1;
+		else if(phase < 1.0 && phase >= 0)
+			progress = phase;
+		else
+			progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 
-		progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
+		shape = log(ease(progress) * 2.0 + 1.0) / log(3.0);
 
-		shape = log(progress * 3.0 + 1.0) / log(3.0);
-		if(phase != -1) {
-			shape *= phase;
-			Settings::instance().number_of_frames = 1;
-		}
 		if(shape > 1)
 			shape = 1;
 
-		color = log(ease(progress) * 3.0 + 1.0) / log(3.0);
+		color = log(ease(progress) * 2.0 + 1.0) / log(3.0);
+
 		if(color > 1)
 			color = 1;
-//		if(color - 0.1 > shape)
-//			color = shape + 0.1;
-//
-//		if(shape > 0.3)
-//			color = shape - 0.05;
-//
-//		if(color > 0.125)
-//				color = 0.125;
-		cerr << shape << " | " << color << endl;
 
-		morph_images(corrected1, corrected2, contourMap1, contourMap2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+		cerr << shape << " | " << color << endl;
+		morph_images(img1, img2, corrected1, corrected2, contourMap1, contourMap2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
 		corrected1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;
 		output.write(morphed);
@@ -176,6 +168,8 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 			}
 		}
 
+		if(phase >= 0)
+			break;
 #endif
 		std::cerr << int((j / double(Settings::instance().number_of_frames - 1)) * 100.0) << "%";
 #ifdef _WASM

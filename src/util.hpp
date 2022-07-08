@@ -88,6 +88,7 @@ struct LessPointOp {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
 	}
 };
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16);
 void triple_channel(const Mat& src, Mat& dst);
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold);
 double feature_metric(const Mat &grey1);
@@ -95,7 +96,7 @@ pair<double, Point2f> get_orientation(const vector<Point2f> &pts);
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, pair<Point2f, Point2f>> distanceMap);
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
 void normalize(const Mat &src, Mat &dst);
-void adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double contrast, double lowcut);
+void auto_adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double contrast);
 std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
 std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
