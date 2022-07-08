@@ -18,14 +18,13 @@ void gabor_filter(const Mat& src, Mat& dst, size_t numAngles) {
     vector<double> theta(numAngles);
 
     float step = (180 / numAngles);
-    for (int i = 0; i< numAngles; i++) {
+    for (size_t i = 0; i< numAngles; i++) {
         theta[i] = i * step;
     }
 
     dst = Mat::zeros(src.size(), src.type());
 
-    for (int i = 0; i<numAngles; i++)
-    {
+    for (size_t i = 0; i<numAngles; i++) {
         Mat plane;
         Mat kernel = cv::getGaborKernel(cv::Size(kernel_size,kernel_size), sig, theta[i], lm, gm, ps, CV_32F);
         filter2D(src, plane, CV_32F, kernel);
