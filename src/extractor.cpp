@@ -322,7 +322,6 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 //	poppy::show_image("r1", reduced1);
 //	poppy::show_image("r2", reduced2);
 
-	Mat canny1, canny2;
 	Mat grey1, grey2;
 	Mat fgMask1;
 	Mat fgMask2;

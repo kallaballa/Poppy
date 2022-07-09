@@ -173,11 +173,11 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double total = get<0>(distribution);
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
-	double density = total/hypot(img1_.cols, img1_.rows);
+	double density = total/(img1_.cols * img1_.rows);
 
-	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " mean: " << mean << " deviation: " << deviation << endl;
+	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
 	if(mean == 0) {
-		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
+		for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
@@ -187,39 +187,30 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 
 		return;
 	}
-	double value = 0;
-	double limit = (mean / hypot(img1_.cols, img1_.rows)) * 1000;
-	double limitCoef = 0.9;
-	double thresh = 0;
-	do {
-		srcPoints1.clear();
-		srcPoints2.clear();
-		for (auto it = distanceMap.rbegin(); it != distanceMap.rend(); ++it) {
-			value = (*it).first;
 
-			if ((value > 0 && value < limit)) {
-				srcPoints1.push_back((*it).second.first);
-				srcPoints2.push_back((*it).second.second);
-			}
-		}
-		assert(srcPoints1.size() == srcPoints2.size());
-		check_points(srcPoints1, img1_.cols, img1_.rows);
-		check_points(srcPoints2, img1_.cols, img1_.rows);
-		if(srcPoints1.empty()) {
-			limit /= limitCoef;
-			limitCoef += (1.0 - limitCoef) / 128.0;
-			if(limitCoef > 0.999)
-				limitCoef = 0;
-		} else {
-			if(limitCoef == 0)
-				break;
-			limit *= limitCoef;
-		}
-		thresh = (distanceMap.size() * 4 / density) * (mean / 24.0) * Settings::instance().match_tolerance;
-//		cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
+	double thresh = 0.010 * (distanceMap.size() / density)
+			* (mean / deviation)
+		    * (Settings::instance().match_tolerance);
 
-	} while ( limitCoef != 1 && ( srcPoints1.empty() || srcPoints1.size() > thresh));
-	cerr << "limit: " << limit << " coef: " << limitCoef << " points:" << srcPoints1.size() << " target: " << thresh << endl;
+	srcPoints1.clear();
+	srcPoints2.clear();
+
+	auto it = distanceMap.begin();
+	for (size_t i = 0; i < thresh; ++i) {
+		srcPoints1.push_back((*it).second.first);
+		srcPoints2.push_back((*it).second.second);
+		advance(it, 1);
+		if(it == distanceMap.end())
+			break;
+	}
+
+	if(srcPoints1.empty()) {
+		srcPoints1.push_back((*distanceMap.begin()).second.first);
+		srcPoints2.push_back((*distanceMap.begin()).second.second);
+	}
+	assert(srcPoints1.size() == srcPoints2.size());
+	check_points(srcPoints1, img1_.cols, img1_.rows);
+	check_points(srcPoints2, img1_.cols, img1_.rows);
 
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());

@@ -6,7 +6,8 @@ LOW=`mktemp --suffix=.mp4`
 mkdir -p ../videos/
 rm -f ../videos/*mkv
 
-OPTS="-f60 $@"
+OPTS="$@"
+
 ../src/poppy -e $OPTS -o ../videos/faces.mkv some1.png some2.png some3.png
 mencoder -vf scale=250:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/faces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/faces.gif

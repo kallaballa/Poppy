@@ -175,21 +175,21 @@ void create_map(const Mat &triangleMap, const vector<Mat> &homMatrices, Mat &map
 	}
 }
 
-double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, const Mat &corrected2, const Mat& gabor2, Mat &goodFeatures1, Mat &goodFeatures2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio, double linear) {
-	Size SourceImgSize(corrected1.cols, corrected1.rows);
+double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, const Mat &corrected2, const Mat& gabor2, Mat &goodFeatures1, Mat &goodFeatures2, Mat &dst, const Mat &last, vector<Point2f> &morphedPoints, vector<Point2f> srcPoints1, vector<Point2f> srcPoints2, double shapeRatio, double maskRatio) {
+	Size SourceImgSize(img1.cols, img1.rows);
 	Subdiv2D subDiv1(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDiv2(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 	Subdiv2D subDivMorph(Rect(0, 0, SourceImgSize.width, SourceImgSize.height));
 
 	vector<Point2f> uniq1, uniq2, uniqMorph;
-	clip_points(srcPoints1, corrected1.cols, corrected1.rows);
-	check_points(srcPoints1, corrected1.cols, corrected1.rows);
+	clip_points(srcPoints1, img1.cols, img1.rows);
+	check_points(srcPoints1, img1.cols, img1.rows);
 	make_uniq(srcPoints1, uniq1);
 	check_uniq(uniq1);
 	subDiv1.insert(uniq1);
 
-	clip_points(srcPoints2, corrected2.cols, corrected2.rows);
-	check_points(srcPoints2, corrected2.cols, corrected2.rows);
+	clip_points(srcPoints2, img1.cols, img1.rows);
+	check_points(srcPoints2, img1.cols, img1.rows);
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
 	subDiv2.insert(uniq2);
@@ -197,8 +197,8 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());
 
-	clip_points(morphedPoints, corrected1.cols, corrected1.rows);
-	check_points(morphedPoints, corrected1.cols, corrected1.rows);
+	clip_points(morphedPoints, img1.cols, img1.rows);
+	check_points(morphedPoints, img1.cols, img1.rows);
 	make_uniq(morphedPoints, uniqMorph);
 	check_uniq(uniqMorph);
 	subDivMorph.insert(uniqMorph);
@@ -262,7 +262,6 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 		prev = dst.clone();
 	draw_morph_analysis(dst, prev, analysis, SourceImgSize, subDiv1, subDiv2, subDivMorph, { 0, 0, 255 });
 	show_image("mesh", analysis);
-	wait_key();
 	return 0;
 }
 }

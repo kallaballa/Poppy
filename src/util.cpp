@@ -243,12 +243,14 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const double& width, const double& height) {
+long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	double totalDistance = 0;
+	long double totalDistance = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		Point2f v = srcPoints2[i] - srcPoints1[i];
-		totalDistance += hypot(v.x, v.y);
+		long double x = v.x;
+		long double y = v.y;
+		totalDistance += hypot(x, y);
 	}
 	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
 }
