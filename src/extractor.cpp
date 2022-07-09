@@ -37,10 +37,18 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 		Settings::instance().max_keypoints = sqrt(goodFeatures1_.cols * goodFeatures1_.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	vector<KeyPoint> keypoints1, keypoints2;
+	Mat unsharp1, unsharp2;
+	Mat trip1, trip2;
+	triple_channel(goodFeatures1_, trip1);
+	triple_channel(goodFeatures2_, trip2);
+	unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.);
+	unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.);
+	show_image("ur1", unsharp1);
+	show_image("ur2", unsharp2);
 
 //	Mat descriptors1, descriptors2;
-	detector->detect(goodFeatures1_, keypoints1);
-	detector->detect(goodFeatures2_, keypoints2);
+	detector->detect(unsharp1, keypoints1);
+	detector->detect(unsharp2, keypoints2);
 
 //	detector->compute(grey1, keypoints1, descriptors1);
 //	detector->compute(grey2, keypoints2, descriptors2);
@@ -68,13 +76,21 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 		Settings::instance().max_keypoints = sqrt(grey1_.cols * grey1_.rows);
 	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	vector<KeyPoint> keypoints1, keypoints2;
+	Mat unsharp1, unsharp2;
+	Mat trip1, trip2;
+	triple_channel(goodFeatures1_, trip1);
+	triple_channel(goodFeatures2_, trip2);
+	unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.);
+	unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.);
+	show_image("uf1", unsharp1);
+	show_image("uf2", unsharp2);
 
 	Mat descriptors1, descriptors2;
-	detector->detect(goodFeatures1_, keypoints1);
-	detector->detect(goodFeatures2_, keypoints2);
+	detector->detect(unsharp1, keypoints1);
+	detector->detect(unsharp2, keypoints2);
 
-	detector->compute(goodFeatures1_, keypoints1, descriptors1);
-	detector->compute(goodFeatures2_, keypoints2, descriptors2);
+	detector->compute(unsharp1, keypoints1, descriptors1);
+	detector->compute(unsharp2, keypoints2, descriptors2);
 
 
 	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(6, 12, 1);
@@ -332,7 +348,6 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);
 	foregroundMask(grey2, fgMask2);
-
 	Mat radialMaskFloat;
 	if (Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
@@ -369,7 +384,7 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	finalMask1.convertTo(finalMask1Float, CV_32F, 1.0/255.0);
 	finalMask2.convertTo(finalMask2Float, CV_32F, 1.0/255.0);
 
-    dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
+	dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
 	dilate( finalMask2Float, finalMask2Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
 	GaussianBlur(finalMask1Float, finalMask1Float, {11,11}, 5);
 	GaussianBlur(finalMask2Float, finalMask2Float, {11,11}, 5);

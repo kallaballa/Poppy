@@ -47,10 +47,10 @@ void triple_channel(const Mat &src, Mat &dst) {
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold)
 {
     // work using floating point images to avoid overflows
-    cv::Mat input = original;
-
+    cv::Mat input;
+    original.convertTo(input, CV_32F, 1.0/255.0);
     // copy original for our return value
-    Mat retbuf = input.clone();
+    Mat retbuf = original.clone();
 
     // create the blurred copy
     Mat blurred;
@@ -76,7 +76,6 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
             Vec3f difference = unsharpMask.at<Vec3f>(row, col);
 
             if(cv::norm(difference) >= threshold) {
-//            	cerr << "hit" << endl;
                 retbuf.at<Vec3f>(row, col) = origColor + amount * difference;
             }
         }
