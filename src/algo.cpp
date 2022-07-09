@@ -52,8 +52,8 @@ void morph_points(vector<Point2f> &srcPts1, vector<Point2f> &srcPts2, vector<Poi
 	int numPts = srcPts1.size();
 	dstPts.resize(numPts);
 	for (int i = 0; i < numPts; i++) {
-		dstPts[i].x = round((1.0 - s) * srcPts1[i].x + s * srcPts2[i].x);
-		dstPts[i].y = round((1.0 - s) * srcPts1[i].y + s * srcPts2[i].y);
+		dstPts[i].x = ((1.0 - s) * srcPts1[i].x + s * srcPts2[i].x);
+		dstPts[i].y = ((1.0 - s) * srcPts1[i].y + s * srcPts2[i].y);
 	}
 }
 
@@ -193,6 +193,11 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
 	subDiv2.insert(uniq2);
+
+	if (uniq1.size() > uniq2.size())
+		uniq1.resize(uniq2.size());
+	else
+		uniq2.resize(uniq1.size());
 
 	morph_points(srcPoints1, srcPoints2, morphedPoints, shapeRatio);
 	assert(srcPoints1.size() == srcPoints2.size() && srcPoints2.size() == morphedPoints.size());

@@ -188,20 +188,30 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 		return;
 	}
 
-	double thresh = 0.010 * (distanceMap.size() / density)
-			* (mean / deviation)
-		    * (Settings::instance().match_tolerance);
+	double thresh =
+			((distanceMap.size() / density)
+			* pow(mean / deviation,2)
+			* (Settings::instance().match_tolerance)
+			) / (M_PI * 100);
 
 	srcPoints1.clear();
 	srcPoints2.clear();
+	double lastVal = 1.0;
+	bool first = true;
+	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
+		double value = (*it).first;
+		double r = (value/thresh);
 
-	auto it = distanceMap.begin();
-	for (size_t i = 0; i < thresh; ++i) {
-		srcPoints1.push_back((*it).second.first);
-		srcPoints2.push_back((*it).second.second);
-		advance(it, 1);
-		if(it == distanceMap.end())
-			break;
+		if(first && r > 1) {
+			first = false;
+			thresh *= value / lastVal;
+		}
+
+		if(r > 0 && r <= 1.0) {
+			srcPoints1.push_back((*it).second.first);
+			srcPoints2.push_back((*it).second.second);
+		}
+		lastVal = value;
 	}
 
 	if(srcPoints1.empty()) {

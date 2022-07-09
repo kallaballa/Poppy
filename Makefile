@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -std=c++17 -pthread -pedantic -Wall -fno-strict-aliasing
+CXXFLAGS := -std=c++20 -pthread -pedantic -Wall -fno-strict-aliasing
 LDFLAGS  := -L/opt/local/lib 
 LIBS     := -lm -lpthread
 .PHONY: all release debian-release info debug clean debian-clean distclean asan shrink
@@ -98,7 +98,7 @@ ifdef WASM
 hardcore: CXXFLAGS += -DNDEBUG -g0 -O3 -ffp-contract=fast -freciprocal-math -fno-signed-zeros --closure 1 
 hardcore: LDFLAGS += -s STACK_OVERFLOW_CHECK=0 -s ASSERTIONS=0 -s SAFE_HEAP=0 --closure 1 -menable-unsafe-fp-math
 else
-hardcore: CXXFLAGS += -DNDEBUG -g0 -Ofast
+hardcore: CXXFLAGS += -DNDEBUG -g0 -O3 # -Ofast is somehow slower with opencv
 endif
 #ifeq ($(UNAME_S), Darwin)
 hardcore: LDFLAGS += -s

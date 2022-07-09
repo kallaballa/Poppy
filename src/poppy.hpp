@@ -116,11 +116,24 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	make_uniq(srcPoints2, uniq2);
 	check_uniq(uniq2);
 
-	cerr << "inital morph distance: " << scientific << morph_distance(srcPoints1, srcPoints2, img1.cols, img1.rows) << fixed << endl;
+	if (uniq1.size() > uniq2.size())
+		uniq1.resize(uniq2.size());
+	else
+		uniq2.resize(uniq1.size());
+
+	long double md = morph_distance2(uniq1, uniq2, img1.cols, img1.rows);
+	cerr << "inital morph distance: " << scientific << md << fixed << endl;
 
 	if(distance) {
 		exit(0);
 	}
+
+//	if(md == 0.0) {
+//		cerr << "Zero morph distance. Inserting one frame..." << endl;
+//		output.write(img2);
+//		Settings::instance().enable_face_detection = savedefd;
+//		return;
+//	}
 
 	double linear = 0;
 	double shape = 0;
@@ -162,7 +175,9 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		if(color > 1)
 			color = 1;
 
-		cerr << linear << "\t| " << progress << "\t| " << shape << "\t| " << color << endl;
+//		cerr << "morph distance: " << scientific << morph_distance2(srcPoints1, srcPoints2, img1.cols, img1.rows) << fixed << endl;
+
+//		cerr << linear << "\t| " << progress << "\t| " << shape << "\t| " << color << endl;
 		morph_images(img1, img2, corrected1, corrected2, gabor2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
 
 		corrected1 = morphed.clone();
@@ -186,11 +201,11 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 			break;
 #endif
 		std::cerr << int((linear) * 100.0) << "%";
-//#ifdef _WASM
+#ifdef _WASM
 		std::cerr << std::endl;
-//#else
-//		std::cerr << '\r';
-//#endif
+#else
+		std::cerr << '\r';
+#endif
 	}
 	Settings::instance().enable_face_detection = savedefd;
 

@@ -255,6 +255,18 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
 }
 
+long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	long double totalDistance = 0;
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+		Point2f v = srcPoints2[i] - srcPoints1[i];
+		long double x = v.x;
+		long double y = v.y;
+		totalDistance += (pow(x,2) + pow(y,2));
+	}
+	return sqrt(totalDistance / srcPoints1.size());
+}
+
 void show_image(const string &name, const Mat &img) {
 #ifndef _WASM
 	if(Settings::instance().show_gui) {
