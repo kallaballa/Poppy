@@ -84,9 +84,11 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
     return retbuf;
 }
 
-double feature_metric(const Mat &grey1) {
+double feature_metric(const Mat &grey) {
 	Mat corners;
-	cornerHarris(grey1, corners, 2, 3, 0.04);
+	Mat unsharp = unsharp_mask(grey, 0.8, 12, 1.0);
+
+	cornerHarris(unsharp, corners, 4, 9, 0.04);
 	cv::Scalar mean, stddev;
 	cv::meanStdDev(corners, mean, stddev);
 
@@ -252,6 +254,7 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
 }
 
+//I have no idea why but this metric performs worse for auto alignmnt
 long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	long double totalDistance = 0;

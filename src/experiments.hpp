@@ -227,6 +227,8 @@ void fft_filter(Mat &scr, Mat &dst, Mat &H)
 	split(scr, planes_dft);
 
 	Mat planes_out[] = { Mat::zeros(scr.size(), CV_32F), Mat::zeros(scr.size(), CV_32F) };
+	cv::resize(planesH[0], planesH[0], planes_dft[0].size());
+	cv::resize(planesH[1], planesH[1], planes_dft[1].size());
 	planes_out[0] = planesH[0].mul(planes_dft[0]);
 	planes_out[1] = planesH[1].mul(planes_dft[1]);
 
@@ -254,8 +256,8 @@ double dft_detail(const Mat& src, Mat& dst) {
 	Mat imgOut;
 	dft(complexIH, imgOut, DFT_INVERSE | DFT_REAL_OUTPUT);
 
-//	normalize(imgOut, imgOut, 0, 1, NORM_MINMAX);
 	dst = imgOut.clone();
+	show_image("dft", imgOut.clone());
 	return countNonZero(1.0 - imgOut);
 }
 }

@@ -121,8 +121,7 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 	else
 		uniq2.resize(uniq1.size());
 
-	long double md = morph_distance2(uniq1, uniq2, img1.cols, img1.rows);
-	cerr << "inital morph distance: " << md << endl;
+	cerr << "inital morph distance: " << morph_distance2(uniq1, uniq2, img1.cols, img1.rows) << endl;
 
 	if(distance) {
 		exit(0);

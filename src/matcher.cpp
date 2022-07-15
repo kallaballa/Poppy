@@ -18,8 +18,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	if (ft1_.empty() || ft2_.empty()) {
 		cerr << "general algorithm..." << endl;
 
-//		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
-
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
 
@@ -37,37 +35,40 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double dist = numeric_limits<double>::max();
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
-			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
-			double angle = orient2.first - orient1.first;
-			auto tmp1 = srcPointsFlann1;
-			auto tmp2 = srcPointsFlann2;
-			trafo.rotate_points(tmp2, orient2.second, angle);
-
-			cerr << "PCA dist: " << morph_distance(tmp1, tmp2, img1_.cols, img1_.rows) << endl;
+//			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
+//			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
+//			double angle = orient2.first - orient1.first;
+//
+//			cerr << "Pre PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
+//			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+
 			do {
-				lastDist = dist;
-				lastCorrected2 = corrected2.clone();
-				lastSrcPoints1 = srcPointsFlann1;
-				lastSrcPoints2 = srcPointsFlann2;
-				dist = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+				do {
+					lastDist = dist;
+					lastCorrected2 = corrected2.clone();
+					lastSrcPoints1 = srcPointsFlann1;
+					lastSrcPoints2 = srcPointsFlann2;
+					dist = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+				} while(dist < lastDist);
+
+				do {
+					lastDist = dist;
+					lastCorrected2 = corrected2.clone();
+					lastSrcPoints1 = srcPointsFlann1;
+					lastSrcPoints2 = srcPointsFlann2;
+					dist = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+				} while(dist < lastDist);
+
+				cerr << "retransform dist: " << dist << endl;
+
+				if(dist > lastDist) {
+					corrected2 = lastCorrected2.clone();
+					srcPointsFlann1 = lastSrcPoints1;
+					srcPointsFlann2 = lastSrcPoints2;
+				}
 			} while(dist < lastDist);
-
-			lastDist = dist;
-			lastCorrected2 = corrected2.clone();
-			lastSrcPoints1 = srcPointsFlann1;
-			lastSrcPoints2 = srcPointsFlann2;
-			dist = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-
-			cerr << "retransform dist: " << dist << endl;
-
-			if(dist > lastDist) {
-				corrected2 = lastCorrected2.clone();
-				srcPointsFlann1 = lastSrcPoints1;
-				srcPointsFlann2 = lastSrcPoints2;
-			}
-
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
 		} else {
@@ -244,7 +245,7 @@ void Matcher::prepare(const Mat &corrected1, const Mat &corrected2, vector<Point
 	cvtColor(corrected1, grey1, COLOR_RGB2GRAY);
 	cvtColor(corrected2, grey2, COLOR_RGB2GRAY);
 	draw_matches(grey1, grey2, matMatches, srcPoints1, srcPoints2);
-	show_image("matched", matMatches);
+	show_image("x", matMatches);
 
 	if (srcPoints1.size() > srcPoints2.size())
 		srcPoints1.resize(srcPoints2.size());

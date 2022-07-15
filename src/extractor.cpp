@@ -32,10 +32,10 @@ pair<Mat, Mat> Extractor::prepareFeatures() {
 
 pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	cerr << "extract keypoints raw..." << endl;
-
-	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = sqrt(goodFeatures1_.cols * goodFeatures1_.rows);
-	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
+	Mat dst1, dst2;
+	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
+	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
+	Ptr<ORB> detector = ORB::create(1.0 / detail1 * 100 + 1.0 / detail2 * 100);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat unsharp1, unsharp2;
 	Mat trip1, trip2;
@@ -73,10 +73,12 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 	cerr << "extract keypoints flann..." << endl;
+	Mat dst1, dst2;
 
-	if (Settings::instance().max_keypoints == -1)
-		Settings::instance().max_keypoints = sqrt(grey1_.cols * grey1_.rows);
-	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
+	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
+	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
+
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat unsharp1, unsharp2;
 	Mat trip1, trip2;
@@ -414,8 +416,10 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	masked2.convertTo(masked2, CV_8U, 255.0);
 
 	//adjust contrast and brightness
-	auto_adjust_contrast_and_brightness(masked1, foreground1, 2);
-	auto_adjust_contrast_and_brightness(masked2, foreground2, 2);
+//	auto_adjust_contrast_and_brightness(masked1, foreground1, 2);
+//	auto_adjust_contrast_and_brightness(masked2, foreground2, 2);
+	equalizeHist(masked1, foreground1);
+	equalizeHist(masked2, foreground2);
 	masked1.release();
 	masked2.release();
 
