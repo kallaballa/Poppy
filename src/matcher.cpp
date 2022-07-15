@@ -38,8 +38,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 //			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
 //			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
 //			double angle = orient2.first - orient1.first;
-//
-//			cerr << "Pre PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			cerr << "PCA angle: " << angle << endl;
+//			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 //			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
 //			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
