@@ -52,13 +52,17 @@ experimenting or are trying to do something funny.
 The first thing to try is to adjust the match
 tolerance (--tolerance). If you want to tinker more,
 You could enable the gui (--gui) and play with the
-tolerance and maybe a little with contour sensitivity
-(--contour) and watch how it effects the algorithm.
-Anyway, you probably shouldn't waste much time on the
-contour sensitivity parameter because it has little or
-even detrimental effect, which makes it virtually
-obsolete and it will be removed in the near future.
+tolerance and watch how it effects the algorithm.
 Noisy images can be enhanced by denoising (--denoise).
+If you would like to tune how sensitive to faces poppy
+is you should try the (--neighbors) parameter. 
+Additionally you can influence quality of blending with
+the --pyramid parameter. The deeper the pyramid the
+better the quality of the blending (at the cost of 
+performance).
+The --fourcc parameter gives opportunity to select
+which codec to use for the output file. --outfile
+defines the path to the output file.
 
 Options:
   -g [ --gui ]                        Show analysis windows.
@@ -85,7 +89,6 @@ Options:
                                       pyramid.
   -t [ --tolerance ] arg (=1)         How tolerant poppy is when matching 
                                       keypoints.
-  -c [ --contour ] arg (=1)           How sensitive poppy is to contours.
   -u [ --fourcc ] arg (=FFV1)         The four letter fourcc identifier 
                                       (https://en.wikipedia.org/wiki/FourCC) 
                                       which selects the video format. e.g: 

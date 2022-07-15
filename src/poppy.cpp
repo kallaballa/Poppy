@@ -304,7 +304,6 @@ int main(int argc, char **argv) {
 	double frameRate = poppy::Settings::instance().frame_rate;
 	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
-	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 	bool autoAlign = poppy::Settings::instance().enable_auto_align;
 	bool radial = poppy::Settings::instance().enable_radial_mask;
 	bool face = poppy::Settings::instance().enable_face_detection;
@@ -332,7 +331,6 @@ int main(int argc, char **argv) {
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
 	("pyramid,y", po::value<size_t>(&pyramidLevels)->default_value(pyramidLevels), "How many levels to use for the laplacian pyramid.")
 	("tolerance,t", po::value<double>(&matchTolerance)->default_value(matchTolerance), "How tolerant poppy is when matching keypoints.")
-	("contour,c", po::value<double>(&contourSensitivity)->default_value(contourSensitivity), "How sensitive poppy is to contours.")
 	("fourcc,u", po::value<string>(&fourcc)->default_value(fourcc), "The four letter fourcc identifier (https://en.wikipedia.org/wiki/FourCC) which selects the video format. e.g: \"FFV1\", \"h264\", \"theo\"")
 	("outfile,o", po::value<string>(&outputFile)->default_value(outputFile), "The name of the video file to write to.")
 	("help,h", "Print the help message.");
@@ -372,13 +370,17 @@ int main(int argc, char **argv) {
 		cerr << "The first thing to try is to adjust the match" << endl;
 		cerr << "tolerance (--tolerance). If you want to tinker more," << endl;
 		cerr << "You could enable the gui (--gui) and play with the" << endl;
-		cerr << "tolerance and maybe a little with contour sensitivity" << endl;
-		cerr << "(--contour) and watch how it effects the algorithm." << endl;
-		cerr << "Anyway, you probably shouldn't waste much time on the" << endl;
-		cerr << "contour sensitivity parameter because it has little or" << endl;
-		cerr << "even detrimental effect, which makes it virtually" << endl;
-		cerr << "obsolete and it will be removed in the near future." << endl;
+		cerr << "tolerance and watch how it effects the algorithm." << endl;
 		cerr << "Noisy images can be enhanced by denoising (--denoise)." << endl;
+		cerr << "If you would like to tune how sensitive to faces poppy" << endl;
+		cerr << "is you should try the (--neighbors) parameter. " << endl;
+		cerr << "Additionally you can influence quality of blending with" << endl;
+		cerr << "the --pyramid parameter. The deeper the pyramid the" << endl;
+		cerr << "better the quality of the blending (at the cost of " << endl;
+		cerr << "performance)." << endl;
+		cerr << "The --fourcc parameter gives opportunity to select" << endl;
+		cerr << "which codec to use for the output file. --outfile" << endl;
+		cerr << "defines the path to the output file." << endl;
 		cerr << visible;
 		return 0;
 	}
@@ -394,7 +396,7 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
+	poppy::init(showGui, numberOfFrames, matchTolerance, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
 	run(imageFiles, outputFile, phase, distance);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
@@ -414,7 +416,6 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		double frameRate = poppy::Settings::instance().frame_rate;
 		size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
 		double matchTolerance = tolerance;
-		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
 		bool autoAlign = autoalign;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
 		bool srcScaling = autoscale;
@@ -423,7 +424,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 
 		imageFiles.push_back(string(file_path1));
 		imageFiles.push_back(string(file_path2));
-		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false, 6);
+		poppy::init(showGui, numberOfFrames, matchTolerance, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false, 6);
 		std::thread t([=](){
 				try {
 				running = true;

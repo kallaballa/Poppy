@@ -145,6 +145,7 @@ void Extractor::foregroundMask(const Mat &grey, Mat &fgMask, const size_t& itera
 
 void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contourLayers1, vector<Mat>& contourLayers2) {
 	cerr << "extract contours..." << endl;
+	double contour_sensitivity = 1;
 	Mat grey1 = grey1_.clone();
 	Mat grey2 = grey2_.clone();
 	Mat blur1, blur2;
@@ -167,8 +168,8 @@ void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contou
 	t2 = 0;
 	cerr << "thresholding 1" << endl;
 	for (off_t i = 0; i < 16; ++i) {
-		t1 = max(0, min(255, (int) round((i * 16 * Settings::instance().contour_sensitivity))));
-		t2 = max(0, min(255, (int) round(((i + 1) * 16 * Settings::instance().contour_sensitivity))));
+		t1 = max(0, min(255, (int) round((i * 16 * contour_sensitivity))));
+		t2 = max(0, min(255, (int) round(((i + 1) * 16 * contour_sensitivity))));
 		cerr << i + 1 << "/" << 16 << '\r';
 
 		threshold(blur1, thresh1, t1, t2, 0);
@@ -192,8 +193,8 @@ void Extractor::contours(Mat &contourMap1, Mat &contourMap2, vector<Mat>& contou
 	cerr << "thresholding 2" << endl;
 	vector<Vec4i> hierarchy2;
 	for (off_t j = 0; j < 16; ++j) {
-		t1 = min(255, (int) round((j * 16.0 * Settings::instance().contour_sensitivity)));
-		t2 = min(255, (int) round(((j + 1) * 16.0 * Settings::instance().contour_sensitivity)));
+		t1 = min(255, (int) round((j * 16.0 * contour_sensitivity)));
+		t2 = min(255, (int) round(((j + 1) * 16.0 * contour_sensitivity)));
 		cerr << j + 1 << "/" << 16 << '\r';
 
 		threshold(blur2, thresh2, t1, t2, 0);
