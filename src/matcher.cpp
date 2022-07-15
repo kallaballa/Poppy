@@ -39,14 +39,21 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double distScale = numeric_limits<double>::max();
 			Mat lastCorrected2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-//			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
-//			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
-//			double angle = orient2.first - orient1.first;
-//			cerr << "PCA angle: " << angle << endl;
-//			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-//			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
-//			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
+			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
+			double angle = orient2.first - orient1.first;
+			cerr << "PCA angle: " << angle << endl;
+			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
+			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+			Point2f center1 = average(srcPointsFlann1);
+			Point2f center2 = average(srcPointsFlann2);
+			Point2f vec = center1 - center2;
+			cerr << "center vec" << vec << endl;
+			trafo.translate(corrected2, corrected2, vec);
+			trafo.translate_points(srcPointsFlann2, vec);
+			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
 			lastDistScale = distScale;
 			lastCorrected2 = corrected2.clone();
@@ -55,7 +62,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 			cerr << "rescale dist: " << distScale << endl;
 
-//			for (size_t i = 0; i < 3; ++i) {
+			for (size_t i = 0; i < 10; ++i) {
 				do {
 					lastDistTrans = distTrans;
 					lastCorrected2 = corrected2.clone();
@@ -85,7 +92,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					srcPointsFlann1 = lastSrcPoints1;
 					srcPointsFlann2 = lastSrcPoints2;
 				}
-//			}
+			}
 
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;

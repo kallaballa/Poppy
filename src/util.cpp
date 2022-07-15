@@ -12,6 +12,10 @@ using namespace cv;
 
 namespace poppy {
 
+bool rect_contains(const Rect& r, const Point2f& pt, int radius) {
+    return r.x - radius <= pt.x && pt.x  - radius < r.x + r.width && r.y - radius <= pt.y && pt.y - radius < r.y + r.height;
+}
+
 double euclidean_distance(cv::Point center, cv::Point point) {
 	return hypot(center.x - point.x, center.y - point.y);
 }

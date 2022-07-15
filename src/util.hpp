@@ -88,6 +88,7 @@ struct LessPointOp {
 		return lhs.x < rhs.x || (lhs.x == rhs.x && lhs.y < rhs.y);
 	}
 };
+bool rect_contains(const Rect& r, const Point2f& pt, int radius);
 double euclidean_distance(cv::Point center, cv::Point point);
 void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16);
 void triple_channel(const Mat& src, Mat& dst);

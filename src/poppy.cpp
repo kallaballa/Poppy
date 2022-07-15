@@ -259,15 +259,15 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Rect roi(dx / 2.0, dy / 2.0, aspect.width, aspect.height);
 				img2.copyTo(bg(roi));
 
-				Rect rl(0, 0, dx, szUnion.height);
-				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
-				Rect rt(0, 0, szUnion.width, dy);
-				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+				Rect rl(0, 0, dx ? 0 : aspect.width / 100.0, szUnion.height);
+				Rect rr(szUnion.width - (dx ? 0 : aspect.width / 100.0), 0, dx ? 0 : aspect.width / 100.0, szUnion.height);
+				Rect rt(0, 0, szUnion.width, dy ? 0 : aspect.height / 100.0);
+				Rect rb(0, szUnion.height - dy ? 0 : aspect.height / 100.0, szUnion.width, dy ? 0 : aspect.height / 100.0);
 
-				Mat left = bg(rl);
-				Mat right = bg(rr);
-				Mat top = bg(rt);
-				Mat bottom = bg(rb);
+				Mat left = bg(rl).clone();
+				Mat right = bg(rr).clone();
+				Mat top = bg(rt).clone();
+				Mat bottom = bg(rb).clone();
 				GaussianBlur(left, left, {127,127}, 6);
 				GaussianBlur(right, right, {127,127}, 6);
 				GaussianBlur(top, top, {127,127}, 6);
@@ -278,20 +278,20 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				clone.release();
 			} else {
 				mUnion = Scalar::all(0);
-				double dx = fabs(szUnion.width - img2.cols);
-				double dy = fabs(szUnion.height - img2.rows);
-				Rect cr(dx / 2.0, dy / 2.0, img2.cols, img2.rows);
-				img2.copyTo(mUnion(cr));
+				double dx = fabs(img2.cols - szUnion.width);
+				double dy = fabs(img2.rows - szUnion.height);
+				Rect roi(dx / 2.0, dy / 2.0, img2.cols, img2.rows);
+				img2.copyTo(mUnion(roi));
 
-				Rect rl(0, 0, dx, szUnion.height);
-				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
-				Rect rt(0, 0, szUnion.width, dy);
-				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+				Rect rl(0, 0, dx ? 0 : szUnion.width / 100.0, szUnion.height);
+				Rect rr(szUnion.width - (dx ? 0 : szUnion.width / 100.0), 0, dx ? 0 : szUnion.width / 100.0, szUnion.height);
+				Rect rt(0, 0, szUnion.width, dy ? 0 : szUnion.height / 100.0);
+				Rect rb(0, szUnion.height - dy ? 0 : szUnion.height / 100.0, szUnion.width, dy ? 0 : szUnion.height / 100.0);
 
-				Mat left = mUnion(rl);
-				Mat right = mUnion(rr);
-				Mat top = mUnion(rt);
-				Mat bottom = mUnion(rb);
+				Mat left = mUnion(rl).clone();
+				Mat right = mUnion(rr).clone();
+				Mat top = mUnion(rt).clone();
+				Mat bottom = mUnion(rb).clone();
 				GaussianBlur(left, left, {127,127}, 6);
 				GaussianBlur(right, right, {127,127}, 6);
 				GaussianBlur(top, top, {127,127}, 6);

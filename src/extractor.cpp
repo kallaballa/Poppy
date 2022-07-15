@@ -35,7 +35,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 400 + (1.0 / detail2) * 400);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
@@ -56,33 +56,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	for (auto pt2 : keypoints2)
 		points2.push_back(pt2.pt);
 
-//	vector<Point2f> newPoints1, newPoints2;
-//	Point2f center(trip1.cols/2.0, trip1.rows/2.0);
-
-//	double avg1 = 0;
-//	for(auto pt : points1) {
-//		avg1 += euclidean_distance(center, pt);
-//	}
-//	avg1 /= points1.size();
-//
-//	double avg2 = 0;
-//	for(auto pt : points2) {
-//		avg2 += euclidean_distance(center, pt);
-//	}
-//	avg2 /= points2.size();
-//
-//	for(auto pt : points1) {
-//		if(euclidean_distance(center, pt) < avg1 * 1.2) {
-//			newPoints1.push_back(pt);
-//		}
-//	}
-//
-//	for(auto pt : points2) {
-//		if(euclidean_distance(center, pt) < avg2 * 1.2) {
-//			newPoints2.push_back(pt);
-//		}
-//	}
-
 	if (points1.size() > points2.size())
 		points1.resize(points2.size());
 	else
@@ -90,16 +63,90 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 	cerr << "keypoints extracted: " << points1.size() << endl;
 
-	Mat p1;
-	Mat p2;
-	triple_channel(trip1, p1);
-	triple_channel(trip2, p2);
-	plot(p1, points1, Scalar(0,0,255), 2);
-	plot(p2, points2, Scalar(0,255,0), 2);
-    show_image("pt1", p1);
-	show_image("pt2", p2);
+	Mat bgr1 = Mat::zeros(us1.size(), us1.type());
+	Mat bgr2 = Mat::zeros(us1.size(), us1.type());
+	plot(bgr1, points1, Scalar(255,255,255), 2);
+	plot(bgr2, points2, Scalar(255,255,255), 2);
+	Mat grey1, grey2;
+	cvtColor(bgr1, grey1, COLOR_BGR2GRAY);
+	cvtColor(bgr2, grey2, COLOR_BGR2GRAY);
+	Mat labels1, stats1, centroids1;
+	Mat labels2, stats2, centroids2;
 
-	return {points1,points2};
+	connectedComponentsWithStats(grey1, labels1, stats1, centroids1, 8, CV_32S);
+	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
+	std::cout << centroids1 << std::endl;
+	std::cout << centroids2 << std::endl;
+	vector<Rect> rects1;
+	for(int i=0; i<stats1.rows; i++) {
+	  int x = stats1.at<int>(Point(0, i));
+	  int y = stats1.at<int>(Point(1, i));
+	  int w = stats1.at<int>(Point(2, i));
+	  int h = stats1.at<int>(Point(3, i));
+
+//	  std::cout << "x=" << x << " y=" << y << " w=" << w << " h=" << h << std::endl;
+	  Rect r(x,y,w,h);
+	  if(
+			  r.x > us1.cols / 12 && r.y > us1.rows / 12 && r.x + r.width < us1.cols - (us1.cols / 12) && r.y + r.height < us1.rows - (us1.rows / 12)
+//			  && r.area() > ((us1.cols * us1.rows) / 300.0) && r.area() < (us1.cols * us1.rows)
+			  )
+		  rects1.push_back(r);
+	}
+
+	vector<Rect> rects2;
+	for(int i=0; i<stats2.rows; i++) {
+	  int x = stats2.at<int>(Point(0, i));
+	  int y = stats2.at<int>(Point(1, i));
+	  int w = stats2.at<int>(Point(2, i));
+	  int h = stats2.at<int>(Point(3, i));
+
+///	  std::cout << "x=" << x << " y=" << y << " w=" << w << " h=" << h << std::endl;
+
+	  Rect r(x,y,w,h);
+	  if(
+			  r.x > us1.cols / 12 && r.y > us1.rows / 12 && r.x + r.width < us1.cols - (us1.cols / 12) && r.y + r.height < us1.rows - (us1.rows / 12)
+//			  && r.area() > ((us1.cols * us1.rows) / 300.0) && r.area() < (us1.cols * us1.rows)
+			  )
+		  rects2.push_back(r);
+	}
+
+	vector<Point2f> newPoints1, newPoints2;
+	Mat cc1 = us1.clone();
+	Mat cc2 = us2.clone();
+
+	for(const auto& pt : points1) {
+		for(auto& r : rects1) {
+			if(!r.empty() && rect_contains(r, pt, 2)) {
+				circle(cc1, pt, 1, Scalar(0,0,255), 2);
+				cv::rectangle(cc1, r, Scalar(255,0,0), 2);
+				newPoints1.push_back(pt);
+				break;
+			}
+		}
+	}
+
+	for(const auto& pt : points2) {
+		for(auto& r : rects2) {
+			if(!r.empty() && rect_contains(r, pt, 2)) {
+				circle(cc2, pt, 1, Scalar(0,255,0), 2);
+				cv::rectangle(cc2, r, Scalar(255,0,0), 2);
+				newPoints2.push_back(pt);
+				break;
+			}
+		}
+	}
+
+	if (newPoints1.size() > newPoints2.size())
+		newPoints1.resize(newPoints2.size());
+	else
+		newPoints2.resize(newPoints1.size());
+
+
+	show_image("cc1", cc1);
+	show_image("cc2", cc2);
+
+	return {newPoints1,newPoints2};
+
 }
 
 pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
