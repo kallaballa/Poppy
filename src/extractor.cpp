@@ -75,8 +75,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 	connectedComponentsWithStats(grey1, labels1, stats1, centroids1, 8, CV_32S);
 	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
-	std::cout << centroids1 << std::endl;
-	std::cout << centroids2 << std::endl;
 	vector<Rect> rects1;
 	for(int i=0; i<stats1.rows; i++) {
 	  int x = stats1.at<int>(Point(0, i));
@@ -113,6 +111,14 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	vector<Point2f> newPoints1, newPoints2;
 	Mat cc1 = us1.clone();
 	Mat cc2 = us2.clone();
+
+	for(int i=0; i<centroids1.rows; ++i) {
+		newPoints1.push_back(centroids1.at<Point2f>(i,0));
+	}
+
+	for(int i=0; i<centroids2.rows; ++i) {
+		newPoints2.push_back(centroids2.at<Point2f>(i,0));
+	}
 
 	for(const auto& pt : points1) {
 		for(auto& r : rects1) {
