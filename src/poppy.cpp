@@ -1,5 +1,7 @@
 #include "poppy.hpp"
 #include "canvas.hpp"
+#include "util.hpp"
+
 
 #include <mutex>
 #include <iostream>
@@ -251,10 +253,28 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Mat clone = img2.clone();
 				Size aspect = preserveAspect(img2.size(), szUnion);
 				resize(clone, img2, aspect, INTER_LINEAR);
+
 				double dx = fabs(aspect.width - szUnion.width);
 				double dy = fabs(aspect.height - szUnion.height);
-				img2.copyTo(bg(Rect(dx / 2.0, dy / 2.0, aspect.width, aspect.height)));
+				Rect roi(dx / 2.0, dy / 2.0, aspect.width, aspect.height);
+				img2.copyTo(bg(roi));
+
+				Rect rl(0, 0, dx, szUnion.height);
+				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
+				Rect rt(0, 0, szUnion.width, dy);
+				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+
+				Mat left = bg(rl);
+				Mat right = bg(rr);
+				Mat top = bg(rt);
+				Mat bottom = bg(rb);
+				GaussianBlur(left, left, {127,127}, 6);
+				GaussianBlur(right, right, {127,127}, 6);
+				GaussianBlur(top, top, {127,127}, 6);
+				GaussianBlur(bottom, bottom, {127,127}, 6);
 				img2 = bg.clone();
+				poppy::show_image("img2", img2);
+				poppy::wait_key();
 				bg.release();
 				clone.release();
 			} else {
