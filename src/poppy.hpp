@@ -44,9 +44,8 @@ void init(bool showGui, size_t numberOfFrames, double matchTolerance, double con
 }
 
 template<typename Twriter>
-void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twriter &output) {
+void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, double phase, bool distance, Twriter &output) {
 	Mat morphed;
-	Mat corrected1, corrected2;
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
 	Features ft1;
 	Features ft2;
@@ -83,16 +82,17 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 	show_image("gabor2", gabor2);
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
-		cerr << "No matches found. Inserting dups." << endl;
+		cerr << "No matches found. Inserting linear blend." << endl;
 		if(phase != -1) {
 			//linear interpolation as fallback
 			Mat blend = ((img2 * phase) + (img1 * (1.0 - phase)));
 			output.write(blend);
 			blend.release();
 		} else {
-			Mat cl1 = img1.clone();
+			Mat blend;
 			for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
-				output.write(cl1);
+				blend = ((img2 * phase) + (img1 * (1.0 - phase)));
+				output.write(blend);
 			}
 		}
 		return;
@@ -122,7 +122,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 		uniq2.resize(uniq1.size());
 
 	long double md = morph_distance2(uniq1, uniq2, img1.cols, img1.rows);
-	cerr << "inital morph distance: " << scientific << md << fixed << endl;
+	cerr << "inital morph distance: " << md << endl;
 
 	if(distance) {
 		exit(0);
@@ -161,9 +161,9 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 			progress = (1.0 / (1.0 - linear)) / Settings::instance().number_of_frames;
 
 		if(phase < 1.0 && phase >= 0)
-			shape = ease(ease(progress)) * phase;
+			shape = progress * phase;
 		else
-			shape = ease(ease(progress));
+			shape = progress;
 
 //		shape = log(ease(progress) * 2.0 + 1.0) / log(3.0);
 
@@ -178,7 +178,7 @@ void morph(const Mat &img1, const Mat &img2, double phase, bool distance, Twrite
 //		cerr << "morph distance: " << scientific << morph_distance2(srcPoints1, srcPoints2, img1.cols, img1.rows) << fixed << endl;
 
 //		cerr << linear << "\t| " << progress << "\t| " << shape << "\t| " << color << endl;
-		morph_images(img1, img2, corrected1, corrected2, gabor2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color);
+		morph_images(img1, img2, corrected1, corrected2, gabor2, goodFeatures.first, goodFeatures.second, morphed, morphed.clone(), morphedPoints, srcPoints1, srcPoints2, shape, color, linear);
 
 		corrected1 = morphed.clone();
 		lastMorphedPoints = morphedPoints;

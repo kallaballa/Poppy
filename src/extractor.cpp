@@ -43,6 +43,8 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	triple_channel(goodFeatures2_, trip2);
 	unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.);
 	unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.);
+    cvtColor(unsharp1, unsharp1, COLOR_BGR2GRAY);
+    cvtColor(unsharp2, unsharp2, COLOR_BGR2GRAY);
 	show_image("ur1", unsharp1);
 	show_image("ur2", unsharp2);
 
@@ -82,6 +84,9 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 	triple_channel(goodFeatures2_, trip2);
 	unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.);
 	unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.);
+    cvtColor(unsharp1, unsharp1, COLOR_BGR2GRAY);
+    cvtColor(unsharp2, unsharp2, COLOR_BGR2GRAY);
+
 	show_image("uf1", unsharp1);
 	show_image("uf2", unsharp2);
 
@@ -348,6 +353,9 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);
 	foregroundMask(grey2, fgMask2);
+	show_image("fgm1", fgMask1);
+	show_image("fgm2", fgMask2);
+
 	Mat radialMaskFloat;
 	if (Settings::instance().enable_radial_mask) {
 		//create a radial mask to bias the contrast towards the center
@@ -373,7 +381,6 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 		fgMask2Float.copyTo(finalMask2Float);
 	}
 
-	//binarize the mask
 	Mat masked1, masked2;
 	Mat finalMask1, finalMask2;
 
@@ -381,8 +388,17 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	finalMask2Float.convertTo(finalMask2, CV_8U, 255.0);
 	equalizeHist(finalMask1, finalMask1);
 	equalizeHist(finalMask2, finalMask2);
+
 	finalMask1.convertTo(finalMask1Float, CV_32F, 1.0/255.0);
 	finalMask2.convertTo(finalMask2Float, CV_32F, 1.0/255.0);
+	int logBase = 20;
+	Mat logMask(finalMask1Float.size(),CV_32F);
+	logMask = Scalar::all(logBase);
+	log(logMask, logMask);
+	log(finalMask1Float * (logBase - 1.0) + 1.0, finalMask1Float);
+	log(finalMask2Float * (logBase - 1.0) + 1.0, finalMask2Float);
+	divide(finalMask1Float, logMask, finalMask1Float);
+	divide(finalMask2Float, logMask, finalMask2Float);
 
 	dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
 	dilate( finalMask2Float, finalMask2Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );

@@ -162,6 +162,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 
 	Mat img1, denoise1;
+	Mat corrected1, corrected2;
 	try {
 
 		img1 = read_image(imageFiles[0]);
@@ -273,8 +274,9 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 
-		poppy::morph(img1, img2, phase, distance, output);
-		img1 = img2.clone();
+		poppy::morph(img1, img2, corrected1, corrected2, phase, distance, output);
+//		img2 = corrected1.clone();
+		img1 = corrected2.clone();
 		img2.release();
 	}
 #ifdef _WASM

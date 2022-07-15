@@ -37,6 +37,14 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double dist = numeric_limits<double>::max();
 			Mat lastCorrected2, lastContourMap2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
+			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
+			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
+			double angle = orient2.first - orient1.first;
+			auto tmp1 = srcPointsFlann1;
+			auto tmp2 = srcPointsFlann2;
+			trafo.rotate_points(tmp2, orient2.second, angle);
+
+			cerr << "PCA dist: " << morph_distance(tmp1, tmp2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			do {
 				lastDist = dist;
@@ -70,7 +78,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
-//		extractor.contours(contourMap1, contourMap2, contourLayers1, contourLayers2);
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
@@ -190,7 +197,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 
 	double thresh =
 			((distanceMap.size() / density)
-			* pow(mean / deviation,2)
+			* pow(mean / deviation,3)
 			* (Settings::instance().match_tolerance)
 			) / ((100 * (5 + sqrt(5)) / 2.0));
 

@@ -13,7 +13,7 @@ using namespace cv;
 namespace poppy {
 
 void gabor_filter(const Mat& src, Mat& dst, size_t numAngles) {
-	int kernel_size = 9;
+	int kernel_size = 13;
     double sig = 5, lm = 10, gm = 0.04, ps = CV_PI/4;
     vector<double> theta(numAngles);
 
@@ -62,8 +62,8 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
 
     // --- filter on the mask ---
 
-    //cv::medianBlur(unsharpMask, unsharpMask, 3);
-    cv::blur(unsharpMask, unsharpMask, {3,3});
+    cv::medianBlur(unsharpMask, unsharpMask, 3);
+    //cv::blur(unsharpMask, unsharpMask, {3,3});
 
     // --- end filter ---
 
@@ -81,9 +81,7 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
         }
     }
 
-    Mat one_channel;
-    cvtColor(retbuf, one_channel, COLOR_BGR2GRAY);
-    return one_channel;
+    return retbuf;
 }
 
 double feature_metric(const Mat &grey1) {
