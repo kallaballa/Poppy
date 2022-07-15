@@ -58,14 +58,7 @@ Anyway, you probably shouldn't waste much time on the
 contour sensitivity parameter because it has little or
 even detrimental effect, which makes it virtually
 obsolete and it will be removed in the near future.
-The key point limit (--maxkey) is useful for large
-images with lots of features which could easily yield
-too many keypoints for a particular system. e.g. 
-embedded systems. Please note that the feature extractor
-generates a larger number of key points than defined
-by this limit and only decides to retain that number
-in the end. Noisy images can be enhanced by denoising
-(--denoise).
+Noisy images can be enhanced by denoising (--denoise).
 
 Options:
   -g [ --gui ]                        Show analysis windows.
@@ -81,10 +74,6 @@ Options:
                                       input. specifically the character q.
   -s [ --scaling ]                    Instead of extending the source images, 
                                       to match in size, use scaling.
-  -m [ --maxkey ] arg (=-1)           Manual override for the number of 
-                                      keypoints to retain during detection. The
-                                      default is automatic determination of 
-                                      that number.
   -b [ --rate ] arg (=30)             The frame rate of the output video.
   -i [ --neighbors ] arg (=6)         Face detection parameter, specifying how 
                                       many neighbors each candidate rectangle 
