@@ -55,7 +55,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 			cerr << "rescale dist: " << distScale << endl;
 
-			for (size_t i = 0; i < 3; ++i) {
+//			for (size_t i = 0; i < 3; ++i) {
 				do {
 					lastDistTrans = distTrans;
 					lastCorrected2 = corrected2.clone();
@@ -85,7 +85,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					srcPointsFlann1 = lastSrcPoints1;
 					srcPointsFlann2 = lastSrcPoints2;
 				}
-			}
+//			}
 
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
