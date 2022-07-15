@@ -80,6 +80,34 @@ cv::Mat ransacTest(
 	return fundemental;
 }
 
+void mergeMatches(
+		const std::vector<std::vector<cv::DMatch>> &matches1,
+		const std::vector<std::vector<cv::DMatch>> &matches2,
+		std::vector<cv::DMatch> &symMatches) {
+	// for all matches image 1 -> image 2
+	for (std::vector<std::vector<cv::DMatch>>::
+	const_iterator matchIterator1 = matches1.begin();
+			matchIterator1 != matches1.end(); ++matchIterator1) {
+		// ignore deleted matches
+		if (matchIterator1->size() < 2)
+			continue;
+		// for all matches image 2 -> image 1
+		for (std::vector<std::vector<cv::DMatch>>::
+		const_iterator matchIterator2 = matches2.begin();
+				matchIterator2 != matches2.end();
+				++matchIterator2) {
+			// ignore deleted matches
+			if (matchIterator2->size() < 2)
+				continue;
+			symMatches.push_back(
+					cv::DMatch((*matchIterator1)[0].queryIdx,
+							(*matchIterator1)[0].trainIdx,
+							(*matchIterator1)[0].distance));
+			break; // next match in image 1 -> image 2
+		}
+	}
+}
+
 void symmetryTest(
 		const std::vector<std::vector<cv::DMatch>> &matches1,
 		const std::vector<std::vector<cv::DMatch>> &matches2,

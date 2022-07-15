@@ -18,10 +18,6 @@ void plot(Mat &img, vector<Point2f> points, Scalar color, int radius) {
 		circle(img, p, radius, color, radius * 2);
 }
 
-double euclidean_distance(cv::Point center, cv::Point point) {
-	return hypot(center.x - point.x, center.y - point.y);
-}
-
 void draw_radial_gradiant(Mat &grad) {
 	cv::Point center(grad.cols / 2.0, grad.rows / 2.0);
 	cv::Point point;
@@ -40,6 +36,28 @@ void draw_radial_gradiant(Mat &grad) {
 	cv::bitwise_not(grad, grad);
 //	show_image("grad", grad);
 }
+
+Mat draw_radial_gradiant2(int width, int height) {
+	Mat gradFloat = Mat::ones(height, width, CV_32F);
+	Mat grad;
+	cv::Point center(width / 2.0, height / 2.0);
+	cv::Point point;
+	double maxDist = hypot(width / 2.0, height / 2.0);
+	for (int row = 0; row < height; ++row) {
+		for (int col = 0; col < width; ++col) {
+			point.x = col;
+			point.y = row;
+			double dist = euclidean_distance(center, point) / maxDist;
+			gradFloat.at<float>(row, col) = pow(sin(sin(dist * (M_PI/2)) * (M_PI/2)),16);
+		}
+	}
+	gradFloat.convertTo(grad, CV_8U, 255.0);
+	cv::normalize(grad, grad, 0, 255, cv::NORM_MINMAX);
+	cv::bitwise_not(grad, grad);
+	grad.convertTo(gradFloat, CV_32F, 1.0/255.0);
+	return gradFloat;
+}
+
 
 void draw_contour_map(Mat &dst, vector<Mat>& contourLayers, const vector<vector<vector<Point2f>>> &collected, const vector<Vec4i> &hierarchy, int cols, int rows, int type) {
 	Mat map = Mat::zeros(rows, cols, type);

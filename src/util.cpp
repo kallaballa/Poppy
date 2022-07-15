@@ -12,6 +12,10 @@ using namespace cv;
 
 namespace poppy {
 
+double euclidean_distance(cv::Point center, cv::Point point) {
+	return hypot(center.x - point.x, center.y - point.y);
+}
+
 void gabor_filter(const Mat& src, Mat& dst, size_t numAngles) {
 	int kernel_size = 13;
     double sig = 5, lm = 10, gm = 0.04, ps = CV_PI/4;

@@ -218,7 +218,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 			((distanceMap.size() / density)
 			* pow(mean / deviation,3)
 			* (Settings::instance().match_tolerance)
-			) / ((100 * (5 + sqrt(5)) / 2.0));
+			) / ((150 * (5 + sqrt(5)) / 2.0));
 
 	srcPoints1.clear();
 	srcPoints2.clear();
