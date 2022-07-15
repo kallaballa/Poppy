@@ -274,13 +274,29 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				GaussianBlur(bottom, bottom, {127,127}, 6);
 				img2 = bg.clone();
 				poppy::show_image("img2", img2);
-				poppy::wait_key();
 				bg.release();
 				clone.release();
 			} else {
 				mUnion = Scalar::all(0);
-				Rect cr((szUnion.width - img2.cols) / 2.0, (szUnion.height - img2.rows) / 2.0, img2.cols, img2.rows);
+				double dx = fabs(szUnion.width - img2.cols);
+				double dy = fabs(szUnion.height - img2.rows);
+				Rect cr(dx / 2.0, dy / 2.0, img2.cols, img2.rows);
 				img2.copyTo(mUnion(cr));
+
+				Rect rl(0, 0, dx, szUnion.height);
+				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
+				Rect rt(0, 0, szUnion.width, dy);
+				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+
+				Mat left = mUnion(rl);
+				Mat right = mUnion(rr);
+				Mat top = mUnion(rt);
+				Mat bottom = mUnion(rb);
+				GaussianBlur(left, left, {127,127}, 6);
+				GaussianBlur(right, right, {127,127}, 6);
+				GaussianBlur(top, top, {127,127}, 6);
+				GaussianBlur(bottom, bottom, {127,127}, 6);
+
 				img2 = mUnion.clone();
 			}
 
