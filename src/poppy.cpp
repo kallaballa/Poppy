@@ -275,7 +275,6 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 
 		poppy::morph(img1, img2, corrected1, corrected2, phase, distance, output);
-//		img2 = corrected1.clone();
 		img1 = corrected2.clone();
 		img2.release();
 	}
@@ -306,7 +305,6 @@ int main(int argc, char **argv) {
 	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
 	double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
-	off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 	bool autoAlign = poppy::Settings::instance().enable_auto_align;
 	bool radial = poppy::Settings::instance().enable_radial_mask;
 	bool face = poppy::Settings::instance().enable_face_detection;
@@ -328,7 +326,6 @@ int main(int argc, char **argv) {
 	("distance,n", "Calculate the morph distance and return.")
 	("wait,w", "Wait at defined breakpoints for key input. specifically the character q.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
-	("maxkey,m", po::value<off_t>(&maxKeypoints)->default_value(maxKeypoints), "Manual override for the number of keypoints to retain during detection. The default is automatic determination of that number.")
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
 	("neighbors,i", po::value<size_t>(&faceNeighbors)->default_value(faceNeighbors), "Face detection parameter, specifying how many neighbors each candidate rectangle should have to retain it.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
@@ -381,14 +378,7 @@ int main(int argc, char **argv) {
 		cerr << "contour sensitivity parameter because it has little or" << endl;
 		cerr << "even detrimental effect, which makes it virtually" << endl;
 		cerr << "obsolete and it will be removed in the near future." << endl;
-		cerr << "The key point limit (--maxkey) is useful for large" << endl;
-		cerr << "images with lots of features which could easily yield" << endl;
-		cerr << "too many keypoints for a particular system. e.g. " << endl;
-		cerr << "embedded systems. Please note that the feature extractor" << endl;
-		cerr << "generates a larger number of key points than defined" << endl;
-		cerr << "by this limit and only decides to retain that number" << endl;
-		cerr << "in the end. Noisy images can be enhanced by denoising" << endl;
-		cerr << "(--denoise)." << endl;
+		cerr << "Noisy images can be enhanced by denoising (--denoise)." << endl;
 		cerr << visible;
 		return 0;
 	}
@@ -404,7 +394,7 @@ int main(int argc, char **argv) {
 #endif
 
 #ifndef _WASM
-	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
+	poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
 	run(imageFiles, outputFile, phase, distance);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
@@ -425,7 +415,6 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
 		double matchTolerance = tolerance;
 		double contourSensitivity = poppy::Settings::instance().contour_sensitivity;
-		off_t maxKeypoints = poppy::Settings::instance().max_keypoints;
 		bool autoAlign = autoalign;
 		bool radial = poppy::Settings::instance().enable_radial_mask;
 		bool srcScaling = autoscale;
@@ -434,7 +423,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 
 		imageFiles.push_back(string(file_path1));
 		imageFiles.push_back(string(file_path2));
-		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, maxKeypoints, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false, 6);
+		poppy::init(showGui, numberOfFrames, matchTolerance, contourSensitivity, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, string(""), false, 6);
 		std::thread t([=](){
 				try {
 				running = true;

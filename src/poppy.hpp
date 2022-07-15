@@ -25,13 +25,12 @@ double easeInOutSine(double x) {
 	return -(cos(M_PI * x) - 1.0) / 2.0;
 }
 
-void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, off_t maxKeypoints, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc, bool enableWait, size_t faceNeighbors) {
+void init(bool showGui, size_t numberOfFrames, double matchTolerance, double contourSensitivity, bool autoAlign, bool radialMask, bool faceDetect, bool denoise, bool srcScaling, double frameRate, size_t pyramidLevels, string fourcc, bool enableWait, size_t faceNeighbors) {
 	Settings::instance().show_gui = showGui;
 	Settings::instance().enable_wait = enableWait;
 	Settings::instance().number_of_frames = numberOfFrames;
 	Settings::instance().frame_rate = frameRate;
 	Settings::instance().match_tolerance = matchTolerance;
-	Settings::instance().max_keypoints = maxKeypoints;
 	Settings::instance().contour_sensitivity = contourSensitivity;
 	Settings::instance().enable_auto_align = autoAlign;
 	Settings::instance().enable_radial_mask = radialMask;
