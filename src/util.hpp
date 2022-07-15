@@ -97,11 +97,15 @@ std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<doubl
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
 void normalize(const Mat &src, Mat &dst);
 void auto_adjust_contrast_and_brightness(const cv::Mat &src, cv::Mat &dst, double contrast);
+std::vector<Point2f> convertPointTo2f(const std::vector<Point>& pts);
+std::vector<Point> convert2fToPoint(const std::vector<Point2f>& pts);
 std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
 std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
 long double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const long double& width, const long double& height);
 long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height);
+long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height);
+long double morph_distance4(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height);
 void show_image(const std::string &name, const cv::Mat &img);
 void wait_key(int timeout = 0);
 void clip_points(std::vector<cv::Point2f> &pts, int cols, int rows);

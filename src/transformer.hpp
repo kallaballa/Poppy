@@ -28,6 +28,7 @@ public:
 	void rotate_features(Features& ft, const cv::Point2f &center, const double &angDeg);
 	double retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
 	double rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
+	double rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2);
 };
 
 } /* namespace poppy */

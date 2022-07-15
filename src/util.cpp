@@ -197,6 +197,22 @@ void auto_adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contra
 	hc.copyTo(dst);
 }
 
+std::vector<Point2f> convertPointTo2f(const std::vector<Point>& pts) {
+	std::vector<Point2f> result;
+	for (auto &pt : pts) {
+		result.push_back(Point2f(pt.x, pt.y));
+	}
+	return result;
+}
+
+std::vector<Point> convert2fToPoint(const std::vector<Point2f>& pts) {
+	std::vector<Point> result;
+	for (auto &pt : pts) {
+		result.push_back(Point(pt.x, pt.y));
+	}
+	return result;
+}
+
 std::vector<std::vector<Point2f>> convertContourTo2f(const std::vector<std::vector<Point>> &contours1) {
 	std::vector<std::vector<Point2f>> tmp;
 	for (auto &vec : contours1) {
@@ -265,6 +281,50 @@ long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Poin
 		totalDistance += (pow(x,2) + pow(y,2));
 	}
 	return sqrt(totalDistance / srcPoints1.size());
+}
+
+long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	double innerDist1 = 0;
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+		const Point2f& p = srcPoints1[i];
+		for(size_t j = 0; j < srcPoints1.size(); ++j) {
+			Point2f v = p - srcPoints1[j];
+			innerDist1 += fabs(v.x * v.y);
+		}
+	}
+	innerDist1 = (innerDist1 / (srcPoints1.size() * srcPoints1.size())) / hypot(width,height);
+
+	double innerDist2 = 0;
+	for(size_t i = 0; i < srcPoints2.size(); ++i) {
+		const Point2f& p = srcPoints2[i];
+		for(size_t j = 0; j < srcPoints2.size(); ++j) {
+			Point2f v = p - srcPoints2[j];
+			innerDist2 += fabs(v.x * v.y);
+		}
+	}
+	innerDist2 = (innerDist2 / (srcPoints2.size() * srcPoints2.size())) / hypot(width,height);
+
+	double totalDistance = 0;
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+		Point2f v = srcPoints2[i] - srcPoints1[i];
+		totalDistance += hypot(v.x, v.y);
+	}
+
+	return fabs(innerDist1 - innerDist2) * (totalDistance / (srcPoints1.size())) / hypot(width,height);
+}
+
+long double morph_distance4(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	double totalDistance = 0;
+	for(size_t i = 0; i < srcPoints2.size(); ++i) {
+		const Point2f& p2 = srcPoints2[i];
+		for(size_t j = 0; j < srcPoints1.size(); ++j) {
+			Point2f v = p2 - srcPoints1[i];
+			totalDistance += fabs(v.x * v.y);
+		}
+	}
+	return (totalDistance / (srcPoints1.size() * srcPoints2.size())) / hypot(width,height);
 }
 
 void show_image(const string &name, const Mat &img) {

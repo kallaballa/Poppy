@@ -35,19 +35,22 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create(1.0 / detail1 * 100 + 1.0 / detail2 * 100);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 150 + (1.0 / detail2) * 150);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
+	Mat unsharp1, unsharp2;
 	triple_channel(goodFeatures1_, trip1);
 	triple_channel(goodFeatures2_, trip2);
-    cvtColor(trip1, trip1, COLOR_BGR2GRAY);
-    cvtColor(trip2, trip2, COLOR_BGR2GRAY);
-	show_image("ur1", trip1);
-	show_image("ur2", trip2);
+	unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.0);
+	unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.0);
+    cvtColor(unsharp1, unsharp1, COLOR_BGR2GRAY);
+    cvtColor(unsharp2, unsharp2, COLOR_BGR2GRAY);
+	show_image("ur1", unsharp1);
+	show_image("ur2", unsharp2);
 
 //	Mat descriptors1, descriptors2;
-	detector->detect(trip1, keypoints1);
-	detector->detect(trip2, keypoints2);
+	detector->detect(unsharp1, keypoints1);
+	detector->detect(unsharp2, keypoints2);
 
 //	detector->compute(grey1, keypoints1, descriptors1);
 //	detector->compute(grey2, keypoints2, descriptors2);
@@ -74,24 +77,25 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
 
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 500 + (1.0 / detail2) * 500);
 
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
 	triple_channel(goodFeatures2_, trip2);
-    cvtColor(trip1, trip1, COLOR_BGR2GRAY);
-    cvtColor(trip2, trip2, COLOR_BGR2GRAY);
-
-	show_image("uf1", trip1);
-	show_image("uf2", trip2);
+	Mat unsharp1 = unsharp_mask(trip1, 0.8, 12.0, 1.0);
+	Mat unsharp2 = unsharp_mask(trip2, 0.8, 12.0, 1.0);
+    cvtColor(unsharp1, unsharp1, COLOR_BGR2GRAY);
+    cvtColor(unsharp2, unsharp2, COLOR_BGR2GRAY);
+	show_image("uf1", unsharp1);
+	show_image("uf2", unsharp2);
 
 	Mat descriptors1, descriptors2;
-	detector->detect(trip1, keypoints1);
-	detector->detect(trip1, keypoints2);
+	detector->detect(unsharp1, keypoints1);
+	detector->detect(unsharp2, keypoints2);
 
-	detector->compute(trip1, keypoints1, descriptors1);
-	detector->compute(trip1, keypoints2, descriptors2);
+	detector->compute(unsharp1, keypoints1, descriptors1);
+	detector->compute(unsharp2, keypoints2, descriptors2);
 
 
 	cv::Ptr<cv::flann::IndexParams> indexParams = new cv::flann::LshIndexParams(6, 12, 1);

@@ -1,4 +1,5 @@
 #include "transformer.hpp"
+#include "draw.hpp"
 
 #include <limits>
 #include <iostream>
@@ -200,7 +201,6 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, 
 	Point2f center = average(srcPointsFlann2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
-
 	for (size_t i = 0; i < 3600; ++i) {
 		tmp = srcPointsFlann2;
 		rotate_points(tmp, center, i / 10.0);
@@ -215,6 +215,47 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, 
 //	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate_points(srcPointsFlann2, center, selectedAngle);
 	rotate_points(srcPointsRaw2, center, selectedAngle);
+
+	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
+}
+
+double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+	double morphDist = -1;
+	Point2f center = average(srcPointsFlann1);
+
+	double lowestDist = std::numeric_limits<double>::max();
+	Mat selectedMat;
+	vector<Point2f> tmp;
+	Mat m(3,3,CV_32F);
+	double step = 1.0 / 100000;
+	double scale = 0;
+	for(size_t i = 0; i < 100; ++i) {
+		scale = (step * (i + 1)) * ((corrected2.cols + corrected2.rows));
+		m.at<float>(0,0) = scale;
+		m.at<float>(1,0) = 0;
+		m.at<float>(2,0) = 0;
+
+		m.at<float>(0,1) = 0;
+		m.at<float>(1,1) = scale;
+		m.at<float>(2,1) = 0;
+
+		m.at<float>(0,2) = center.x - (corrected2.cols * scale / 2.0);
+		m.at<float>(1,2) = center.y - (corrected2.rows * scale / 2.0);
+		m.at<float>(2,2) = 1.0;
+		perspectiveTransform(srcPointsFlann2,tmp,m);
+		morphDist = morph_distance3(srcPointsFlann1, tmp, width_, height_);
+		if (morphDist < lowestDist) {
+			lowestDist = morphDist;
+			selectedMat = m.clone();
+		}
+	}
+
+	if(!selectedMat.empty()) {
+		perspectiveTransform(srcPointsRaw2,srcPointsRaw2,selectedMat);
+		perspectiveTransform(srcPointsFlann2,srcPointsFlann2,selectedMat);
+		selectedMat.pop_back();
+		warpAffine(corrected2, corrected2, selectedMat, corrected2.size(), WARP_INVERSE_MAP);
+	}
 
 	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
 }

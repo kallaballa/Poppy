@@ -31,9 +31,13 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			vector<Point2f> srcPointsFlann1 = matchesFlann.first;
 			vector<Point2f> srcPointsFlann2 = matchesFlann.second;
 
-			double lastDist = numeric_limits<double>::max();
-			double dist = numeric_limits<double>::max();
-			Mat lastCorrected2, lastContourMap2;
+			double lastDistTrans = numeric_limits<double>::max();
+			double distTrans = numeric_limits<double>::max();
+			double lastDistRot = numeric_limits<double>::max();
+			double distRot = numeric_limits<double>::max();
+			double lastDistScale = numeric_limits<double>::max();
+			double distScale = numeric_limits<double>::max();
+			Mat lastCorrected2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
 //			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
 //			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
@@ -44,31 +48,45 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 //			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
-			do {
+			lastDistScale = distScale;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPointsFlann1;
+			lastSrcPoints2 = srcPointsFlann2;
+			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+			cerr << "rescale dist: " << distScale << endl;
+
+			for (size_t i = 0; i < 3; ++i) {
 				do {
-					lastDist = dist;
+					lastDistTrans = distTrans;
 					lastCorrected2 = corrected2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-				} while(dist < lastDist);
+					distTrans = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					cerr << "retranslate dist: " << distTrans << endl;
+				} while(distTrans < lastDistTrans);
 
-				do {
-					lastDist = dist;
-					lastCorrected2 = corrected2.clone();
-					lastSrcPoints1 = srcPointsFlann1;
-					lastSrcPoints2 = srcPointsFlann2;
-					dist = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-				} while(dist < lastDist);
-
-				cerr << "retransform dist: " << dist << endl;
-
-				if(dist > lastDist) {
+				if(distTrans >= lastDistTrans) {
 					corrected2 = lastCorrected2.clone();
 					srcPointsFlann1 = lastSrcPoints1;
 					srcPointsFlann2 = lastSrcPoints2;
 				}
-			} while(dist < lastDist);
+
+				do {
+					lastDistRot = distRot;
+					lastCorrected2 = corrected2.clone();
+					lastSrcPoints1 = srcPointsFlann1;
+					lastSrcPoints2 = srcPointsFlann2;
+					distRot = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					cerr << "rerotate dist: " << distRot << endl;
+				} while(distRot < lastDistRot);
+
+				if(distRot >= lastDistRot) {
+					corrected2 = lastCorrected2.clone();
+					srcPointsFlann1 = lastSrcPoints1;
+					srcPointsFlann2 = lastSrcPoints2;
+				}
+			}
+
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
 		} else {
