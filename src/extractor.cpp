@@ -35,7 +35,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 500 + (1.0 / detail2) * 500);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 400 + (1.0 / detail2) * 400);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
@@ -70,11 +70,40 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat grey1, grey2;
 	cvtColor(bgr1, grey1, COLOR_BGR2GRAY);
 	cvtColor(bgr2, grey2, COLOR_BGR2GRAY);
+//	dilate(grey1, grey1, getStructuringElement(MORPH_ELLIPSE, Size(23, 23)));
+//	dilate(grey2, grey2, getStructuringElement(MORPH_ELLIPSE, Size(23, 23)));
+
 	Mat labels1, stats1, centroids1;
 	Mat labels2, stats2, centroids2;
 
 	connectedComponentsWithStats(grey1, labels1, stats1, centroids1, 8, CV_32S);
 	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
+
+	vector<Point2f> newPoints1, newPoints2;
+
+	for(int i=0; i< centroids1.rows; i++) {
+		Point2f c;
+		c.x = centroids1.at<double>(i,0);
+		c.y = centroids1.at<double>(i,1);
+		newPoints1.push_back(c);
+	}
+
+	for(int i=0; i< centroids2.rows; i++) {
+		Point2f c;
+		c.x = centroids2.at<double>(i,0);
+		c.y = centroids2.at<double>(i,1);
+		newPoints2.push_back(c);
+	}
+
+//
+//	bgr1 = us1.clone();
+//	bgr2 = us2.clone();
+//	plot(bgr1, newPoints1, Scalar(255,255,255), 2);
+//	plot(bgr2, newPoints2, Scalar(255,255,255), 2);
+//
+//	show_image("np1", bgr1);
+//	show_image("np2", bgr2);
+
 	vector<Rect> rects1;
 	for(int i=0; i<stats1.rows; i++) {
 	  int x = stats1.at<int>(Point(0, i));
@@ -82,33 +111,36 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	  int w = stats1.at<int>(Point(2, i));
 	  int h = stats1.at<int>(Point(3, i));
 
-//	  std::cout << "x=" << x << " y=" << y << " w=" << w << " h=" << h << std::endl;
-	  Rect r(x,y,w,h);
-	  if(
-			  r.x > us1.cols / 12 && r.y > us1.rows / 12 && r.x + r.width < us1.cols - (us1.cols / 12) && r.y + r.height < us1.rows - (us1.rows / 12)
-//			  && r.area() > ((us1.cols * us1.rows) / 300.0) && r.area() < (us1.cols * us1.rows)
-			  )
-		  rects1.push_back(r);
+		Rect r(x, y, w, h);
+		for (int i = 0; i < centroids1.rows; i++) {
+			Point2f c;
+			c.x = centroids1.at<double>(i, 0);
+			c.y = centroids1.at<double>(i, 1);
+			if (r.area() < ((us2.cols * us2.rows) / 10.0) && r.contains(c)) {
+				rects1.push_back(r);
+			}
+		}
 	}
 
 	vector<Rect> rects2;
-	for(int i=0; i<stats2.rows; i++) {
-	  int x = stats2.at<int>(Point(0, i));
-	  int y = stats2.at<int>(Point(1, i));
-	  int w = stats2.at<int>(Point(2, i));
-	  int h = stats2.at<int>(Point(3, i));
+	for (int i = 0; i < stats2.rows; i++) {
+		int x = stats2.at<int>(Point(0, i));
+		int y = stats2.at<int>(Point(1, i));
+		int w = stats2.at<int>(Point(2, i));
+		int h = stats2.at<int>(Point(3, i));
 
-///	  std::cout << "x=" << x << " y=" << y << " w=" << w << " h=" << h << std::endl;
 
-	  Rect r(x,y,w,h);
-	  if(
-			  r.x > us1.cols / 12 && r.y > us1.rows / 12 && r.x + r.width < us1.cols - (us1.cols / 12) && r.y + r.height < us1.rows - (us1.rows / 12)
-//			  && r.area() > ((us1.cols * us1.rows) / 300.0) && r.area() < (us1.cols * us1.rows)
-			  )
-		  rects2.push_back(r);
+		Rect r(x, y, w, h);
+		for (int i = 0; i < centroids2.rows; i++) {
+			Point2f c;
+			c.x = centroids2.at<double>(i, 0);
+			c.y = centroids2.at<double>(i, 1);
+			if (r.area() < ((us1.cols * us1.rows) / 10.0) && r.contains(c)) {
+				rects2.push_back(r);
+			}
+		}
 	}
 
-	vector<Point2f> newPoints1, newPoints2;
 	Mat cc1 = us1.clone();
 	Mat cc2 = us2.clone();
 
@@ -142,7 +174,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 	show_image("cc1", cc1);
 	show_image("cc2", cc2);
-
 	return {newPoints1,newPoints2};
 
 }
@@ -162,8 +193,8 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsFlann() {
     cvtColor(trip1, trip1, COLOR_BGR2GRAY);
     cvtColor(trip2, trip2, COLOR_BGR2GRAY);
 
-	show_image("uf1", trip1);
-	show_image("uf2", trip2);
+//	show_image("uf1", trip1);
+//	show_image("uf2", trip2);
 
 	Mat descriptors1, descriptors2;
 	detector->detect(trip1, keypoints1);
@@ -355,8 +386,8 @@ void Extractor::reduceBackground(const Mat& img1, const Mat& img2, Mat& reduced1
 		finalMask2Float = Scalar::all(1);
 	}
 
-	show_image("fin1",finalMask1Float);
-	show_image("fin2",finalMask2Float);
+//	show_image("fin1",finalMask1Float);
+//	show_image("fin2",finalMask2Float);
 
 	Mat img1Float, img2Float;
 	img1.convertTo(img1Float, CV_32F, 1 / 255.0);

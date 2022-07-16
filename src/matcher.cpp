@@ -47,13 +47,13 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 //			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
 //			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-			Point2f center1 = average(srcPointsFlann1);
-			Point2f center2 = average(srcPointsFlann2);
-			Point2f vec = center1 - center2;
-			cerr << "center vec" << vec << endl;
-			trafo.translate(corrected2, corrected2, vec);
-			trafo.translate_points(srcPointsFlann2, vec);
-			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			Point2f center1 = average(srcPointsFlann1);
+//			Point2f center2 = average(srcPointsFlann2);
+//			Point2f vec = center1 - center2;
+//			cerr << "center vec" << vec << endl;
+//			trafo.translate(corrected2, corrected2, vec);
+//			trafo.translate_points(srcPointsFlann2, vec);
+//			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
 			bool progress = false;
 			do {
@@ -170,6 +170,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			corrected2 = img2_.clone();
 		}
 	}
+
 	filter_invalid_points(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
 
 	cerr << "keypoints remaining: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
@@ -234,7 +235,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 
 	double thresh =
 			((distanceMap.size() / density)
-			* pow(mean / deviation,3)
+			* pow(mean / deviation,6)
 			* (Settings::instance().match_tolerance)
 			) / ((150 * (5 + sqrt(5)) / 2.0));
 
@@ -245,6 +246,7 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 		double value = (*it).first;
 		double r = (value/thresh);
+		cerr << r << endl;
 
 		if(first && r > 1) {
 			first = false;

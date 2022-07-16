@@ -141,7 +141,6 @@ void draw_flow_vectors(const Mat &morphed, const Mat &last, Mat &dst) {
 	calcOpticalFlowFarneback(grey1, grey2, flowUmat, 0.4, 1, 12, 2, 8, 1.2, 0);
 	flowUmat.copyTo(flow);
 	dst = morphed.clone();
-	uint32_t color;
 
 	double diag = hypot(morphed.cols, morphed.rows);
 	for (off_t x = 0; x < morphed.cols; ++x) {

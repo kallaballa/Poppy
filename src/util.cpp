@@ -3,7 +3,6 @@
 
 #include <set>
 #include <iostream>
-#include <random>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -267,11 +266,9 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-std::random_device rd;
-std::mt19937 g;
 size_t increment = 6;
 
-long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 
 	vector<Point2f> hull1, hull2;
@@ -308,43 +305,16 @@ long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Poin
 }
 
 
-long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
-	assert(srcPoints1.size() == srcPoints2.size());
-	float innerDist1 = 0;
-	for(size_t i = 0; i < srcPoints1.size(); i+=increment) {
-		const Point2f& p = srcPoints1[i];
-		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
-			const Point2f& v = p - srcPoints1[j];
-			innerDist1 += hypot(v.x,v.y);
-		}
-	}
-	innerDist1 = ((innerDist1 / (srcPoints1.size() * srcPoints1.size() * increment)) / hypot(width,height));
-
-	float innerDist2 = 0;
-	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
-		const Point2f& p = srcPoints2[i];
-		for(size_t j = 0; j < srcPoints2.size(); j+=increment) {
-			const Point2f& v = p - srcPoints1[j];
-			innerDist2 += hypot(v.x,v.y);
-		}
-	}
-	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size() * increment)) / hypot(width,height));
-
-	auto ret = fabs(innerDist1 - innerDist2);
-	assert(ret >= 0 && ret <= 1.0);
-	return ret;
-}
-
 long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	float totalDistance = 0;
 
 	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
 		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
-			totalDistance += fabs(srcPoints2[i].x - srcPoints1[i].x) + fabs(srcPoints2[i].y - srcPoints1[i].y);
+			totalDistance += hypot(srcPoints2[i].x - srcPoints1[j].x, srcPoints2[i].y - srcPoints1[j].y);
 		}
 	}
-	auto ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / (width + height);
+	auto ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width, height);
 	assert(ret >= 0 && ret <= 1.0);
 	return ret;
 }
