@@ -269,60 +269,84 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 
 std::random_device rd;
 std::mt19937 g;
-std::uniform_int_distribution<size_t> dist(1.0, 4.0);
-size_t random_inc = dist(g);
-
-long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
-	assert(srcPoints1.size() == srcPoints2.size());
-	vector<Point2f> sp1 = srcPoints1;
-	vector<Point2f> sp2 = srcPoints2;
-
-	std::shuffle(sp1.begin(), sp1.end(), g);
-	std::shuffle(sp2.begin(), sp2.end(), g);
-
-	float totalDistance = 0;
-	for(size_t i = 0; i < sp1.size(); ++i) {
-		const Point2f& v = sp2[i] - sp1[i];
-		totalDistance += (pow(v.x,2) + pow(v.y,2));
-	}
-	return sqrt(totalDistance / sp1.size());
-}
+size_t increment = 6;
 
 long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
+
+	vector<Point2f> hull1, hull2;
+	vector<Point2f> contour1, contour2;
+	convexHull(srcPoints1, hull1);
+	convexHull(srcPoints2, hull2);
+	approxPolyDP(Mat(hull1), contour1, 0.001, true);
+	approxPolyDP(Mat(hull2), contour2, 0.001, true);
+	auto area1 = fabs(contourArea(Mat(contour1)));
+	auto area2 = fabs(contourArea(Mat(contour2)));
+
 	float innerDist1 = 0;
-	for(size_t i = 0; i < srcPoints1.size(); i+=random_inc) {
+	for(size_t i = 0; i < srcPoints1.size(); i+=increment) {
 		const Point2f& p = srcPoints1[i];
-		for(size_t j = 0; j < srcPoints1.size(); j+=random_inc) {
+		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
 			const Point2f& v = p - srcPoints1[j];
-			innerDist1 += fabs(v.x * v.y);
+			innerDist1 += v.x + v.y;
 		}
 	}
-	innerDist1 = (innerDist1 / (srcPoints1.size() * srcPoints1.size()));
+	innerDist1 = ((innerDist1 / (srcPoints1.size() * srcPoints1.size() * increment)) / (width + height));
 
 	float innerDist2 = 0;
-	for(size_t i = 0; i < srcPoints2.size(); i+=random_inc) {
+	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
 		const Point2f& p = srcPoints2[i];
-		for(size_t j = 0; j < srcPoints2.size(); j+=random_inc) {
+		for(size_t j = 0; j < srcPoints2.size(); j+=increment) {
 			const Point2f& v = p - srcPoints1[j];
-			innerDist2 += fabs(v.x * v.y);
+			innerDist2 += v.x + v.y;
 		}
 	}
-	innerDist2 = (innerDist2 / (srcPoints2.size() * srcPoints2.size()));
+	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size() * increment)) / (width + height));
 
-	return fabs(innerDist1 - innerDist2);
+	auto ret = (fabs(innerDist1 - innerDist2) + (fabs(area1 - area2) / (width * height)) / 2.0);
+	return ret;
+}
+
+
+long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	float innerDist1 = 0;
+	for(size_t i = 0; i < srcPoints1.size(); i+=increment) {
+		const Point2f& p = srcPoints1[i];
+		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
+			const Point2f& v = p - srcPoints1[j];
+			innerDist1 += hypot(v.x,v.y);
+		}
+	}
+	innerDist1 = ((innerDist1 / (srcPoints1.size() * srcPoints1.size() * increment)) / hypot(width,height));
+
+	float innerDist2 = 0;
+	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
+		const Point2f& p = srcPoints2[i];
+		for(size_t j = 0; j < srcPoints2.size(); j+=increment) {
+			const Point2f& v = p - srcPoints1[j];
+			innerDist2 += hypot(v.x,v.y);
+		}
+	}
+	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size() * increment)) / hypot(width,height));
+
+	auto ret = fabs(innerDist1 - innerDist2);
+	assert(ret >= 0 && ret <= 1.0);
+	return ret;
 }
 
 long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	float totalDistance = 0;
 
-	for(size_t i = 0; i < srcPoints2.size(); i+=random_inc) {
-		for(size_t j = 0; j < srcPoints1.size(); j+=random_inc) {
-			totalDistance += fabs(srcPoints2[i].x - srcPoints1[i].x) + fabs(srcPoints2[i].y - srcPoints1[i].y);
+	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
+		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
+			totalDistance += hypot(srcPoints2[i].x - srcPoints1[i].x, srcPoints2[i].y - srcPoints1[i].y);
 		}
 	}
-	return (totalDistance / ((srcPoints1.size() * srcPoints2.size()) / random_inc));
+	long double ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width,height);
+	assert(ret >= 0 && ret < 1.0);
+	return ret;
 }
 
 void show_image(const string &name, const Mat &img) {

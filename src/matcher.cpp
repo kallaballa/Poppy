@@ -105,7 +105,6 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 				srcPointsFlann2 = lastSrcPoints2;
 			}
 
-
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
 		} else {
