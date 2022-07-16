@@ -173,7 +173,7 @@ double morph_distance(const Mat &img1, const Mat &img2) {
 		corners2.resize(corners1.size());
 
 
-	matcher.match(corners1, corners2);
+	matcher.match(tmp1, tmp2, corners1, corners2);
 
 	if (corners1.size() > corners2.size())
 		corners1.resize(corners2.size());

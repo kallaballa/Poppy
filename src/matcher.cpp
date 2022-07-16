@@ -4,6 +4,8 @@
 #include "draw.hpp"
 #include "settings.hpp"
 #include "transformer.hpp"
+#include "procrustes.hpp"
+
 
 namespace poppy {
 
@@ -30,30 +32,35 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			vector<Point2f> srcPointsRaw2 = matchesRaw.second;
 			vector<Point2f> srcPointsFlann1 = matchesFlann.first;
 			vector<Point2f> srcPointsFlann2 = matchesFlann.second;
+			cerr << "initial points: " << srcPointsRaw1.size() << endl;
+			double initialDist = morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows);
+			cerr << "initial dist: " << initialDist << endl;
 
-			double lastDistTrans = numeric_limits<double>::max();
-			double distTrans = numeric_limits<double>::max();
-			double lastDistRot = numeric_limits<double>::max();
-			double distRot = numeric_limits<double>::max();
-			double lastDistScale = numeric_limits<double>::max();
-			double distScale = numeric_limits<double>::max();
+			double lastDistTrans = initialDist;
+			double distTrans = initialDist;
+			double lastDistRot = initialDist;
+			double distRot = initialDist;
+			double lastDistScale = initialDist;
+			double distScale = initialDist;
+			double lastDistProcr = initialDist;
+			double distProcr = initialDist;
+
 			Mat lastCorrected2;
-			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
-			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
-			double angle = orient2.first - orient1.first;
-			cerr << "PCA angle: " << angle << endl;
-			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
-			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-			Point2f center1 = average(srcPointsFlann1);
-			Point2f center2 = average(srcPointsFlann2);
-			Point2f vec = center1 - center2;
-			cerr << "center vec" << vec << endl;
-			trafo.translate(corrected2, corrected2, vec);
-			trafo.translate_points(srcPointsFlann2, vec);
-			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+			vector<Point2f> lastSrcFlannPoints1, lastSrcFlannPoints2;
+//			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
+//			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
+//			double angle = orient2.first - orient1.first;
+//			cerr << "PCA angle: " << angle << endl;
+//			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
+//			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			Point2f center1 = average(srcPointsFlann1);
+//			Point2f center2 = average(srcPointsFlann2);
+//			Point2f vec = center1 - center2;
+//			cerr << "center vec" << vec << endl;
+//			trafo.translate(corrected2, corrected2, vec);
+//			trafo.translate_points(srcPointsFlann2, vec);
+//			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
 			bool progress = false;
 			do {
@@ -61,8 +68,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 				do {
 					lastDistTrans = distTrans;
 					lastCorrected2 = corrected2.clone();
-					lastSrcPoints1 = srcPointsFlann1;
-					lastSrcPoints2 = srcPointsFlann2;
+					lastSrcFlannPoints1 = srcPointsFlann1;
+					lastSrcFlannPoints2 = srcPointsFlann2;
 					distTrans = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 					if(distTrans < lastDistTrans)
 						progress = true;
@@ -71,15 +78,19 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 				if(distTrans >= lastDistTrans) {
 					corrected2 = lastCorrected2.clone();
-					srcPointsFlann1 = lastSrcPoints1;
-					srcPointsFlann2 = lastSrcPoints2;
+					srcPointsFlann1 = lastSrcFlannPoints1;
+					srcPointsFlann2 = lastSrcFlannPoints2;
+
+					distRot = lastDistTrans;
+				} else {
+					distRot = distTrans;
 				}
 
 				do {
 					lastDistRot = distRot;
 					lastCorrected2 = corrected2.clone();
-					lastSrcPoints1 = srcPointsFlann1;
-					lastSrcPoints2 = srcPointsFlann2;
+					lastSrcFlannPoints1 = srcPointsFlann1;
+					lastSrcFlannPoints2 = srcPointsFlann2;
 					distRot = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 					if(distRot < lastDistRot)
 						progress = true;
@@ -88,21 +99,26 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 				if(distRot >= lastDistRot) {
 					corrected2 = lastCorrected2.clone();
-					srcPointsFlann1 = lastSrcPoints1;
-					srcPointsFlann2 = lastSrcPoints2;
+					srcPointsFlann1 = lastSrcFlannPoints1;
+					srcPointsFlann2 = lastSrcFlannPoints2;
+					distTrans = lastDistRot;
+					distScale = lastDistRot;
+				} else {
+					distTrans = distRot;
+					distScale = distRot;
 				}
 			} while(progress);
 
 			lastDistScale = distScale;
 			lastCorrected2 = corrected2.clone();
-			lastSrcPoints1 = srcPointsFlann1;
-			lastSrcPoints2 = srcPointsFlann2;
+			lastSrcFlannPoints1 = srcPointsFlann1;
+			lastSrcFlannPoints2 = srcPointsFlann2;
 			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
 			cerr << "rescale dist: " << distScale << endl;
 			if(distScale >= lastDistScale) {
 				corrected2 = lastCorrected2.clone();
-				srcPointsFlann1 = lastSrcPoints1;
-				srcPointsFlann2 = lastSrcPoints2;
+				srcPointsFlann1 = lastSrcFlannPoints1;
+				srcPointsFlann2 = lastSrcFlannPoints2;
 			}
 
 			srcPoints1 = srcPointsRaw1;
@@ -178,10 +194,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	check_points(srcPoints2, img1_.cols, img1_.rows);
 }
 
-void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	multimap<double, pair<Point2f, Point2f>> distanceMap;
-//	std::shuffle(srcPoints1.begin(), srcPoints1.end(), g);
-//	std::shuffle(srcPoints2.begin(), srcPoints2.end(), g);
 
 	Point2f nopoint(-1, -1);
 	for (auto &pt1 : srcPoints1) {
@@ -263,6 +277,37 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 		srcPoints1.push_back((*distanceMap.begin()).second.first);
 		srcPoints2.push_back((*distanceMap.begin()).second.second);
 	}
+
+	double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+	cerr << "preprocrustes dist:" <<  initialDist << endl;
+	double lastDistProcr = initialDist;
+	double distProcr = initialDist;
+	auto lastCorrected2 = corrected2.clone();
+	auto lastSrcPoints1 = srcPoints1;
+	auto lastSrcPoints2 = srcPoints2;
+
+	do {
+		lastDistProcr = distProcr;
+		lastCorrected2 = corrected2.clone();
+		lastSrcPoints1 = srcPoints1;
+		lastSrcPoints2 = srcPoints2;
+		Procrustes procr(true, true);
+		procr.procrustes(srcPoints1, srcPoints2);
+		vector<Point2f> yPrime = procr.yPrimeAsVector();
+		Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
+		perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
+		perspectiveMat.pop_back();
+		warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
+		distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+		cerr << "procrustes dist:" << distProcr << endl;
+	} while(lastDistProcr > distProcr);
+
+	if(initialDist <= distProcr) {
+		corrected2 = lastCorrected2.clone();
+		srcPoints1 = lastSrcPoints1;
+		srcPoints2 = lastSrcPoints2;
+	}
+
 	assert(srcPoints1.size() == srcPoints2.size());
 	check_points(srcPoints1, img1_.cols, img1_.rows);
 	check_points(srcPoints2, img1_.cols, img1_.rows);
@@ -271,10 +316,10 @@ void Matcher::match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
 }
 
-void Matcher::prepare(const Mat &corrected1, const Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+void Matcher::prepare(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	//edit matches
 	cerr << "matching: " << srcPoints1.size() << endl;
-	match(srcPoints1, srcPoints2);
+	match(corrected1, corrected2, srcPoints1, srcPoints2);
 	cerr << "matched: " << srcPoints1.size() << endl;
 
 	Mat matMatches;

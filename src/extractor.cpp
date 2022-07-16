@@ -35,7 +35,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 400 + (1.0 / detail2) * 400);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
@@ -70,8 +70,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat grey1, grey2;
 	cvtColor(bgr1, grey1, COLOR_BGR2GRAY);
 	cvtColor(bgr2, grey2, COLOR_BGR2GRAY);
-//	dilate(grey1, grey1, getStructuringElement(MORPH_ELLIPSE, Size(23, 23)));
-//	dilate(grey2, grey2, getStructuringElement(MORPH_ELLIPSE, Size(23, 23)));
 
 	Mat labels1, stats1, centroids1;
 	Mat labels2, stats2, centroids2;
@@ -80,21 +78,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
 
 	vector<Point2f> newPoints1, newPoints2;
-
-	for(int i=0; i< centroids1.rows; i++) {
-		Point2f c;
-		c.x = centroids1.at<double>(i,0);
-		c.y = centroids1.at<double>(i,1);
-		newPoints1.push_back(c);
-	}
-
-	for(int i=0; i< centroids2.rows; i++) {
-		Point2f c;
-		c.x = centroids2.at<double>(i,0);
-		c.y = centroids2.at<double>(i,1);
-		newPoints2.push_back(c);
-	}
-
 //
 //	bgr1 = us1.clone();
 //	bgr2 = us2.clone();
@@ -163,6 +146,22 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 				newPoints2.push_back(pt);
 				break;
 			}
+		}
+	}
+
+	if(newPoints1.empty() || newPoints2.empty()) {
+		for(int i=0; i< centroids1.rows; i++) {
+			Point2f c;
+			c.x = centroids1.at<double>(i,0);
+			c.y = centroids1.at<double>(i,1);
+			newPoints1.push_back(c);
+		}
+
+		for(int i=0; i< centroids2.rows; i++) {
+			Point2f c;
+			c.x = centroids2.at<double>(i,0);
+			c.y = centroids2.at<double>(i,1);
+			newPoints2.push_back(c);
 		}
 	}
 

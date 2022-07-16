@@ -25,8 +25,8 @@ public:
 	}
 	virtual ~Matcher();
 	void find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
-	void match(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
-	void prepare(const Mat &corrected1, const Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
+	void match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
+	void prepare(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2);
 };
 
 } /* namespace poppy */
