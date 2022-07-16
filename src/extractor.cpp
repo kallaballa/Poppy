@@ -35,7 +35,7 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 500 + (1.0 / detail2) * 500);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
@@ -111,14 +111,6 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	vector<Point2f> newPoints1, newPoints2;
 	Mat cc1 = us1.clone();
 	Mat cc2 = us2.clone();
-
-	for(int i=0; i<centroids1.rows; ++i) {
-		newPoints1.push_back(centroids1.at<Point2f>(i,0));
-	}
-
-	for(int i=0; i<centroids2.rows; ++i) {
-		newPoints2.push_back(centroids2.at<Point2f>(i,0));
-	}
 
 	for(const auto& pt : points1) {
 		for(auto& r : rects1) {

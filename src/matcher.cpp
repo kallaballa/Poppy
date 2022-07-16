@@ -39,13 +39,13 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double distScale = numeric_limits<double>::max();
 			Mat lastCorrected2;
 			vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
-			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
-			double angle = orient2.first - orient1.first;
-			cerr << "PCA angle: " << angle << endl;
-			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
-			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
+//			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
+//			double angle = orient2.first - orient1.first;
+//			cerr << "PCA angle: " << angle << endl;
+//			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
+//			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
+//			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			cerr << "initial dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 			Point2f center1 = average(srcPointsFlann1);
 			Point2f center2 = average(srcPointsFlann2);
@@ -55,20 +55,17 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			trafo.translate_points(srcPointsFlann2, vec);
 			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
 
-			lastDistScale = distScale;
-			lastCorrected2 = corrected2.clone();
-			lastSrcPoints1 = srcPointsFlann1;
-			lastSrcPoints2 = srcPointsFlann2;
-			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-			cerr << "rescale dist: " << distScale << endl;
-
-			for (size_t i = 0; i < 10; ++i) {
+			bool progress = false;
+			do {
+				progress = false;
 				do {
 					lastDistTrans = distTrans;
 					lastCorrected2 = corrected2.clone();
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
 					distTrans = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					if(distTrans < lastDistTrans)
+						progress = true;
 					cerr << "retranslate dist: " << distTrans << endl;
 				} while(distTrans < lastDistTrans);
 
@@ -84,6 +81,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					lastSrcPoints1 = srcPointsFlann1;
 					lastSrcPoints2 = srcPointsFlann2;
 					distRot = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+					if(distRot < lastDistRot)
+						progress = true;
 					cerr << "rerotate dist: " << distRot << endl;
 				} while(distRot < lastDistRot);
 
@@ -92,7 +91,20 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 					srcPointsFlann1 = lastSrcPoints1;
 					srcPointsFlann2 = lastSrcPoints2;
 				}
+			} while(progress);
+
+			lastDistScale = distScale;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPointsFlann1;
+			lastSrcPoints2 = srcPointsFlann2;
+			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
+			cerr << "rescale dist: " << distScale << endl;
+			if(distScale >= lastDistScale) {
+				corrected2 = lastCorrected2.clone();
+				srcPointsFlann1 = lastSrcPoints1;
+				srcPointsFlann2 = lastSrcPoints2;
 			}
+
 
 			srcPoints1 = srcPointsRaw1;
 			srcPoints2 = srcPointsRaw2;
@@ -161,7 +173,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	}
 	filter_invalid_points(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
 
-	cerr << "keypoints: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+	cerr << "keypoints remaining: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 	check_points(srcPoints1, img1_.cols, img1_.rows);
 	check_points(srcPoints2, img1_.cols, img1_.rows);
 }

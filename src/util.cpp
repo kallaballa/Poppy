@@ -3,6 +3,7 @@
 
 #include <set>
 #include <iostream>
+#include <random>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -266,7 +267,7 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+long double morph_distance4(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	long double totalDistance = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
@@ -278,61 +279,63 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
 }
 
-//I have no idea why but this metric performs worse for auto alignmnt
+std::random_device rd;
+std::mt19937 g;
+
 long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	long double totalDistance = 0;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
-		Point2f v = srcPoints2[i] - srcPoints1[i];
-		long double x = v.x;
-		long double y = v.y;
-		totalDistance += (pow(x,2) + pow(y,2));
+	vector<Point2f> sp1 = srcPoints1;
+	vector<Point2f> sp2 = srcPoints2;
+
+	std::shuffle(sp1.begin(), sp1.end(), g);
+	std::shuffle(sp2.begin(), sp2.end(), g);
+
+	float totalDistance = 0;
+	for(size_t i = 0; i < sp1.size(); ++i) {
+		const Point2f& v = sp2[i] - sp1[i];
+		totalDistance += (pow(v.x,2) + pow(v.y,2));
 	}
-	return sqrt(totalDistance / srcPoints1.size());
+	return sqrt(totalDistance / sp1.size());
 }
 
 long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	double innerDist1 = 0;
+	float innerDist1 = 0;
 	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		const Point2f& p = srcPoints1[i];
 		for(size_t j = 0; j < srcPoints1.size(); ++j) {
-			Point2f v = p - srcPoints1[j];
+			const Point2f& v = p - srcPoints1[j];
 			innerDist1 += fabs(v.x * v.y);
 		}
 	}
-	innerDist1 = (innerDist1 / (srcPoints1.size() * srcPoints1.size())) / hypot(width,height);
+	innerDist1 = (innerDist1 / (srcPoints1.size() * srcPoints1.size()));
 
-	double innerDist2 = 0;
+	float innerDist2 = 0;
 	for(size_t i = 0; i < srcPoints2.size(); ++i) {
 		const Point2f& p = srcPoints2[i];
 		for(size_t j = 0; j < srcPoints2.size(); ++j) {
-			Point2f v = p - srcPoints2[j];
+			const Point2f& v = p - srcPoints1[j];
 			innerDist2 += fabs(v.x * v.y);
 		}
 	}
-	innerDist2 = (innerDist2 / (srcPoints2.size() * srcPoints2.size())) / hypot(width,height);
+	innerDist2 = (innerDist2 / (srcPoints2.size() * srcPoints2.size()));
 
-	double totalDistance = 0;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
-		Point2f v = srcPoints2[i] - srcPoints1[i];
-		totalDistance += hypot(v.x, v.y);
-	}
-
-	return fabs(innerDist1 - innerDist2) * (totalDistance / (srcPoints1.size())) / hypot(width,height);
+	return fabs(innerDist1 - innerDist2);
 }
 
-long double morph_distance4(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+std::uniform_int_distribution<size_t> dist(1.0, 4.0);
+size_t random_inc = dist(g);
+
+long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
-	double totalDistance = 0;
-	for(size_t i = 0; i < srcPoints2.size(); ++i) {
-		const Point2f& p2 = srcPoints2[i];
-		for(size_t j = 0; j < srcPoints1.size(); ++j) {
-			Point2f v = p2 - srcPoints1[i];
-			totalDistance += fabs(v.x * v.y);
+	float totalDistance = 0;
+
+	for(size_t i = 0; i < srcPoints2.size(); i+=random_inc) {
+		for(size_t j = 0; j < srcPoints1.size(); j+=random_inc) {
+			totalDistance += fabs(srcPoints2[i].x - srcPoints1[i].x) + fabs(srcPoints2[i].y - srcPoints1[i].y);
 		}
 	}
-	return (totalDistance / (srcPoints1.size() * srcPoints2.size())) / hypot(width,height);
+	return (totalDistance / ((srcPoints1.size() * srcPoints2.size()) / random_inc));
 }
 
 void show_image(const string &name, const Mat &img) {

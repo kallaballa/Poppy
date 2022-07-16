@@ -229,7 +229,7 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 	Mat m(3,3,CV_32F);
 	double step = 1.0 / 100000;
 	double scale = 0;
-	for(size_t i = 0; i < 100; ++i) {
+	for(size_t i = 0; i < 162; ++i) {
 		scale = (step * (i + 1)) * ((corrected2.cols + corrected2.rows));
 		m.at<float>(0,0) = scale;
 		m.at<float>(1,0) = 0;
@@ -243,7 +243,7 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 		m.at<float>(1,2) = center.y - (corrected2.rows * scale / 2.0);
 		m.at<float>(2,2) = 1.0;
 		perspectiveTransform(srcPointsFlann2,tmp,m);
-		morphDist = morph_distance3(srcPointsFlann1, tmp, width_, height_);
+		morphDist = scale > 1.0 ? scale : 1.0 * morph_distance3(srcPointsFlann1, tmp, width_, height_);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
 			selectedMat = m.clone();
