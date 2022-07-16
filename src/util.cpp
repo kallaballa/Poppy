@@ -267,20 +267,10 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-long double morph_distance4(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
-	assert(srcPoints1.size() == srcPoints2.size());
-	long double totalDistance = 0;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
-		Point2f v = srcPoints2[i] - srcPoints1[i];
-		long double x = v.x;
-		long double y = v.y;
-		totalDistance += hypot(x, y);
-	}
-	return (totalDistance / srcPoints1.size()) / hypot(width,height) * 1000.0;
-}
-
 std::random_device rd;
 std::mt19937 g;
+std::uniform_int_distribution<size_t> dist(1.0, 4.0);
+size_t random_inc = dist(g);
 
 long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
@@ -301,9 +291,9 @@ long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Poin
 long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	float innerDist1 = 0;
-	for(size_t i = 0; i < srcPoints1.size(); ++i) {
+	for(size_t i = 0; i < srcPoints1.size(); i+=random_inc) {
 		const Point2f& p = srcPoints1[i];
-		for(size_t j = 0; j < srcPoints1.size(); ++j) {
+		for(size_t j = 0; j < srcPoints1.size(); j+=random_inc) {
 			const Point2f& v = p - srcPoints1[j];
 			innerDist1 += fabs(v.x * v.y);
 		}
@@ -311,9 +301,9 @@ long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Poin
 	innerDist1 = (innerDist1 / (srcPoints1.size() * srcPoints1.size()));
 
 	float innerDist2 = 0;
-	for(size_t i = 0; i < srcPoints2.size(); ++i) {
+	for(size_t i = 0; i < srcPoints2.size(); i+=random_inc) {
 		const Point2f& p = srcPoints2[i];
-		for(size_t j = 0; j < srcPoints2.size(); ++j) {
+		for(size_t j = 0; j < srcPoints2.size(); j+=random_inc) {
 			const Point2f& v = p - srcPoints1[j];
 			innerDist2 += fabs(v.x * v.y);
 		}
@@ -322,9 +312,6 @@ long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Poin
 
 	return fabs(innerDist1 - innerDist2);
 }
-
-std::uniform_int_distribution<size_t> dist(1.0, 4.0);
-size_t random_inc = dist(g);
 
 long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
