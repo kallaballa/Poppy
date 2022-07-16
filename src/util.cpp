@@ -341,11 +341,11 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 
 	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
 		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
-			totalDistance += hypot(srcPoints2[i].x - srcPoints1[i].x, srcPoints2[i].y - srcPoints1[i].y);
+			totalDistance += fabs(srcPoints2[i].x - srcPoints1[i].x) + fabs(srcPoints2[i].y - srcPoints1[i].y);
 		}
 	}
-	long double ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width,height);
-	assert(ret >= 0 && ret < 1.0);
+	auto ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / (width + height);
+	assert(ret >= 0 && ret <= 1.0);
 	return ret;
 }
 
