@@ -180,7 +180,7 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 		}
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
-//	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
+	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation);
 	for (auto &pt : srcPointsFlann2) {
 		pt.x += retranslation.x;
@@ -212,7 +212,7 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, 
 	}
 
 	rotate(corrected2, corrected2, center, -selectedAngle);
-//	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
+	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
 	rotate_points(srcPointsFlann2, center, selectedAngle);
 	rotate_points(srcPointsRaw2, center, selectedAngle);
 
@@ -251,6 +251,7 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 	}
 
 	if(!selectedMat.empty()) {
+		cerr << "rescale: " << lowestDist << " selected scale: " << selectedMat.at<float>(0,0) << endl;
 		perspectiveTransform(srcPointsRaw2,srcPointsRaw2,selectedMat);
 		perspectiveTransform(srcPointsFlann2,srcPointsFlann2,selectedMat);
 		selectedMat.pop_back();
