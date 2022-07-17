@@ -2,7 +2,7 @@
 An automatic and non-domain-specific image morphing tool that doesn't require manual keypoints.
 
 This is very much a work in progress. And works best on similar objects from a similar perspective.
-Please note that though the algorithm is capable of rotating and translating images to match (if they are similar enough), **most of the time you get the best result when you scale/rotate/translate the source images to match each other by hand**.
+Please note that though the algorithm is capable of rotating and translating images to match (if they are similar enough), **often you get the best result when you scale/rotate/translate the source images to match each other by hand**.
 
 ## Demos
 The following demos are very low quality renderings of what Poppy can do. There are always two versions of a demo, one manually aligned and one auto-aligned. Auto-aligned in this case means that Poppy guesses the orientation and scale of the source images and automatically aligns them as best as possible. If you are truly curious, you should really try it yourself! It is quick and easy to do. Check out [this script](https://github.com/kallaballa/Poppy/blob/main/make_demos.sh) to see how the demos are generated. If you are too lazy for that there is also a [video](https://vimeo.com/679551761) containing all demos and of course the [web version](https://viel-zu.org/poppy/) (compiled with emscripten).
