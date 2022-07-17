@@ -40,6 +40,10 @@ ffmpeg -y -i "$LOW" ../demo/flowers.gif
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/yalefaces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/yalefaces.gif
 
+../src/poppy $OPTS -o ../videos/frontal.mkv dogfrontal.jpg catfrontal.jpg dogfrontal.jpg
+mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/frontal.mkv -o "$LOW"
+ffmpeg -y -i "$LOW" ../demo/frontal.gif
+
 #auto aligned
 OPTS="$OPTS -a"
 ../src/poppy -e $OPTS -o ../videos/faces-a.mkv some2.png face1.jpg face2.jpg face3.jpg
@@ -73,5 +77,10 @@ ffmpeg -y -i "$LOW" ../demo/flowers-a.gif
 ../src/poppy $OPTS -o ../videos/yalefaces-a.mkv subject01*.png subject01.glasses.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/yalefaces-a.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/yalefaces-a.gif
+
+../src/poppy $OPTS -o ../videos/frontal-a.mkv dogfrontal.jpg catfrontal.jpg dogfrontal.jpg
+mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/frontal-a.mkv -o "$LOW"
+ffmpeg -y -i "$LOW" ../demo/frontal-a.gif
+
 
 rm "$LOW"
