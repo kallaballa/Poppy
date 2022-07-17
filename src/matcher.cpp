@@ -245,28 +245,40 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 	}
 
 	double thresh =
-			((distanceMap.size() / density)
-			* pow(mean / deviation,3)
+			((distanceMap.size() / pow(density, 0.33333))
+			* pow(mean / deviation, 3)
 			* (Settings::instance().match_tolerance)
-			) / ((150 * (5 + sqrt(5)) / 2.0));
+			) / ((50 * (5 + sqrt(5)) / 2.0));
 
 	srcPoints1.clear();
 	srcPoints2.clear();
+	pair<vector<Point2f>, vector<Point2f>> buffer;
 	double lastVal = 1.0;
-	bool first = true;
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 		double value = (*it).first;
 		double r = (value/thresh);
 
-		if(first && r > 1) {
-			first = false;
+		if(lastVal > 0 && value > 0 && r > 0.2 && value > (lastVal * 1.2)) {
+			cerr << "boost: " << value / lastVal << " | " << r << endl;
 			thresh *= value / lastVal;
 		}
 
-		if(r > 0 && r <= 1.0) {
+		if(r > 0.0 && r <= 1.0) {
+			for(const auto& v : buffer.first) {
+				srcPoints1.push_back(v);
+			}
+			buffer.first.clear();
+			for(const auto& v : buffer.second) {
+				srcPoints2.push_back(v);
+			}
+			buffer.second.clear();
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
+		} else if (r > 0.0) {
+			buffer.first.push_back((*it).second.first);
+			buffer.second.push_back((*it).second.second);
 		}
+
 		lastVal = value;
 	}
 
