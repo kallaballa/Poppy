@@ -65,7 +65,8 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	show_image("g2", g2);
 	g1.convertTo(g1, CV_8U, 255.0);
 	g2.convertTo(g2, CV_8U, 255.0);
-
+	equalizeHist(g1,g1);
+	equalizeHist(g2,g2);
 	detector->detect(g1, keypoints1);
 	detector->detect(g2, keypoints2);
 
