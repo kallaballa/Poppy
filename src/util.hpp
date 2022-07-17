@@ -91,8 +91,9 @@ struct LessPointOp {
 };
 bool rect_contains(const Rect& r, const Point2f& pt, int radius);
 double euclidean_distance(cv::Point center, cv::Point point);
-void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16, int kernel_size = 13);
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16, int kernel_size = 13, double sig = 5, double lm = 10, double gm = 0.04, double ps = CV_PI/4);
 void triple_channel(const Mat& src, Mat& dst);
+void equalize_bgr(const Mat &src, Mat &dst);
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold);
 double feature_metric(const Mat &grey1);
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts);

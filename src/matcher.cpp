@@ -91,6 +91,130 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	check_points(srcPoints2, img1_.cols, img1_.rows);
 }
 
+void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+	double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+	cerr << "initial dist: " << initialDist << endl;
+	double lastDistTrans = initialDist;
+	double distTrans = initialDist;
+	double lastDistRot = initialDist;
+	double distRot = initialDist;
+	double lastDistScale = initialDist;
+	double distScale = initialDist;
+	double lastDistProcr = initialDist;
+	double distProcr = initialDist;
+
+	Mat lastCorrected2;
+	vector<Point2f> lastSrcPoints1, lastSrcPoints2;
+	auto srcPointsRaw2 = srcPoints2;
+	Transformer trafo(img1_.cols, img1_.rows);
+	Terminal term;
+
+	bool progress = false;
+	do {
+		progress = false;
+		do {
+			lastDistTrans = distTrans;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPoints1;
+			lastSrcPoints2 = srcPoints2;
+			distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			if(distTrans < lastDistTrans) {
+				progress = true;
+				cerr << term.makeColor("retranslate dist: " + to_string(distTrans), Terminal::GREEN) << endl;
+			} else {
+				cerr << term.makeColor("retranslate dist: " + to_string(lastDistTrans), Terminal::RED) << endl;
+			}
+		} while(distTrans < lastDistTrans);
+
+		if(distTrans >= lastDistTrans) {
+			corrected2 = lastCorrected2.clone();
+			srcPoints1 = lastSrcPoints1;
+			srcPoints2 = lastSrcPoints2;
+			distProcr = lastDistTrans;
+		} else {
+			distProcr = distTrans;
+		}
+
+		do {
+			lastDistProcr = distProcr;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPoints1;
+			lastSrcPoints2 = srcPoints2;
+			Procrustes procr(false, false);
+			procr.procrustes(srcPoints1, srcPoints2);
+			vector<Point2f> yPrime = procr.yPrimeAsVector();
+			Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
+			perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
+			perspectiveMat.pop_back();
+			warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
+			distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+			if(distProcr < lastDistProcr) {
+				progress = true;
+				cerr << term.makeColor("procrustes dist:" + to_string(distProcr), Terminal::GREEN) << endl;
+			} else {
+				cerr << term.makeColor("procrustes dist:" + to_string(lastDistProcr), Terminal::RED) << endl;
+			}
+		} while(lastDistProcr > distProcr);
+
+		if(distProcr >= lastDistProcr) {
+			corrected2 = lastCorrected2.clone();
+			srcPoints1 = lastSrcPoints1;
+			srcPoints2 = lastSrcPoints2;
+			distScale = lastDistProcr;
+		} else {
+			distScale = distProcr;
+		}
+
+		do {
+			lastDistScale = distScale;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPoints1;
+			lastSrcPoints2 = srcPoints2;
+			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			if(distScale < lastDistScale) {
+				progress = true;
+				cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
+			} else {
+				cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
+			}
+		} while(distScale < lastDistScale);
+
+		if(distScale >= lastDistScale) {
+			corrected2 = lastCorrected2.clone();
+			srcPoints1 = lastSrcPoints1;
+			srcPoints2 = lastSrcPoints2;
+			distRot = lastDistScale;
+		} else {
+			distRot = distScale;
+		}
+
+		do {
+			lastDistRot = distRot;
+			lastCorrected2 = corrected2.clone();
+			lastSrcPoints1 = srcPoints1;
+			lastSrcPoints2 = srcPoints2;
+			distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			if(distRot < lastDistRot) {
+				progress = true;
+				cerr << term.makeColor("rerotate dist: " + to_string(distRot), Terminal::GREEN) << endl;
+			} else {
+				cerr << term.makeColor("rerotate dist: " + to_string(lastDistRot), Terminal::RED) << endl;
+			}
+		} while(distRot < lastDistRot);
+
+		if(distRot >= lastDistRot) {
+			corrected2 = lastCorrected2.clone();
+			srcPoints1 = lastSrcPoints1;
+			srcPoints2 = lastSrcPoints2;
+			distScale = lastDistRot;
+			distTrans = lastDistRot;
+		} else {
+			distScale = distRot;
+			distTrans = distRot;
+		}
+	} while(progress);
+}
+
 void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
@@ -151,129 +275,6 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 		srcPoints2.push_back((*distanceMap.begin()).second.second);
 	}
 
-	if (Settings::instance().enable_auto_align) {
-		double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
-		cerr << "initial dist: " << initialDist << endl;
-		double lastDistTrans = initialDist;
-		double distTrans = initialDist;
-		double lastDistRot = initialDist;
-		double distRot = initialDist;
-		double lastDistScale = initialDist;
-		double distScale = initialDist;
-		double lastDistProcr = initialDist;
-		double distProcr = initialDist;
-
-		Mat lastCorrected2;
-		vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-		auto srcPointsRaw2 = srcPoints2;
-		Transformer trafo(img1_.cols, img1_.rows);
-		Terminal term;
-
-		bool progress = false;
-		do {
-			progress = false;
-			do {
-				lastDistTrans = distTrans;
-				lastCorrected2 = corrected2.clone();
-				lastSrcPoints1 = srcPoints1;
-				lastSrcPoints2 = srcPoints2;
-				distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
-				if(distTrans < lastDistTrans) {
-					progress = true;
-					cerr << term.makeColor("retranslate dist: " + to_string(distTrans), Terminal::GREEN) << endl;
-				} else {
-					cerr << term.makeColor("retranslate dist: " + to_string(lastDistTrans), Terminal::RED) << endl;
-				}
-			} while(distTrans < lastDistTrans);
-
-			if(distTrans >= lastDistTrans) {
-				corrected2 = lastCorrected2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
-				distProcr = lastDistTrans;
-			} else {
-				distProcr = distTrans;
-			}
-
-			do {
-				lastDistProcr = distProcr;
-				lastCorrected2 = corrected2.clone();
-				lastSrcPoints1 = srcPoints1;
-				lastSrcPoints2 = srcPoints2;
-				Procrustes procr(false, false);
-				procr.procrustes(srcPoints1, srcPoints2);
-				vector<Point2f> yPrime = procr.yPrimeAsVector();
-				Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
-				perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
-				perspectiveMat.pop_back();
-				warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
-				distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
-				if(distProcr < lastDistProcr) {
-					progress = true;
-					cerr << term.makeColor("procrustes dist:" + to_string(distProcr), Terminal::GREEN) << endl;
-				} else {
-					cerr << term.makeColor("procrustes dist:" + to_string(lastDistProcr), Terminal::RED) << endl;
-				}
-			} while(lastDistProcr > distProcr);
-
-			if(distProcr >= lastDistProcr) {
-				corrected2 = lastCorrected2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
-				distScale = lastDistProcr;
-			} else {
-				distScale = distProcr;
-			}
-
-			do {
-				lastDistScale = distScale;
-				lastCorrected2 = corrected2.clone();
-				lastSrcPoints1 = srcPoints1;
-				lastSrcPoints2 = srcPoints2;
-				distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
-				if(distScale < lastDistScale) {
-					progress = true;
-					cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
-				} else {
-					cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
-				}
-			} while(distScale < lastDistScale);
-
-			if(distScale >= lastDistScale) {
-				corrected2 = lastCorrected2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
-				distRot = lastDistScale;
-			} else {
-				distRot = distScale;
-			}
-
-			do {
-				lastDistRot = distRot;
-				lastCorrected2 = corrected2.clone();
-				lastSrcPoints1 = srcPoints1;
-				lastSrcPoints2 = srcPoints2;
-				distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
-				if(distRot < lastDistRot) {
-					progress = true;
-					cerr << term.makeColor("rerotate dist: " + to_string(distRot), Terminal::GREEN) << endl;
-				} else {
-					cerr << term.makeColor("rerotate dist: " + to_string(lastDistRot), Terminal::RED) << endl;
-				}
-			} while(distRot < lastDistRot);
-
-			if(distRot >= lastDistRot) {
-				corrected2 = lastCorrected2.clone();
-				srcPoints1 = lastSrcPoints1;
-				srcPoints2 = lastSrcPoints2;
-				distScale = lastDistRot;
-				distTrans = lastDistRot;
-			} else {
-				distScale = distRot;
-				distTrans = distRot;
-			}
-		} while(progress);
-	}
 	assert(srcPoints1.size() == srcPoints2.size());
 	check_points(srcPoints1, img1_.cols, img1_.rows);
 	check_points(srcPoints2, img1_.cols, img1_.rows);
@@ -287,6 +288,10 @@ void Matcher::prepare(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoin
 	cerr << "matching: " << srcPoints1.size() << endl;
 	match(corrected1, corrected2, srcPoints1, srcPoints2);
 	cerr << "matched: " << srcPoints1.size() << endl;
+	if (Settings::instance().enable_auto_align) {
+		cerr << "auto aligning..." << endl;
+		autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
+	}
 
 	Mat matMatches;
 	Mat grey1, grey2;

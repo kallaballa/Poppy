@@ -260,11 +260,9 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 
 	LaplacianBlending lb(l, r, lbmask, Settings::instance().pyramid_levels);
 	Mat_<Vec3f> lapBlend = lb.blend();
-	Mat tmp;
-	lapBlend.convertTo(tmp, corrected1.depth(), 255.0);
 	double amount = sin(maskRatio * M_PI);
-	dst = unsharp_mask(tmp, 0.8, amount * 12.0, 1.0);
-
+	dst = unsharp_mask(lapBlend, 1, amount, 0.3);
+	dst.convertTo(dst, CV_8U, 255);
 	Mat analysis = dst.clone();
 	Mat prev = last.clone();
 	if (prev.empty())

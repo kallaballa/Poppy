@@ -204,8 +204,30 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		resize(clone, img1, preserveAspect(img1.size(), szUnion), INTER_LINEAR);
 	}
 
-	Rect centerRect((szUnion.width - img1.cols) / 2.0, (szUnion.height - img1.rows) / 2.0, img1.cols, img1.rows);
-	img1.copyTo(mUnion(centerRect));
+	int ksize = 127;
+	int sigma = 6;
+	double marginFactor = 2;
+	double dx = fabs(img1.cols - szUnion.width) / 2.0;
+	double dy = fabs(img1.rows - szUnion.height) / 2.0;
+	Rect roi(dx, dy, img1.cols, img1.rows);
+	dx = (dx == 0 ? marginFactor : dx * marginFactor);
+	dy = (dy == 0 ? marginFactor : dy * marginFactor);
+	Rect rl(0, 0, dx, szUnion.height);
+	Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
+	Rect rt(0, 0, szUnion.width, dy);
+	Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+
+	mUnion = Scalar::all(0);
+	img1.copyTo(mUnion(roi));
+
+	Mat left = mUnion(rl).clone();
+	Mat right = mUnion(rr).clone();
+	Mat top = mUnion(rt).clone();
+	Mat bottom = mUnion(rb).clone();
+	GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
+	GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
+	GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
+	GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
 	img1 = mUnion.clone();
 
 #ifndef _WASM
@@ -242,7 +264,6 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				denoise2.copyTo(img2);
 			}
 
-
 			if (img2.empty()) {
 				std::cerr << "Can't read (invalid?) image file: " + imageFiles[i] << std::endl;
 				exit(2);
@@ -254,9 +275,9 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Size aspect = preserveAspect(img2.size(), szUnion);
 				resize(clone, img2, aspect, INTER_LINEAR);
 
-				int ksize = 63;
-				int sigma = 3;
-				double marginFactor = 1.25;
+				int ksize = 127;
+				int sigma = 6;
+				double marginFactor = 1.3;
 				double dx = fabs(aspect.width - szUnion.width) / 2.0;
 				double dy = fabs(aspect.height - szUnion.height) / 2.0;
 				Rect roi(dx, dy, aspect.width, aspect.height);
@@ -280,13 +301,13 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				poppy::show_image("bg", img2);
 				bg.release();
 				clone.release();
-			} else if(mUnion.size() != img2.size()){
-				int ksize = 63;
-				int sigma = 3;
-				double marginFactor = 1.25;
-				double dx = fabs(img1.cols - szUnion.width) / 2.0;
-				double dy = fabs(img1.rows - szUnion.height) / 2.0;
-				Rect roi(dx, dy, img1.cols, img1.rows);
+			} else {
+				int ksize = 127;
+				int sigma = 6;
+				double marginFactor = 2;
+				double dx = fabs(img2.cols - szUnion.width) / 2.0;
+				double dy = fabs(img2.rows - szUnion.height) / 2.0;
+				Rect roi(dx, dy, img2.cols, img2.rows);
 				dx = (dx == 0 ? marginFactor : dx * marginFactor);
 				dy = (dy == 0 ? marginFactor : dy * marginFactor);
 				Rect rl(0, 0, dx, szUnion.height);
@@ -295,36 +316,12 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
 
 				mUnion = Scalar::all(0);
-				img1.copyTo(mUnion(roi));
+				img2.copyTo(mUnion(roi));
 
 				Mat left = mUnion(rl).clone();
 				Mat right = mUnion(rr).clone();
 				Mat top = mUnion(rt).clone();
 				Mat bottom = mUnion(rb).clone();
-				GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
-				GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
-				GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
-				GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
-				img1 = mUnion.clone();
-				poppy::show_image("mu1", img1);
-
-				dx = fabs(img2.cols - szUnion.width) / 2.0;
-				dy = fabs(img2.rows - szUnion.height) / 2.0;
-				roi = Rect(dx, dy, img2.cols, img2.rows);
-				dx = (dx == 0 ? 100.0 : dx * marginFactor);
-				dy = (dy == 0 ? 100.0 : dy * marginFactor);
-				rl = Rect(0, 0, dx, szUnion.height);
-				rr = Rect(szUnion.width - dx, 0, dx, szUnion.height);
-				rt = Rect(0, 0, szUnion.width, dy);
-				rb = Rect(0, szUnion.height - dy, szUnion.width, dy);
-
-				mUnion = Scalar::all(0);
-				img2.copyTo(mUnion(roi));
-
-				left = mUnion(rl).clone();
-				right = mUnion(rr).clone();
-				top = mUnion(rt).clone();
-				bottom = mUnion(rb).clone();
 				GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
 				GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
 				GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);

@@ -12,6 +12,23 @@ using namespace cv;
 
 namespace poppy {
 
+void color_reduce(Mat& image, int div=64) {
+    int nl = image.rows;                    // number of lines
+    int nc = image.cols * image.channels(); // number of elements per line
+
+    for (int j = 0; j < nl; j++)
+    {
+        // get the address of row j
+        uchar* data = image.ptr<uchar>(j);
+
+        for (int i = 0; i < nc; i++)
+        {
+            // process each pixel
+            data[i] = data[i] / div * div + div / 2;
+        }
+    }
+}
+
 bool rect_contains(const Rect& r, const Point2f& pt, int radius) {
     return r.x - radius <= pt.x && pt.x  - radius < r.x + r.width && r.y - radius <= pt.y && pt.y - radius < r.y + r.height;
 }
@@ -20,8 +37,7 @@ double euclidean_distance(cv::Point center, cv::Point point) {
 	return hypot(center.x - point.x, center.y - point.y);
 }
 
-void gabor_filter(const Mat& src, Mat& dst, size_t numAngles, int kernel_size) {
-    double sig = 5, lm = 10, gm = 0.04, ps = CV_PI/4;
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles, int kernel_size, double sig, double lm, double gm, double ps) {
     vector<double> theta(numAngles);
 
     float step = (180 / numAngles);
@@ -51,13 +67,54 @@ void triple_channel(const Mat &src, Mat &dst) {
 	merge(planes, dst);
 }
 
-Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold)
-{
-    // work using floating point images to avoid overflows
-    cv::Mat input;
-    original.convertTo(input, CV_32F, 1.0/255.0);
-    // copy original for our return value
-    Mat retbuf = original.clone();
+void equalize_bgr(const Mat &src, Mat &dst) {
+	assert(src.type() == CV_8UC3);
+	show_image("sr", dst);
+
+	int histSize = 256;
+	Mat grey;
+	cvtColor(src, grey, COLOR_BGR2GRAY);
+
+	float range[] = {0, 256};
+	const float *histRange = {range};
+	bool uniform = true;
+	bool accumulate = false;
+
+	cv::Mat hist;
+	cv::calcHist(&grey, 1, 0, cv::Mat(), hist, 1, &histSize,
+				 &histRange, uniform, accumulate);
+
+
+	float max = 0;
+	for(size_t i = 0; i < hist.rows; ++i) {
+		max = std::max(max, hist.at<float>(i));
+	}
+	int count = 0;
+	for(size_t i = 0; i < hist.rows; ++i) {
+		if(hist.at<float>(i) > max / 2.0)
+			++count;
+	}
+
+	dst = src.clone();
+	color_reduce(dst, count);
+	show_image("re", dst);
+
+	Mat img_ycrcb;
+	cvtColor(src, img_ycrcb, COLOR_BGR2YCrCb);
+	vector<Mat> channels(3);
+	split(img_ycrcb, channels);
+	equalizeHist(channels[0], channels[0]);
+	merge(channels, img_ycrcb);
+
+	cvtColor(img_ycrcb, dst, COLOR_YCrCb2BGR);
+	show_image("ds", dst);
+}
+
+Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold) {
+	assert(original.type() == CV_32FC3);
+
+    cv::Mat input = original.clone();
+    Mat retBuf = original.clone();
 
     // create the blurred copy
     Mat blurred;
@@ -81,14 +138,13 @@ Mat unsharp_mask(const Mat& original, float radius, float amount, float threshol
         {
             Vec3f origColor = input.at<Vec3f>(row, col);
             Vec3f difference = unsharpMask.at<Vec3f>(row, col);
-
             if(cv::norm(difference) >= threshold) {
-                retbuf.at<Vec3f>(row, col) = origColor + amount * difference;
+            	retBuf.at<Vec3f>(row, col) = origColor + amount * difference;
             }
         }
     }
 
-    return retbuf;
+    return retBuf;
 }
 
 double feature_metric(const Mat &grey) {
