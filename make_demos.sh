@@ -48,7 +48,7 @@ ffmpeg -y -i "$LOW" ../demo/faces-a.gif
 
 ../src/poppy $OPTS -o ../videos/cars-a.mkv kindpng1s.png kindpng2s.png kindpng1s.png
 mencoder -vf scale=250:160 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/cars-a.mkv -o "$LOW"
-ffmpeg -y -i "$LOW" ../demo/cars.gif
+ffmpeg -y -i "$LOW" ../demo/cars-a.gif
 
 ../src/poppy -d $OPTS -o ../videos/browns-a.mkv amir1.jpg amir2.jpg amir1.jpg
 mencoder -vf scale=360:202 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/browns-a.mkv -o "$LOW"
