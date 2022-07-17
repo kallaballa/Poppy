@@ -144,44 +144,44 @@ void symmetryTest(
 }
 
 
-double morph_distance(const Mat &img1, const Mat &img2) {
-	Features ft1, ft2;
-	Matcher matcher(img1, img2, ft1, ft2);
-	Mat tmp1, tmp2;
-	if(img1.type() != CV_8UC1) {
-		cvtColor(img1, tmp1, COLOR_RGB2GRAY);
-	} else {
-		tmp1 = img1;
-	}
-
-	if(img2.type() != CV_8UC1) {
-		cvtColor(img2, tmp2, COLOR_RGB2GRAY);
-	} else {
-		tmp2 = img2;
-	}
-
-	vector<Point2f> corners1, corners2;
-	goodFeaturesToTrack(tmp1, corners1, 25,0.01,10);
-	goodFeaturesToTrack(tmp2, corners2, 25,0.01,10);
-
-	if(corners1.empty() || corners2.empty())
-		return numeric_limits<double>::max();
-
-	if (corners1.size() > corners2.size())
-		corners1.resize(corners2.size());
-	else
-		corners2.resize(corners1.size());
-
-
-	matcher.match(tmp1, tmp2, corners1, corners2);
-
-	if (corners1.size() > corners2.size())
-		corners1.resize(corners2.size());
-	else
-		corners2.resize(corners1.size());
-
-	return morph_distance(corners1, corners2, img1.cols, img1.rows);
-}
+//double morph_distance_exp(const Mat &img1, const Mat &img2) {
+//	Features ft1, ft2;
+//	Matcher matcher(img1, img2, ft1, ft2);
+//	Mat tmp1, tmp2;
+//	if(img1.type() != CV_8UC1) {
+//		cvtColor(img1, tmp1, COLOR_RGB2GRAY);
+//	} else {
+//		tmp1 = img1;
+//	}
+//
+//	if(img2.type() != CV_8UC1) {
+//		cvtColor(img2, tmp2, COLOR_RGB2GRAY);
+//	} else {
+//		tmp2 = img2;
+//	}
+//
+//	vector<Point2f> corners1, corners2;
+//	goodFeaturesToTrack(tmp1, corners1, 25,0.01,10);
+//	goodFeaturesToTrack(tmp2, corners2, 25,0.01,10);
+//
+//	if(corners1.empty() || corners2.empty())
+//		return numeric_limits<double>::max();
+//
+//	if (corners1.size() > corners2.size())
+//		corners1.resize(corners2.size());
+//	else
+//		corners2.resize(corners1.size());
+//
+//
+//	matcher.match(tmp1, tmp2, corners1, corners2);
+//
+//	if (corners1.size() > corners2.size())
+//		corners1.resize(corners2.size());
+//	else
+//		corners2.resize(corners1.size());
+//
+//	return morph_distance(corners1, corners2, img1.cols, img1.rows);
+//}
 
 void fft_shift(const Mat &input_img, Mat &output_img)
 {

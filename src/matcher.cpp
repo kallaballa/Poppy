@@ -15,6 +15,7 @@ Matcher::~Matcher(){
 void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	Extractor extractor(img1_, img2_);
 	extractor.prepareFeatures();
+	auto distanceMap = make_distance_map(srcPoints1, srcPoints2);
 	Transformer trafo(img2_.cols, img2_.rows);
 
 	if (ft1_.empty() || ft2_.empty()) {
@@ -92,7 +93,8 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 }
 
 void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
-	double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+	auto distanceMap = make_distance_map(srcPoints1, srcPoints2);
+	double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows, distanceMap);
 	cerr << "initial dist: " << initialDist << endl;
 	double lastDistTrans = initialDist;
 	double distTrans = initialDist;
@@ -105,7 +107,6 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 
 	Mat lastCorrected2;
 	vector<Point2f> lastSrcPoints1, lastSrcPoints2;
-	auto srcPointsRaw2 = srcPoints2;
 	Transformer trafo(img1_.cols, img1_.rows);
 	Terminal term;
 
@@ -117,7 +118,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastCorrected2 = corrected2.clone();
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
-			distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2);
 			if(distTrans < lastDistTrans) {
 				progress = true;
 				cerr << term.makeColor("retranslate dist: " + to_string(distTrans), Terminal::GREEN) << endl;
@@ -140,14 +141,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastCorrected2 = corrected2.clone();
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
-			Procrustes procr(false, false);
-			procr.procrustes(srcPoints1, srcPoints2);
-			vector<Point2f> yPrime = procr.yPrimeAsVector();
-			Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
-			perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
-			perspectiveMat.pop_back();
-			warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
-			distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+			distProcr = trafo.reprocrustes(corrected2, srcPoints1, srcPoints2);
 			if(distProcr < lastDistProcr) {
 				progress = true;
 				cerr << term.makeColor("procrustes dist:" + to_string(distProcr), Terminal::GREEN) << endl;
@@ -170,7 +164,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastCorrected2 = corrected2.clone();
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
-			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2);
 			if(distScale < lastDistScale) {
 				progress = true;
 				cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
@@ -193,7 +187,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastCorrected2 = corrected2.clone();
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
-			distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+			distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2);
 			if(distRot < lastDistRot) {
 				progress = true;
 				cerr << term.makeColor("rerotate dist: " + to_string(distRot), Terminal::GREEN) << endl;
@@ -245,42 +239,49 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 	}
 
 	double thresh =
-			((distanceMap.size() / pow(density, 0.33333))
+			((distanceMap.size() / pow(density,2))
 			* pow(mean / deviation, 3)
 			* (Settings::instance().match_tolerance)
-			) / ((100 * (5 + sqrt(5)) / 2.0));
+			) / ((200 * (5 + sqrt(5))) * pow(total / 10000, 0.9));
 
 	srcPoints1.clear();
 	srcPoints2.clear();
-	pair<vector<Point2f>, vector<Point2f>> buffer;
-	double lastVal = 1.0;
+//	pair<vector<Point2f>, vector<Point2f>> buffer;
+//	double lastVal = 1.0;
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 		double value = (*it).first;
 		double r = (value/thresh);
 
-		if(lastVal > 0 && value > 0 && r > 0.33 && value > (lastVal * 1.33)) {
-			double mult = std::max(1.0, (value / lastVal) * r);
-			cerr << term.makeColor("boost: x" + to_string(mult) + " @ " + to_string(r), Terminal::CYAN) << endl;
-			thresh *= mult;
-		}
+//		if(lastVal > 0.0 && value > 0.0 && r > 0 && value > lastVal) {
+//			double mult = ((value / lastVal) * std::min(1.0,r));
+//			if(mult > 1.5) {
+////				cerr << term.makeColor("boost: x" + to_string(mult) + " @ " + to_string(r), Terminal::CYAN) << endl;
+//				thresh *= mult;
+//			}
+//		}
 
-		if(r > 0.0 && r <= 1.33) {
-			for(const auto& v : buffer.first) {
-				srcPoints1.push_back(v);
-			}
-			for(const auto& v : buffer.second) {
-				srcPoints2.push_back(v);
-			}
-			buffer.first.clear();
-			buffer.second.clear();
+		if(r > 0.0 && r <= 1.0) {
+//			cerr << term.makeBold(term.makeColor("reap: " + to_string(1.0 + buffer.first.size()) + "pts @ " + to_string(r), Terminal::CYAN)) << endl;
+//
+//			for(const auto& v : buffer.first) {
+//				srcPoints1.push_back(v);
+//			}
+//			for(const auto& v : buffer.second) {
+//				srcPoints2.push_back(v);
+//			}
+//			buffer.first.clear();
+//			buffer.second.clear();
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
-		} else if (r > 0.0) {
-			buffer.first.push_back((*it).second.first);
-			buffer.second.push_back((*it).second.second);
+			if(srcPoints1.size() > 300)
+				break;
 		}
-
-		lastVal = value;
+//		else {
+//			buffer.first.push_back((*it).second.first);
+//			buffer.second.push_back((*it).second.second);
+//		}
+//		cerr << term.makeBold("entry: " + to_string(value) + " @ " + to_string(r)) << endl;
+//		lastVal = value;
 	}
 
 	if(srcPoints1.empty()) {

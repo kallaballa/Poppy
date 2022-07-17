@@ -1,5 +1,6 @@
 #include "transformer.hpp"
 #include "draw.hpp"
+#include "procrustes.hpp"
 
 #include <limits>
 #include <iostream>
@@ -95,22 +96,23 @@ void Transformer::rotate_features(Features &ft, const cv::Point2f &center, const
 	rotate_points(ft.inside_lips_, center, angDeg);
 }
 
-double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	vector<Point2f> left;
 	vector<Point2f> right;
 	vector<Point2f> top;
 	vector<Point2f> bottom;
-	for (auto &pt : srcPointsFlann2) {
+	for (auto &pt : srcPoints2) {
 		left.push_back( { pt.x - 1, pt.y });
 		right.push_back( { pt.x + 1, pt.y });
 		top.push_back( { pt.x, pt.y - 1 });
 		bottom.push_back( { pt.x, pt.y + 1 });
 	}
-	double mdCurrent = morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
-	double mdLeft = morph_distance(srcPointsFlann1, left, width_, height_);
-	double mdRight = morph_distance(srcPointsFlann1, right, width_, height_);
-	double mdTop = morph_distance(srcPointsFlann1, top, width_, height_);
-	double mdBottom = morph_distance(srcPointsFlann1, bottom, width_, height_);
+
+	double mdCurrent = morph_distance(srcPoints1, srcPoints2, width_, height_);
+	double mdLeft = morph_distance(srcPoints1, left, width_, height_);
+	double mdRight = morph_distance(srcPoints1, right, width_, height_);
+	double mdTop = morph_distance(srcPoints1, top, width_, height_);
+	double mdBottom = morph_distance(srcPoints1, bottom, width_, height_);
 	off_t xchange = 0;
 	off_t ychange = 0;
 
@@ -130,13 +132,13 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 	if (xchange != 0 && ychange != 0) {
 		double lastMorphDist = mdCurrent;
 		double morphDist = 0;
-		vector<Point2f> tmp = srcPointsFlann2;
+		vector<Point2f> tmp = srcPoints2;
 		do {
 			for (auto &pt : tmp) {
 				pt.x += xchange;
 				pt.y += ychange;
 			}
-			morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+			morphDist = morph_distance(srcPoints1, tmp, width_, height_);
 //			cerr << "morph dist x: " << morphDist << endl;
 			if (morphDist > lastMorphDist)
 				break;
@@ -148,12 +150,12 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 		if (xchange != 0) {
 			double lastMorphDist = mdCurrent;
 			double morphDist = 0;
-			vector<Point2f> tmp = srcPointsFlann2;
+			vector<Point2f> tmp = srcPoints2;
 			do {
 				for (auto &pt : tmp) {
 					pt.x += xchange;
 				}
-				morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+				morphDist = morph_distance(srcPoints1, tmp, width_, height_);
 //			cerr << "morph dist x: " << morphDist << endl;
 				if (morphDist > lastMorphDist)
 					break;
@@ -165,12 +167,12 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 		if (ychange != 0) {
 			double lastMorphDist = mdCurrent;
 			double morphDist = 0;
-			vector<Point2f> tmp = srcPointsFlann2;
+			vector<Point2f> tmp = srcPoints2;
 			do {
 				for (auto &pt : tmp) {
 					pt.y += ychange;
 				}
-				morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+				morphDist = morph_distance(srcPoints1, tmp, width_, height_);
 //			cerr << "morph dist y: " << morphDist << endl;
 				if (morphDist > lastMorphDist)
 					break;
@@ -181,30 +183,26 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
 	translate(corrected2, corrected2, retranslation);
-	for (auto &pt : srcPointsFlann2) {
+	for (auto &pt : srcPoints2) {
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
 	}
 
-	for (auto &pt : srcPointsRaw2) {
-		pt.x += retranslation.x;
-		pt.y += retranslation.y;
-	}
-	cerr << "retranslation: " << morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_) << " " << retranslation << endl;
+	cerr << "retranslation: " << morph_distance(srcPoints1, srcPoints2, width_, height_) << " " << retranslation << endl;
 
-	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
+	return morph_distance(srcPoints1, srcPoints2, width_, height_);
 }
 
-double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double morphDist = -1;
 	vector<Point2f> tmp;
-	Point2f center = average(srcPointsFlann2);
+	Point2f center = average(srcPoints2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
 	for (size_t i = 0; i < 3600; ++i) {
-		tmp = srcPointsFlann2;
+		tmp = srcPoints2;
 		rotate_points(tmp, center, i / 10.0);
-		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_); //+ (pow(i / 3600.0, 2) * 3600);
+		morphDist = morph_distance(srcPoints1, tmp, width_, height_); //+ (pow(i / 3600.0, 2) * 3600);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
 			selectedAngle = i / 10.0;
@@ -213,15 +211,14 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, 
 
 	rotate(corrected2, corrected2, center, -selectedAngle);
 	cerr << "rerotate: " << lowestDist << " selected angle: " << selectedAngle << "°" << endl;
-	rotate_points(srcPointsFlann2, center, selectedAngle);
-	rotate_points(srcPointsRaw2, center, selectedAngle);
+	rotate_points(srcPoints2, center, selectedAngle);
 
-	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
+	return lowestDist;
 }
 
-double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, vector<Point2f> &srcPointsFlann2, vector<Point2f> &srcPointsRaw2) {
+double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	double morphDist = -1;
-	Point2f center = average(srcPointsFlann1);
+	Point2f center = average(srcPoints1);
 
 	double lowestDist = std::numeric_limits<double>::max();
 	Mat selectedMat;
@@ -242,8 +239,8 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 		m.at<float>(0,2) = center.x - (corrected2.cols * scale / 2.0);
 		m.at<float>(1,2) = center.y - (corrected2.rows * scale / 2.0);
 		m.at<float>(2,2) = 1.0;
-		perspectiveTransform(srcPointsFlann2,tmp,m);
-		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
+		perspectiveTransform(srcPoints2,tmp,m);
+		morphDist = morph_distance(srcPoints1, tmp, width_, height_);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
 			selectedMat = m.clone();
@@ -252,13 +249,23 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 
 	if(!selectedMat.empty()) {
 		cerr << "rescale: " << lowestDist << " selected scale: " << selectedMat.at<float>(0,0) << endl;
-		perspectiveTransform(srcPointsRaw2,srcPointsRaw2,selectedMat);
-		perspectiveTransform(srcPointsFlann2,srcPointsFlann2,selectedMat);
+		perspectiveTransform(srcPoints2,srcPoints2,selectedMat);
 		selectedMat.pop_back();
 		warpAffine(corrected2, corrected2, selectedMat, corrected2.size());
 	}
 
-	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
+	return morph_distance(srcPoints1, srcPoints2, width_, height_);
+}
+
+double Transformer::reprocrustes(Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
+	Procrustes procr(false, false);
+	procr.procrustes(srcPoints1, srcPoints2);
+	vector<Point2f> yPrime = procr.yPrimeAsVector();
+	Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
+	perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
+	perspectiveMat.pop_back();
+	warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
+	return morph_distance(srcPoints1, srcPoints2, width_, height_);
 }
 
 } /* namespace poppy */
