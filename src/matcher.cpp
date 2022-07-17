@@ -267,10 +267,10 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 			for(const auto& v : buffer.first) {
 				srcPoints1.push_back(v);
 			}
-			buffer.first.clear();
 			for(const auto& v : buffer.second) {
 				srcPoints2.push_back(v);
 			}
+			buffer.first.clear();
 			buffer.second.clear();
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
