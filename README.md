@@ -8,13 +8,28 @@ Please note that though the algorithm is capable of rotating and translating ima
 The following demos are very low quality renderings of what Poppy can do. If you are truly curious, you should really try it yourself! It is quick and easy to do. Check out [this script](https://github.com/kallaballa/Poppy/blob/main/make_demos.sh) to see how the demos are generated. If you are too lazy for that there is also a [video](https://vimeo.com/679551761) containing all demos.
 
 ![Car morphing](https://github.com/kallaballa/Poppy/blob/main/demo/cars.gif?raw=true)
-![Morphing face features](https://github.com/kallaballa/Poppy/blob/main/demo/browns.gif?raw=true)
+![Car morphing auto aligned](https://github.com/kallaballa/Poppy/blob/main/demo/cars-a.gif?raw=true)
+
+![Morphing eye browns](https://github.com/kallaballa/Poppy/blob/main/demo/browns.gif?raw=true)
+![Morphing eye browns auto aligned](https://github.com/kallaballa/Poppy/blob/main/demo/browns-a.gif?raw=true)
+
 ![Morphing faces](https://github.com/kallaballa/Poppy/blob/main/demo/faces.gif?raw=true)
+![Morphing faces auto aligned](https://github.com/kallaballa/Poppy/blob/main/demo/faces-a.gif?raw=true)
+
 ![Yale faces morphing](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces.gif?raw=true)
+![Yale faces morphing auto aligned](https://github.com/kallaballa/Poppy/blob/main/demo/yalefaces-a.gif?raw=true)
+
 ![Flower morphing to another flower](https://github.com/kallaballa/Poppy/blob/main/demo/flowers.gif?raw=true)
+![Flower morphing to another flower auto aligne](https://github.com/kallaballa/Poppy/blob/main/demo/flowers-a.gif?raw=true)
+
 ![Square morphing to a circle](https://github.com/kallaballa/Poppy/blob/main/demo/squarecircle.gif?raw=true)
+![Square morphing to a circle auto aligne](https://github.com/kallaballa/Poppy/blob/main/demo/squarecircle-a.gif?raw=true)
+
 ![Morphing from one number to the next](https://github.com/kallaballa/Poppy/blob/main/demo/numbers.gif?raw=true)
+![Morphing from one number to the next auto aligne](https://github.com/kallaballa/Poppy/blob/main/demo/numbers-a.gif?raw=true)
+
 ![Morphing from a cat to a dog](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
+![Morphing from a cat to a dog auto aligne](https://github.com/kallaballa/Poppy/blob/main/demo/catdog-a.gif?raw=true)
 
 (Yale face images taken from http://vision.ucsd.edu/content/yale-face-database)
 
