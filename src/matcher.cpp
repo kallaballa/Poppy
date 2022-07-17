@@ -218,7 +218,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
-
+	Terminal term;
 	multimap<double, pair<Point2f, Point2f>> distanceMap = make_distance_map(srcPoints1, srcPoints2);
 	assert(!distanceMap.empty());
 
@@ -248,7 +248,7 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 			((distanceMap.size() / pow(density, 0.33333))
 			* pow(mean / deviation, 3)
 			* (Settings::instance().match_tolerance)
-			) / ((50 * (5 + sqrt(5)) / 2.0));
+			) / ((100 * (5 + sqrt(5)) / 2.0));
 
 	srcPoints1.clear();
 	srcPoints2.clear();
@@ -258,12 +258,13 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 		double value = (*it).first;
 		double r = (value/thresh);
 
-		if(lastVal > 0 && value > 0 && r > 0.2 && value > (lastVal * 1.2)) {
-			cerr << "boost: " << value / lastVal << " | " << r << endl;
-			thresh *= value / lastVal;
+		if(lastVal > 0 && value > 0 && r > 0.33 && value > (lastVal * 1.33)) {
+			double mult = std::max(1.0, (value / lastVal) * r);
+			cerr << term.makeColor("boost: x" + to_string(mult) + " @ " + to_string(r), Terminal::CYAN) << endl;
+			thresh *= mult;
 		}
 
-		if(r > 0.0 && r <= 1.0) {
+		if(r > 0.0 && r <= 1.33) {
 			for(const auto& v : buffer.first) {
 				srcPoints1.push_back(v);
 			}
