@@ -239,10 +239,10 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 	}
 
 	double thresh =
-			((distanceMap.size() / pow(density,2))
-			* pow(mean / deviation, 3)
+			((distanceMap.size() / density)
+			* (mean / deviation)
 			* (Settings::instance().match_tolerance)
-			) / ((200 * (5 + sqrt(5))) * pow(total / 10000, 0.9));
+			) / ((15 * (5 + sqrt(5))) * (total / 10000));
 
 	srcPoints1.clear();
 	srcPoints2.clear();
@@ -273,8 +273,6 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 //			buffer.second.clear();
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
-			if(srcPoints1.size() > 300)
-				break;
 		}
 //		else {
 //			buffer.first.push_back((*it).second.first);

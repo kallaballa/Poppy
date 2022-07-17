@@ -32,10 +32,7 @@ pair<Mat, Mat> Extractor::prepareFeatures() {
 
 pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	cerr << "extract keypoints raw..." << endl;
-	Mat dst1, dst2;
-	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
-	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 300 + (1.0 / detail2) * 300);
+	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 
@@ -51,13 +48,12 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 	Mat radial = draw_radial_gradiant2(us1.cols, us1.rows);
 	Mat g1, g2;
-	//void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16, int kernel_size = 13, double sig = 5, double lm = 10, double gm = 0.04, double ps = CV_PI/4);
-	gabor_filter(us1,g1, 16, 31, 5, 2, 0.04);
-	gabor_filter(us2,g2, 16, 31, 5, 2, 0.04);
+
+	gabor_filter(us1,g1, 16, 31, 5, 2, 0.04,CV_PI/4);
+	gabor_filter(us2,g2, 16, 31, 5, 2, 0.04,CV_PI/4);
 
 	multiply(g1, us1, g1);
 	multiply(g2, us2, g2);
-//	triple_channel(radial,radial);
 	multiply(g1, radial, g1);
 	multiply(g2, radial, g2);
 

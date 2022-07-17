@@ -16,6 +16,7 @@ public:
 	double number_of_frames = 60;
 	double frame_rate = 30;
 	double match_tolerance = 1;
+	size_t max_keypoints = 300;
 	size_t pyramid_levels = 64;
 	bool enable_auto_align = false;
 	bool enable_radial_mask = false;
