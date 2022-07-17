@@ -8,7 +8,7 @@ rm -f ../videos/*mkv
 
 OPTS="$@"
 
-../src/poppy -a -e $OPTS -o ../videos/faces.mkv some2.png face1.jpg face2.jpg face3.jpg
+../src/poppy -e $OPTS -o ../videos/faces.mkv some2.png face1.jpg face2.jpg face3.jpg
 mencoder -vf scale=250:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/faces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/faces.gif
 
