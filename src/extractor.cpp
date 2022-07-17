@@ -35,17 +35,44 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	Mat dst1, dst2;
 	double detail1 = dft_detail(goodFeatures1_, dst1) / (goodFeatures1_.cols * goodFeatures1_.rows);
 	double detail2 = dft_detail(goodFeatures2_, dst2) / (goodFeatures2_.cols * goodFeatures2_.rows);
-	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 1000 + (1.0 / detail2) * 1000);
+	Ptr<ORB> detector = ORB::create((1.0 / detail1) * 200 + (1.0 / detail2) * 200);
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 	triple_channel(goodFeatures1_, trip1);
 	triple_channel(goodFeatures2_, trip2);
-	Mat us1 = unsharp_mask(trip1, 0.8, 12, 1.0);
-	Mat us2 = unsharp_mask(trip2, 0.8, 12, 1.0);
-    cvtColor(us1, trip1, COLOR_BGR2GRAY);
-    cvtColor(us2, trip2, COLOR_BGR2GRAY);
-	detector->detect(trip1, keypoints1);
-	detector->detect(trip2, keypoints2);
+//	trip1.convertTo(trip1, CV_8U, 255);
+//	trip2.convertTo(trip2, CV_8U, 255);
+//	triple_channel(dst1, trip1);
+//	triple_channel(dst2, trip2);
+
+//	Mat us1 = unsharp_mask(trip1, 0.8, 12, 1.0);
+//	Mat us2 = unsharp_mask(trip2, 0.8, 12, 1.0);
+//    cvtColor(trip1, trip1, COLOR_BGR2GRAY);
+//    cvtColor(trip1, trip2, COLOR_BGR2GRAY);
+
+	trip1.convertTo(trip1, CV_32F, 1.0/255.0);
+	trip2.convertTo(trip2, CV_32F, 1.0/255.0);
+
+	Mat radial = draw_radial_gradiant2(trip1.cols, trip1.rows);
+	Mat g1, g2;
+	gabor_filter(trip1,g1, 16, 31);
+	gabor_filter(trip2,g2, 16, 31);
+
+	multiply(g1, trip1, g1);
+	multiply(g2, trip2, g2);
+	triple_channel(radial,radial);
+	multiply(g1, radial, g1);
+	multiply(g2, radial, g2);
+
+	show_image("g1", trip1);
+	show_image("g2", trip2);
+	cvtColor(g1, g1, COLOR_BGR2GRAY);
+	cvtColor(g2, g2, COLOR_BGR2GRAY);
+	g1.convertTo(g1, CV_8U, 255.0);
+	g2.convertTo(g2, CV_8U, 255.0);
+
+	detector->detect(g1, keypoints1);
+	detector->detect(g2, keypoints2);
 
 	cerr << "unfiltered keypoints: " << std::min(keypoints1.size(), keypoints2.size()) << endl;
 
@@ -63,117 +90,122 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 
 	cerr << "keypoints extracted: " << points1.size() << endl;
 
-	Mat bgr1 = Mat::zeros(us1.size(), us1.type());
-	Mat bgr2 = Mat::zeros(us1.size(), us1.type());
-	plot(bgr1, points1, Scalar(255,255,255), 2);
-	plot(bgr2, points2, Scalar(255,255,255), 2);
-	Mat grey1, grey2;
-	cvtColor(bgr1, grey1, COLOR_BGR2GRAY);
-	cvtColor(bgr2, grey2, COLOR_BGR2GRAY);
 
-	Mat labels1, stats1, centroids1;
-	Mat labels2, stats2, centroids2;
+	triple_channel(g1, g1);
+	triple_channel(g2, g2);
+	Mat bgr1 = g1.clone();
+	Mat bgr2 = g2.clone();
+	plot(bgr1, points1, Scalar(0,0,255), 1);
+	plot(bgr2, points2, Scalar(0,255,0), 1);
 
-	connectedComponentsWithStats(grey1, labels1, stats1, centroids1, 8, CV_32S);
-	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
-
-	vector<Point2f> newPoints1, newPoints2;
+	show_image("pts1", bgr1);
+	show_image("pts2", bgr2);
+//	Mat grey1, grey2;
+//	cvtColor(bgr1, grey1, COLOR_BGR2GRAY);
+//	cvtColor(bgr2, grey2, COLOR_BGR2GRAY);
 //
-//	bgr1 = us1.clone();
-//	bgr2 = us2.clone();
-//	plot(bgr1, newPoints1, Scalar(255,255,255), 2);
-//	plot(bgr2, newPoints2, Scalar(255,255,255), 2);
+//	Mat labels1, stats1, centroids1;
+//	Mat labels2, stats2, centroids2;
 //
-//	show_image("np1", bgr1);
-//	show_image("np2", bgr2);
+//	connectedComponentsWithStats(grey1, labels1, stats1, centroids1, 8, CV_32S);
+//	connectedComponentsWithStats(grey2, labels2, stats2, centroids2, 8, CV_32S);
+//
+//	vector<Point2f> newPoints1, newPoints2;
+////
+////	bgr1 = us1.clone();
+////	bgr2 = us2.clone();
+////	plot(bgr1, newPoints1, Scalar(255,255,255), 2);
+////	plot(bgr2, newPoints2, Scalar(255,255,255), 2);
+////
+////	show_image("np1", bgr1);
+////	show_image("np2", bgr2);
+//
+//	vector<Rect> rects1;
+//	for(int i=0; i<stats1.rows; i++) {
+//	  int x = stats1.at<int>(Point(0, i));
+//	  int y = stats1.at<int>(Point(1, i));
+//	  int w = stats1.at<int>(Point(2, i));
+//	  int h = stats1.at<int>(Point(3, i));
+//
+//		Rect r(x, y, w, h);
+//		for (int i = 0; i < centroids1.rows; i++) {
+//			Point2f c;
+//			c.x = centroids1.at<double>(i, 0);
+//			c.y = centroids1.at<double>(i, 1);
+//			if (r.contains(c) && r.area() < ((us1.cols * us1.rows) / 5.0) && r.area() > ((us1.cols * us1.rows) / 1000.0)) {
+//				rects1.push_back(r);
+//			}
+//		}
+//	}
+//
+//	vector<Rect> rects2;
+//	for (int i = 0; i < stats2.rows; i++) {
+//		int x = stats2.at<int>(Point(0, i));
+//		int y = stats2.at<int>(Point(1, i));
+//		int w = stats2.at<int>(Point(2, i));
+//		int h = stats2.at<int>(Point(3, i));
+//
+//
+//		Rect r(x, y, w, h);
+//		for (int i = 0; i < centroids2.rows; i++) {
+//			Point2f c;
+//			c.x = centroids2.at<double>(i, 0);
+//			c.y = centroids2.at<double>(i, 1);
+//			if (r.contains(c) && r.area() < ((us2.cols * us2.rows) / 5.0) && r.area() > ((us2.cols * us2.rows) / 1000.0)) {
+//				rects2.push_back(r);
+//			}
+//		}
+//	}
+//
+//	Mat cc1 = us1.clone();
+//	Mat cc2 = us2.clone();
+//
+//	for(const auto& pt : points1) {
+//		for(auto& r : rects1) {
+//			if(!r.empty() && rect_contains(r, pt, 2)) {
+//				circle(cc1, pt, 1, Scalar(0,0,255), 2);
+//				cv::rectangle(cc1, r, Scalar(255,0,0), 2);
+//				newPoints1.push_back(pt);
+//				break;
+//			}
+//		}
+//	}
+//
+//	for(const auto& pt : points2) {
+//		for(auto& r : rects2) {
+//			if(!r.empty() && rect_contains(r, pt, 2)) {
+//				circle(cc2, pt, 1, Scalar(0,255,0), 2);
+//				cv::rectangle(cc2, r, Scalar(255,0,0), 2);
+//				newPoints2.push_back(pt);
+//				break;
+//			}
+//		}
+//	}
+//
+//	if(newPoints1.empty() || newPoints2.empty()) {
+//		for(int i=0; i< centroids1.rows; i++) {
+//			Point2f c;
+//			c.x = centroids1.at<double>(i,0);
+//			c.y = centroids1.at<double>(i,1);
+//			newPoints1.push_back(c);
+//		}
+//
+//		for(int i=0; i< centroids2.rows; i++) {
+//			Point2f c;
+//			c.x = centroids2.at<double>(i,0);
+//			c.y = centroids2.at<double>(i,1);
+//			newPoints2.push_back(c);
+//		}
+//	}
+//
+//	if (newPoints1.size() > newPoints2.size())
+//		newPoints1.resize(newPoints2.size());
+//	else
+//		newPoints2.resize(newPoints1.size());
+//	show_image("cc1", cc1);
+//	show_image("cc2", cc2);
 
-	vector<Rect> rects1;
-	for(int i=0; i<stats1.rows; i++) {
-	  int x = stats1.at<int>(Point(0, i));
-	  int y = stats1.at<int>(Point(1, i));
-	  int w = stats1.at<int>(Point(2, i));
-	  int h = stats1.at<int>(Point(3, i));
-
-		Rect r(x, y, w, h);
-		for (int i = 0; i < centroids1.rows; i++) {
-			Point2f c;
-			c.x = centroids1.at<double>(i, 0);
-			c.y = centroids1.at<double>(i, 1);
-			if (r.area() < ((us2.cols * us2.rows) / 10.0) && r.contains(c)) {
-				rects1.push_back(r);
-			}
-		}
-	}
-
-	vector<Rect> rects2;
-	for (int i = 0; i < stats2.rows; i++) {
-		int x = stats2.at<int>(Point(0, i));
-		int y = stats2.at<int>(Point(1, i));
-		int w = stats2.at<int>(Point(2, i));
-		int h = stats2.at<int>(Point(3, i));
-
-
-		Rect r(x, y, w, h);
-		for (int i = 0; i < centroids2.rows; i++) {
-			Point2f c;
-			c.x = centroids2.at<double>(i, 0);
-			c.y = centroids2.at<double>(i, 1);
-			if (r.area() < ((us1.cols * us1.rows) / 10.0) && r.contains(c)) {
-				rects2.push_back(r);
-			}
-		}
-	}
-
-	Mat cc1 = us1.clone();
-	Mat cc2 = us2.clone();
-
-	for(const auto& pt : points1) {
-		for(auto& r : rects1) {
-			if(!r.empty() && rect_contains(r, pt, 2)) {
-				circle(cc1, pt, 1, Scalar(0,0,255), 2);
-				cv::rectangle(cc1, r, Scalar(255,0,0), 2);
-				newPoints1.push_back(pt);
-				break;
-			}
-		}
-	}
-
-	for(const auto& pt : points2) {
-		for(auto& r : rects2) {
-			if(!r.empty() && rect_contains(r, pt, 2)) {
-				circle(cc2, pt, 1, Scalar(0,255,0), 2);
-				cv::rectangle(cc2, r, Scalar(255,0,0), 2);
-				newPoints2.push_back(pt);
-				break;
-			}
-		}
-	}
-
-	if(newPoints1.empty() || newPoints2.empty()) {
-		for(int i=0; i< centroids1.rows; i++) {
-			Point2f c;
-			c.x = centroids1.at<double>(i,0);
-			c.y = centroids1.at<double>(i,1);
-			newPoints1.push_back(c);
-		}
-
-		for(int i=0; i< centroids2.rows; i++) {
-			Point2f c;
-			c.x = centroids2.at<double>(i,0);
-			c.y = centroids2.at<double>(i,1);
-			newPoints2.push_back(c);
-		}
-	}
-
-	if (newPoints1.size() > newPoints2.size())
-		newPoints1.resize(newPoints2.size());
-	else
-		newPoints2.resize(newPoints1.size());
-
-
-	show_image("cc1", cc1);
-	show_image("cc2", cc2);
-	return {newPoints1,newPoints2};
+	return {points1,points2};
 
 }
 
@@ -488,15 +520,15 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	}
 
 	Mat masked1, masked2;
-	Mat finalMask1, finalMask2;
+//	Mat finalMask1, finalMask2;
 
-	finalMask1Float.convertTo(finalMask1, CV_8U, 255.0);
-	finalMask2Float.convertTo(finalMask2, CV_8U, 255.0);
-	equalizeHist(finalMask1, finalMask1);
-	equalizeHist(finalMask2, finalMask2);
+//	finalMask1Float.convertTo(finalMask1, CV_8U, 255.0);
+//	finalMask2Float.convertTo(finalMask2, CV_8U, 255.0);
+//	equalizeHist(finalMask1, finalMask1);
+//	equalizeHist(finalMask2, finalMask2);
 
-	finalMask1.convertTo(finalMask1Float, CV_32F, 1.0/255.0);
-	finalMask2.convertTo(finalMask2Float, CV_32F, 1.0/255.0);
+//	finalMask1.convertTo(finalMask1Float, CV_32F, 1.0/255.0);
+//	finalMask2.convertTo(finalMask2Float, CV_32F, 1.0/255.0);
 	int logBase = 20;
 	Mat logMask(finalMask1Float.size(),CV_32F);
 	logMask = Scalar::all(logBase);
@@ -506,10 +538,10 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	divide(finalMask1Float, logMask, finalMask1Float);
 	divide(finalMask2Float, logMask, finalMask2Float);
 
-	dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
-	dilate( finalMask2Float, finalMask2Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
-	GaussianBlur(finalMask1Float, finalMask1Float, {11,11}, 5);
-	GaussianBlur(finalMask2Float, finalMask2Float, {11,11}, 5);
+//	dilate( finalMask1Float, finalMask1Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
+//	dilate( finalMask2Float, finalMask2Float, getStructuringElement( MORPH_ELLIPSE, Size( 11, 11 ),  Point( 5, 5 ) ) );
+//	GaussianBlur(finalMask1Float, finalMask1Float, {11,11}, 5);
+//	GaussianBlur(finalMask2Float, finalMask2Float, {11,11}, 5);
 	show_image("mk1", finalMask1Float);
 	show_image("mk2", finalMask2Float);
 	multiply(grey1Float, finalMask1Float, masked1);

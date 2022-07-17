@@ -2,6 +2,7 @@
 #define SRC_UTIL_HPP_
 
 #include <vector>
+#include <map>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -90,7 +91,7 @@ struct LessPointOp {
 };
 bool rect_contains(const Rect& r, const Point2f& pt, int radius);
 double euclidean_distance(cv::Point center, cv::Point point);
-void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16);
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles = 16, int kernel_size = 13);
 void triple_channel(const Mat& src, Mat& dst);
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold);
 double feature_metric(const Mat &grey1);
@@ -104,6 +105,8 @@ std::vector<Point> convert2fToPoint(const std::vector<Point2f>& pts);
 std::vector<std::vector<cv::Point2f>> convertContourTo2f(const std::vector<std::vector<cv::Point>> &contours1);
 std::vector<std::vector<cv::Point>> convertContourFrom2f(const std::vector<std::vector<cv::Point2f>> &contours1);
 void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
+pair<vector<Point2f>, vector<Point2f>> extract_points(const std::multimap<double, pair<Point2f, Point2f>>& distanceMap);
+std::multimap<double, std::pair<cv::Point2f, cv::Point2f>> make_distance_map(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2);
 long double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const long double& width, const long double& height);
 long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height);
 void show_image(const std::string &name, const cv::Mat &img);

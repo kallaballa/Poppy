@@ -180,7 +180,6 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 		}
 	}
 	Point2f retranslation(xchange * xProgress, ychange * yProgress);
-	cerr << "retranslation: " << mdCurrent << " " << retranslation << endl;
 	translate(corrected2, corrected2, retranslation);
 	for (auto &pt : srcPointsFlann2) {
 		pt.x += retranslation.x;
@@ -191,6 +190,7 @@ double Transformer::retranslate(Mat &corrected2, vector<Point2f> &srcPointsFlann
 		pt.x += retranslation.x;
 		pt.y += retranslation.y;
 	}
+	cerr << "retranslation: " << morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_) << " " << retranslation << endl;
 
 	return morph_distance(srcPointsFlann1, srcPointsFlann2, width_, height_);
 }
@@ -201,13 +201,13 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPointsFlann1, 
 	Point2f center = average(srcPointsFlann2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
-	for (size_t i = 0; i < 360; ++i) {
+	for (size_t i = 0; i < 3600; ++i) {
 		tmp = srcPointsFlann2;
-		rotate_points(tmp, center, i);
+		rotate_points(tmp, center, i / 10.0);
 		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_); //+ (pow(i / 3600.0, 2) * 3600);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
-			selectedAngle = i;
+			selectedAngle = i / 10.0;
 		}
 	}
 
@@ -243,7 +243,7 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPointsFlann1, v
 		m.at<float>(1,2) = center.y - (corrected2.rows * scale / 2.0);
 		m.at<float>(2,2) = 1.0;
 		perspectiveTransform(srcPointsFlann2,tmp,m);
-		morphDist = morph_distance2(srcPointsFlann1, tmp, width_, height_);
+		morphDist = morph_distance(srcPointsFlann1, tmp, width_, height_);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
 			selectedMat = m.clone();

@@ -5,7 +5,7 @@
 #include "settings.hpp"
 #include "transformer.hpp"
 #include "procrustes.hpp"
-
+#include "terminal.hpp"
 
 namespace poppy {
 
@@ -22,112 +22,9 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
-
-		if (Settings::instance().enable_auto_align) {
-			cerr << "auto aligning..." << endl;
-
-			auto matchesFlann = extractor.keypointsFlann();
-			auto matchesRaw = extractor.keypointsRaw();
-			vector<Point2f> srcPointsRaw1 = matchesRaw.first;
-			vector<Point2f> srcPointsRaw2 = matchesRaw.second;
-			vector<Point2f> srcPointsFlann1 = matchesFlann.first;
-			vector<Point2f> srcPointsFlann2 = matchesFlann.second;
-			cerr << "initial points: " << srcPointsRaw1.size() << endl;
-			double initialDist = morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows);
-			cerr << "initial dist: " << initialDist << endl;
-
-			double lastDistTrans = initialDist;
-			double distTrans = initialDist;
-			double lastDistRot = initialDist;
-			double distRot = initialDist;
-			double lastDistScale = initialDist;
-			double distScale = initialDist;
-			double lastDistProcr = initialDist;
-			double distProcr = initialDist;
-
-			Mat lastCorrected2;
-			vector<Point2f> lastSrcFlannPoints1, lastSrcFlannPoints2;
-//			pair<double, Point2f> orient1 = get_orientation(srcPointsFlann1);
-//			pair<double, Point2f> orient2 = get_orientation(srcPointsFlann2);
-//			double angle = orient2.first - orient1.first;
-//			cerr << "PCA angle: " << angle << endl;
-//			cerr << "PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-//			trafo.rotate_points(srcPointsFlann2, orient2.second, angle);
-//			cerr << "Post PCA dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-//			Point2f center1 = average(srcPointsFlann1);
-//			Point2f center2 = average(srcPointsFlann2);
-//			Point2f vec = center1 - center2;
-//			cerr << "center vec" << vec << endl;
-//			trafo.translate(corrected2, corrected2, vec);
-//			trafo.translate_points(srcPointsFlann2, vec);
-//			cerr << "after center dist: " << morph_distance(srcPointsFlann1, srcPointsFlann2, img1_.cols, img1_.rows) << endl;
-
-			bool progress = false;
-			do {
-				progress = false;
-				do {
-					lastDistTrans = distTrans;
-					lastCorrected2 = corrected2.clone();
-					lastSrcFlannPoints1 = srcPointsFlann1;
-					lastSrcFlannPoints2 = srcPointsFlann2;
-					distTrans = trafo.retranslate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-					if(distTrans < lastDistTrans)
-						progress = true;
-					cerr << "retranslate dist: " << distTrans << endl;
-				} while(distTrans < lastDistTrans);
-
-				if(distTrans >= lastDistTrans) {
-					corrected2 = lastCorrected2.clone();
-					srcPointsFlann1 = lastSrcFlannPoints1;
-					srcPointsFlann2 = lastSrcFlannPoints2;
-
-					distRot = lastDistTrans;
-				} else {
-					distRot = distTrans;
-				}
-
-				do {
-					lastDistRot = distRot;
-					lastCorrected2 = corrected2.clone();
-					lastSrcFlannPoints1 = srcPointsFlann1;
-					lastSrcFlannPoints2 = srcPointsFlann2;
-					distRot = trafo.rerotate(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-					if(distRot < lastDistRot)
-						progress = true;
-					cerr << "rerotate dist: " << distRot << endl;
-				} while(distRot < lastDistRot);
-
-				if(distRot >= lastDistRot) {
-					corrected2 = lastCorrected2.clone();
-					srcPointsFlann1 = lastSrcFlannPoints1;
-					srcPointsFlann2 = lastSrcFlannPoints2;
-					distTrans = lastDistRot;
-					distScale = lastDistRot;
-				} else {
-					distTrans = distRot;
-					distScale = distRot;
-				}
-			} while(progress);
-
-			lastDistScale = distScale;
-			lastCorrected2 = corrected2.clone();
-			lastSrcFlannPoints1 = srcPointsFlann1;
-			lastSrcFlannPoints2 = srcPointsFlann2;
-			distScale = trafo.rescale(corrected2, srcPointsFlann1, srcPointsFlann2, srcPointsRaw2);
-			cerr << "rescale dist: " << distScale << endl;
-			if(distScale >= lastDistScale) {
-				corrected2 = lastCorrected2.clone();
-				srcPointsFlann1 = lastSrcFlannPoints1;
-				srcPointsFlann2 = lastSrcFlannPoints2;
-			}
-
-			srcPoints1 = srcPointsRaw1;
-			srcPoints2 = srcPointsRaw2;
-		} else {
-			auto matches = extractor.keypointsRaw();
-			srcPoints1 = matches.first;
-			srcPoints2 = matches.second;
-		}
+		auto matches = extractor.keypointsRaw();
+		srcPoints1 = matches.first;
+		srcPoints2 = matches.second;
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
@@ -195,37 +92,13 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 }
 
 void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
-	multimap<double, pair<Point2f, Point2f>> distanceMap;
-
-	Point2f nopoint(-1, -1);
-	for (auto &pt1 : srcPoints1) {
-		double dist = 0;
-		double currentMinDist = numeric_limits<double>::max();
-
-		Point2f *closest = &nopoint;
-		for (auto &pt2 : srcPoints2) {
-			if (pt2.x == -1 && pt2.y == -1)
-				continue;
-
-			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
-
-			if (dist < currentMinDist) {
-				currentMinDist = dist;
-				closest = &pt2;
-			}
-		}
-		if (closest->x == -1 && closest->y == -1)
-			continue;
-
-		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
-		distanceMap.insert( { dist, { pt1, *closest } });
-		closest->x = -1;
-		closest->y = -1;
-	}
 	assert(srcPoints1.size() == srcPoints2.size());
 	assert(!srcPoints1.empty() && !srcPoints2.empty());
-	auto distribution = calculate_sum_mean_and_sd(distanceMap);
+
+	multimap<double, pair<Point2f, Point2f>> distanceMap = make_distance_map(srcPoints1, srcPoints2);
 	assert(!distanceMap.empty());
+
+	auto distribution = calculate_sum_mean_and_sd(distanceMap);
 	srcPoints1.clear();
 	srcPoints2.clear();
 
@@ -278,36 +151,129 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 		srcPoints2.push_back((*distanceMap.begin()).second.second);
 	}
 
-	double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
-	cerr << "preprocrustes dist:" <<  initialDist << endl;
-	double lastDistProcr = initialDist;
-	double distProcr = initialDist;
-	auto lastCorrected2 = corrected2.clone();
-	auto lastSrcPoints1 = srcPoints1;
-	auto lastSrcPoints2 = srcPoints2;
+	if (Settings::instance().enable_auto_align) {
+		double initialDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+		cerr << "initial dist: " << initialDist << endl;
+		double lastDistTrans = initialDist;
+		double distTrans = initialDist;
+		double lastDistRot = initialDist;
+		double distRot = initialDist;
+		double lastDistScale = initialDist;
+		double distScale = initialDist;
+		double lastDistProcr = initialDist;
+		double distProcr = initialDist;
 
-	do {
-		lastDistProcr = distProcr;
-		lastCorrected2 = corrected2.clone();
-		lastSrcPoints1 = srcPoints1;
-		lastSrcPoints2 = srcPoints2;
-		Procrustes procr(true, true);
-		procr.procrustes(srcPoints1, srcPoints2);
-		vector<Point2f> yPrime = procr.yPrimeAsVector();
-		Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
-		perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
-		perspectiveMat.pop_back();
-		warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
-		distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
-		cerr << "procrustes dist:" << distProcr << endl;
-	} while(lastDistProcr > distProcr);
+		Mat lastCorrected2;
+		vector<Point2f> lastSrcPoints1, lastSrcPoints2;
+		auto srcPointsRaw2 = srcPoints2;
+		Transformer trafo(img1_.cols, img1_.rows);
+		Terminal term;
 
-	if(initialDist <= distProcr) {
-		corrected2 = lastCorrected2.clone();
-		srcPoints1 = lastSrcPoints1;
-		srcPoints2 = lastSrcPoints2;
+		bool progress = false;
+		do {
+			progress = false;
+			do {
+				lastDistTrans = distTrans;
+				lastCorrected2 = corrected2.clone();
+				lastSrcPoints1 = srcPoints1;
+				lastSrcPoints2 = srcPoints2;
+				distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+				if(distTrans < lastDistTrans) {
+					progress = true;
+					cerr << term.makeColor("retranslate dist: " + to_string(distTrans), Terminal::GREEN) << endl;
+				} else {
+					cerr << term.makeColor("retranslate dist: " + to_string(lastDistTrans), Terminal::RED) << endl;
+				}
+			} while(distTrans < lastDistTrans);
+
+			if(distTrans >= lastDistTrans) {
+				corrected2 = lastCorrected2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				distProcr = lastDistTrans;
+			} else {
+				distProcr = distTrans;
+			}
+
+			do {
+				lastDistProcr = distProcr;
+				lastCorrected2 = corrected2.clone();
+				lastSrcPoints1 = srcPoints1;
+				lastSrcPoints2 = srcPoints2;
+				Procrustes procr(false, false);
+				procr.procrustes(srcPoints1, srcPoints2);
+				vector<Point2f> yPrime = procr.yPrimeAsVector();
+				Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
+				perspectiveTransform(srcPoints2, srcPoints2, perspectiveMat);
+				perspectiveMat.pop_back();
+				warpAffine(corrected2, corrected2, perspectiveMat, corrected2.size());
+				distProcr = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+				if(distProcr < lastDistProcr) {
+					progress = true;
+					cerr << term.makeColor("procrustes dist:" + to_string(distProcr), Terminal::GREEN) << endl;
+				} else {
+					cerr << term.makeColor("procrustes dist:" + to_string(lastDistProcr), Terminal::RED) << endl;
+				}
+			} while(lastDistProcr > distProcr);
+
+			if(distProcr >= lastDistProcr) {
+				corrected2 = lastCorrected2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				distScale = lastDistProcr;
+			} else {
+				distScale = distProcr;
+			}
+
+			do {
+				lastDistScale = distScale;
+				lastCorrected2 = corrected2.clone();
+				lastSrcPoints1 = srcPoints1;
+				lastSrcPoints2 = srcPoints2;
+				distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+				if(distScale < lastDistScale) {
+					progress = true;
+					cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
+				} else {
+					cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
+				}
+			} while(distScale < lastDistScale);
+
+			if(distScale >= lastDistScale) {
+				corrected2 = lastCorrected2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				distRot = lastDistScale;
+			} else {
+				distRot = distScale;
+			}
+
+			do {
+				lastDistRot = distRot;
+				lastCorrected2 = corrected2.clone();
+				lastSrcPoints1 = srcPoints1;
+				lastSrcPoints2 = srcPoints2;
+				distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2, srcPointsRaw2);
+				if(distRot < lastDistRot) {
+					progress = true;
+					cerr << term.makeColor("rerotate dist: " + to_string(distRot), Terminal::GREEN) << endl;
+				} else {
+					cerr << term.makeColor("rerotate dist: " + to_string(lastDistRot), Terminal::RED) << endl;
+				}
+			} while(distRot < lastDistRot);
+
+			if(distRot >= lastDistRot) {
+				corrected2 = lastCorrected2.clone();
+				srcPoints1 = lastSrcPoints1;
+				srcPoints2 = lastSrcPoints2;
+				distScale = lastDistRot;
+				distTrans = lastDistRot;
+			} else {
+				distScale = distRot;
+				distTrans = distRot;
+			}
+		} while(progress);
 	}
-
 	assert(srcPoints1.size() == srcPoints2.size());
 	check_points(srcPoints1, img1_.cols, img1_.rows);
 	check_points(srcPoints2, img1_.cols, img1_.rows);

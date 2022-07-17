@@ -48,7 +48,7 @@ Mat draw_radial_gradiant2(int width, int height) {
 			point.x = col;
 			point.y = row;
 			double dist = euclidean_distance(center, point) / maxDist;
-			gradFloat.at<float>(row, col) = pow(sin(sin(dist * (M_PI/2)) * (M_PI/2)),16);
+			gradFloat.at<float>(row, col) = pow(sin(sin(dist * (M_PI/2)) * (M_PI/2)),32);
 		}
 	}
 	gradFloat.convertTo(grad, CV_8U, 255.0);

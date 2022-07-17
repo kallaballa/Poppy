@@ -285,7 +285,6 @@ double dft_detail(const Mat& src, Mat& dst) {
 	dft(complexIH, imgOut, DFT_INVERSE | DFT_REAL_OUTPUT);
 
 	dst = imgOut.clone();
-	show_image("dft", imgOut.clone());
 	return countNonZero(1.0 - imgOut);
 }
 }

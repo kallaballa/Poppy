@@ -254,54 +254,84 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 				Size aspect = preserveAspect(img2.size(), szUnion);
 				resize(clone, img2, aspect, INTER_LINEAR);
 
+				int ksize = 63;
+				int sigma = 3;
+				double marginFactor = 1.25;
 				double dx = fabs(aspect.width - szUnion.width) / 2.0;
-				double dy = fabs(aspect.height - szUnion.height)  / 2.0;
+				double dy = fabs(aspect.height - szUnion.height) / 2.0;
 				Rect roi(dx, dy, aspect.width, aspect.height);
-				img2.copyTo(bg(roi));
-				dx = (dx == 0 ? 100.0 : dx + 16);
-				dy = (dy == 0 ? 100.0 : dy + 16);
-
+				dx = (dx == 0 ? marginFactor : dx * marginFactor);
+				dy = (dy == 0 ? marginFactor : dy * marginFactor);
 				Rect rl(0, 0, dx, szUnion.height);
 				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
 				Rect rt(0, 0, szUnion.width, dy);
 				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
 
+				img2.copyTo(bg(roi));
 				Mat left = bg(rl).clone();
 				Mat right = bg(rr).clone();
 				Mat top = bg(rt).clone();
 				Mat bottom = bg(rb).clone();
-				GaussianBlur(left, bg(rl), {31,31}, 6);
-				GaussianBlur(right, bg(rr), {31,31}, 6);
-				GaussianBlur(top, bg(rt), {31,31}, 6);
-				GaussianBlur(bottom, bg(rb), {31,31}, 6);
+				GaussianBlur(left, bg(rl), {ksize,ksize}, sigma);
+				GaussianBlur(right, bg(rr), {ksize,ksize}, sigma);
+				GaussianBlur(top, bg(rt), {ksize,ksize}, sigma);
+				GaussianBlur(bottom, bg(rb), {ksize,ksize}, sigma);
 				img2 = bg.clone();
 				poppy::show_image("bg", img2);
 				bg.release();
 				clone.release();
 			} else if(mUnion.size() != img2.size()){
-				mUnion = Scalar::all(0);
-				double dx = fabs(img2.cols - szUnion.width) / 2.0;
-				double dy = fabs(img2.rows - szUnion.height) / 2.0;
-				Rect roi(dx, dy, img2.cols, img2.rows);
-				img2.copyTo(mUnion(roi));
-				dx = (dx == 0 ? 100.0 : dx * 1.25);
-				dy = (dy == 0 ? 100.0 : dy * 1.25);
+				int ksize = 63;
+				int sigma = 3;
+				double marginFactor = 1.25;
+				double dx = fabs(img1.cols - szUnion.width) / 2.0;
+				double dy = fabs(img1.rows - szUnion.height) / 2.0;
+				Rect roi(dx, dy, img1.cols, img1.rows);
+				dx = (dx == 0 ? marginFactor : dx * marginFactor);
+				dy = (dy == 0 ? marginFactor : dy * marginFactor);
 				Rect rl(0, 0, dx, szUnion.height);
 				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
 				Rect rt(0, 0, szUnion.width, dy);
 				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
 
+				mUnion = Scalar::all(0);
+				img1.copyTo(mUnion(roi));
+
 				Mat left = mUnion(rl).clone();
 				Mat right = mUnion(rr).clone();
 				Mat top = mUnion(rt).clone();
 				Mat bottom = mUnion(rb).clone();
-				GaussianBlur(left, mUnion(rl), {127,127}, 6);
-				GaussianBlur(right, mUnion(rr), {127,127}, 6);
-				GaussianBlur(top, mUnion(rt), {127,127}, 6);
-				GaussianBlur(bottom, mUnion(rb), {127,127}, 6);
+				GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
+				GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
+				GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
+				GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
+				img1 = mUnion.clone();
+				poppy::show_image("mu1", img1);
+
+				dx = fabs(img2.cols - szUnion.width) / 2.0;
+				dy = fabs(img2.rows - szUnion.height) / 2.0;
+				roi = Rect(dx, dy, img2.cols, img2.rows);
+				dx = (dx == 0 ? 100.0 : dx * marginFactor);
+				dy = (dy == 0 ? 100.0 : dy * marginFactor);
+				rl = Rect(0, 0, dx, szUnion.height);
+				rr = Rect(szUnion.width - dx, 0, dx, szUnion.height);
+				rt = Rect(0, 0, szUnion.width, dy);
+				rb = Rect(0, szUnion.height - dy, szUnion.width, dy);
+
+				mUnion = Scalar::all(0);
+				img2.copyTo(mUnion(roi));
+
+				left = mUnion(rl).clone();
+				right = mUnion(rr).clone();
+				top = mUnion(rt).clone();
+				bottom = mUnion(rb).clone();
+				GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
+				GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
+				GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
+				GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
 
 				img2 = mUnion.clone();
-				poppy::show_image("mu", img2);
+				poppy::show_image("mu2", img2);
 			}
 
 			if (img1.cols != img2.cols || img1.rows != img2.rows) {

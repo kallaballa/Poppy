@@ -20,8 +20,7 @@ double euclidean_distance(cv::Point center, cv::Point point) {
 	return hypot(center.x - point.x, center.y - point.y);
 }
 
-void gabor_filter(const Mat& src, Mat& dst, size_t numAngles) {
-	int kernel_size = 13;
+void gabor_filter(const Mat& src, Mat& dst, size_t numAngles, int kernel_size) {
     double sig = 5, lm = 10, gm = 0.04, ps = CV_PI/4;
     vector<double> theta(numAngles);
 
@@ -266,9 +265,52 @@ void overdefineHull(vector<Point2f>& hull, size_t minPoints) {
 	}
 }
 
-size_t increment = 6;
+pair<vector<Point2f>, vector<Point2f>> extract_points(const multimap<double, pair<Point2f, Point2f>>& distanceMap) {
+	pair<vector<Point2f>, vector<Point2f>> res;
+	for(const auto& p : distanceMap) {
+		res.first.push_back(p.second.first);
+		res.second.push_back(p.second.second);
+	}
+	return res;
+}
 
-long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+multimap<double, pair<Point2f, Point2f>> make_distance_map(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2) {
+	multimap<double, pair<Point2f, Point2f>> distanceMap;
+	auto copy1 = srcPoints1;
+	auto copy2 = srcPoints2;
+
+	Point2f nopoint(-1, -1);
+	for (auto &pt1 : copy1) {
+		double dist = 0;
+		double currentMinDist = numeric_limits<double>::max();
+
+		Point2f *closest = &nopoint;
+		for (auto &pt2 : copy2) {
+			if (pt2.x == -1 && pt2.y == -1)
+				continue;
+
+			dist = hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+
+			if (dist < currentMinDist) {
+				currentMinDist = dist;
+				closest = &pt2;
+			}
+		}
+		if (closest->x == -1 && closest->y == -1)
+			continue;
+
+		dist = hypot(closest->x - pt1.x, closest->y - pt1.y);
+		distanceMap.insert( { dist, { pt1, *closest } });
+		closest->x = -1;
+		closest->y = -1;
+	}
+
+	return distanceMap;
+}
+
+size_t increment = 1;
+
+long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 
 	vector<Point2f> hull1, hull2;
@@ -300,21 +342,49 @@ long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Poin
 	}
 	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size() * increment)) / (width + height));
 
-	auto ret = (fabs(innerDist1 - innerDist2) + (fabs(area1 - area2) / (width * height)) / 2.0);
+	multimap<double, pair<Point2f, Point2f>> distanceMap = make_distance_map(srcPoints1, srcPoints2);
+
+	float totalDistance = 0;
+	for(const auto& p : distanceMap) {
+		totalDistance += hypot(p.second.second.x - p.second.first.x, p.second.second.y - p.second.first.y);
+	}
+
+	auto ret = (((totalDistance / (distanceMap.size())) / hypot(width, height)) + fabs(innerDist1 - innerDist2) + (fabs(area1 - area2) / (width * height)) / 3.0);
 	return ret;
 }
 
 
-long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	float totalDistance = 0;
+	vector<Point2f> hull1, hull2;
+	vector<Point2f> contour1, contour2;
+	convexHull(srcPoints1, hull1);
+	convexHull(srcPoints2, hull2);
+	approxPolyDP(Mat(hull1), contour1, 0.00001, true);
+	approxPolyDP(Mat(hull2), contour2, 0.00001, true);
+	auto area1 = fabs(contourArea(Mat(contour1)));
+	auto area2 = fabs(contourArea(Mat(contour2)));
 
 	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
 		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
 			totalDistance += hypot(srcPoints2[i].x - srcPoints1[j].x, srcPoints2[i].y - srcPoints1[j].y);
 		}
 	}
-	auto ret = (totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width, height);
+	auto ret = ((fabs(area1 - area2) / (width * height)) + ((totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width, height))) / 2.0;
+	assert(ret >= 0 && ret <= 1.0);
+	return ret;
+}
+
+long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
+	assert(srcPoints1.size() == srcPoints2.size());
+	multimap<double, pair<Point2f, Point2f>> distanceMap = make_distance_map(srcPoints1, srcPoints2);
+
+	float totalDistance = 0;
+	for(const auto& p : distanceMap) {
+		totalDistance += hypot(p.second.second.x - p.second.first.x, p.second.second.y - p.second.first.y);
+	}
+	auto ret = ((totalDistance / (distanceMap.size())) / hypot(width, height));
 	assert(ret >= 0 && ret <= 1.0);
 	return ret;
 }
