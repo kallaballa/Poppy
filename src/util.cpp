@@ -211,55 +211,6 @@ void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, MatSi
 	srcPoints2.push_back(Point2f(w, h));
 }
 
-void normalize(const Mat &src, Mat &dst) {
-	dst = src.clone();
-	int minV = numeric_limits<int>::max();
-	int maxV = numeric_limits<int>::min();
-	double val = 0;
-	for (int y = 0; y < src.rows; y++) {
-		for (int x = 0; x < src.cols; x++) {
-			val = double(dst.at<uchar>(y, x));
-			maxV = max(double(maxV), val);
-			minV = min(double(minV), val);
-		}
-	}
-
-	for (int y = 0; y < src.rows; y++) {
-		for (int x = 0; x < src.cols; x++) {
-			val = dst.at<uchar>(y, x);
-			dst.at<uchar>(y, x) = ((val - minV) / (maxV - minV)) * 255;
-		}
-	}
-}
-
-void auto_adjust_contrast_and_brightness(const Mat &src, Mat &dst, double contrast) {
-	dst = src.clone();
-	int minV = numeric_limits<int>::max();
-	int maxV = numeric_limits<int>::min();
-	double val = 0;
-	for (int y = 0; y < src.rows; y++) {
-		for (int x = 0; x < src.cols; x++) {
-			val = double(dst.at<uchar>(y, x));
-			maxV = max(double(maxV), val);
-			minV = min(double(minV), val);
-		}
-	}
-
-	for (int y = 0; y < src.rows; y++) {
-		for (int x = 0; x < src.cols; x++) {
-			val = dst.at<uchar>(y, x);
-			dst.at<uchar>(y, x) = ((val - minV) / (maxV - minV)) * 255;
-		}
-	}
-
-	Mat hc(dst);
-	Scalar imgAvgVec = sum(dst) / (dst.cols * dst.rows);
-	double imgAvg = imgAvgVec[0];
-	int brightness = -((contrast - 1) * imgAvg);
-	dst.convertTo(hc, -1, contrast, brightness);
-	hc.copyTo(dst);
-}
-
 std::vector<Point2f> convertPointTo2f(const std::vector<Point>& pts) {
 	std::vector<Point2f> result;
 	for (auto &pt : pts) {
@@ -406,30 +357,6 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 	}
 
 	auto ret = (((totalDistance / (distanceMap.size())) / hypot(width, height)) + fabs(innerDist1 - innerDist2) + (fabs(area1 - area2) / (width * height)) / 3.0);
-	return ret;
-}
-
-
-long double morph_distance3(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height) {
-	assert(srcPoints1.size() == srcPoints2.size());
-
-	float totalDistance = 0;
-	vector<Point2f> hull1, hull2;
-	vector<Point2f> contour1, contour2;
-	convexHull(srcPoints1, hull1);
-	convexHull(srcPoints2, hull2);
-	approxPolyDP(Mat(hull1), contour1, 0.00001, true);
-	approxPolyDP(Mat(hull2), contour2, 0.00001, true);
-	auto area1 = fabs(contourArea(Mat(contour1)));
-	auto area2 = fabs(contourArea(Mat(contour2)));
-
-	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
-		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
-			totalDistance += hypot(srcPoints2[i].x - srcPoints1[j].x, srcPoints2[i].y - srcPoints1[j].y);
-		}
-	}
-	auto ret = ((fabs(area1 - area2) / (width * height)) + ((totalDistance / ((srcPoints1.size() * srcPoints2.size() * increment))) / hypot(width, height))) / 2.0;
-	assert(ret >= 0 && ret <= 1.0);
 	return ret;
 }
 

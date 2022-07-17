@@ -246,40 +246,14 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 
 	srcPoints1.clear();
 	srcPoints2.clear();
-//	pair<vector<Point2f>, vector<Point2f>> buffer;
-//	double lastVal = 1.0;
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 		double value = (*it).first;
 		double r = (value/thresh);
 
-//		if(lastVal > 0.0 && value > 0.0 && r > 0 && value > lastVal) {
-//			double mult = ((value / lastVal) * std::min(1.0,r));
-//			if(mult > 1.5) {
-////				cerr << term.makeColor("boost: x" + to_string(mult) + " @ " + to_string(r), Terminal::CYAN) << endl;
-//				thresh *= mult;
-//			}
-//		}
-
 		if(r > 0.0 && r <= 1.0) {
-//			cerr << term.makeBold(term.makeColor("reap: " + to_string(1.0 + buffer.first.size()) + "pts @ " + to_string(r), Terminal::CYAN)) << endl;
-//
-//			for(const auto& v : buffer.first) {
-//				srcPoints1.push_back(v);
-//			}
-//			for(const auto& v : buffer.second) {
-//				srcPoints2.push_back(v);
-//			}
-//			buffer.first.clear();
-//			buffer.second.clear();
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
-//		else {
-//			buffer.first.push_back((*it).second.first);
-//			buffer.second.push_back((*it).second.second);
-//		}
-//		cerr << term.makeBold("entry: " + to_string(value) + " @ " + to_string(r)) << endl;
-//		lastVal = value;
 	}
 
 	if(srcPoints1.empty()) {
