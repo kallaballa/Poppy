@@ -36,8 +36,14 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const size_t& retain
 	if(retainKeyPoints == 0) {
 		Mat dft1;
 		Mat dft2;
-		double detail = std::max(dft_detail(goodFeatures1_, dft1), dft_detail(goodFeatures2_, dft2));
-		detector = ORB::create(Settings::instance().max_keypoints * (1.0/detail));
+
+		double area = (goodFeatures1_.cols * goodFeatures1_.rows);
+		double detail = 255.0 / std::max(dft_detail2(goodFeatures1_, dft1), dft_detail2(goodFeatures2_, dft2));
+		show_image("dft1", dft1);
+		show_image("dft2", dft2);
+
+		std::cerr << "detail:" << detail << endl;
+		detector = ORB::create(Settings::instance().max_keypoints * detail);
 	} else {
 		detector = ORB::create(retainKeyPoints);
 	}
@@ -141,8 +147,8 @@ void Extractor::foreground(Mat &foreground1, Mat &foreground2) {
 	//extract areas of interest (aka. foreground)
 	foregroundMask(grey1, fgMask1);
 	foregroundMask(grey2, fgMask2);
-	show_image("fgm1", fgMask1);
-	show_image("fgm2", fgMask2);
+//	show_image("fgm1", fgMask1);
+//	show_image("fgm2", fgMask2);
 
 	Mat radialMaskFloat;
 	if (Settings::instance().enable_radial_mask) {

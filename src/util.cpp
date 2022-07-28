@@ -69,7 +69,7 @@ void triple_channel(const Mat &src, Mat &dst) {
 
 void equalize_bgr(const Mat &src, Mat &dst) {
 	assert(src.type() == CV_8UC3);
-	show_image("sr", dst);
+//	show_image("sr", dst);
 
 	int histSize = 256;
 	Mat grey;
@@ -97,7 +97,7 @@ void equalize_bgr(const Mat &src, Mat &dst) {
 
 	dst = src.clone();
 	color_reduce(dst, count);
-	show_image("re", dst);
+//	show_image("re", dst);
 
 	Mat img_ycrcb;
 	cvtColor(src, img_ycrcb, COLOR_BGR2YCrCb);
@@ -107,7 +107,7 @@ void equalize_bgr(const Mat &src, Mat &dst) {
 	merge(channels, img_ycrcb);
 
 	cvtColor(img_ycrcb, dst, COLOR_YCrCb2BGR);
-	show_image("ds", dst);
+//	show_image("ds", dst);
 }
 
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold) {

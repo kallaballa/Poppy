@@ -24,7 +24,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
 		auto matches = extractor.keypoints();
-		srcPoints1 = matches.first;
+	    		srcPoints1 = matches.first;
 		srcPoints2 = matches.second;
 	} else if (ft1_.empty() || ft2_.empty()) {
 		cerr << "hybrid algorithm..." << endl;
@@ -108,6 +108,9 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	filter_invalid_points(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
 
 	cerr << "keypoints remaining: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
+	initialMorphDist_ = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+	cerr << "initial morph distance: " << initialMorphDist_ << endl;
+
 	check_points(srcPoints1, img1_.cols, img1_.rows);
 	check_points(srcPoints2, img1_.cols, img1_.rows);
 }
@@ -237,7 +240,6 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 	assert(!distanceMap.empty());
 
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
-	double morphDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
 
 	srcPoints1.clear();
 	srcPoints2.clear();
@@ -266,7 +268,7 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 				(area
 						* (mean / deviation)
 						* (Settings::instance().match_tolerance)
-						) / ((total * sqrt(density) * (1.0 / morphDist)) / sqrt(2));
+						) / ((total * sqrt(density) * (1.0 / sqrt(initialMorphDist_))) / ((1 + sqrt(5)) / 2.0));
 	}
 
 	cerr << "area: " << area << " density: " << density << " mean/dev: " << mean / deviation << " total: " << total << " mean: " << mean << " deviation: " << deviation << " div: " << (total * sqrt(2)) << endl;

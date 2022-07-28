@@ -296,7 +296,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 					poppy::blur_margin(img2, szUnion, bg);
 				}
 				img2 = bg.clone();
-				poppy::show_image("aspect", img2);
+//				poppy::show_image("aspect", img2);
 			} else {
 				if(phase == 0 || phase == 1) {
 					double dx = fabs(img2.cols - szUnion.width) / 2.0;
@@ -307,7 +307,7 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 					poppy::blur_margin(img2, szUnion, mUnion);
 				}
 				img2 = mUnion.clone();
-				poppy::show_image("mu2", img2);
+//				poppy::show_image("mu2", img2);
 			}
 
 			if (img1.cols != img2.cols || img1.rows != img2.rows) {
@@ -378,7 +378,7 @@ int main(int argc, char **argv) {
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
 	("no-build,l", "Don't read all images to build the dimension union. Instead use the dimensions of the first images until Poppy encounters the first dimensions again.")
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
-	("maxkey,m", po::value<size_t>(&maxKey)->default_value(maxKey), "The maximum number of keypoints to retain. Effects perfromance as well as quality. Less often is better and the default value probably is just fine.")
+	("maxkey,m", po::value<size_t>(&maxKey)->default_value(maxKey), "The maximum number of keypoints to retain. Effects performance as well as quality. Often less is better and the default value probably is just fine.")
 	("neighbors,i", po::value<size_t>(&faceNeighbors)->default_value(faceNeighbors), "Face detection parameter, specifying how many neighbors each candidate rectangle should have to retain it.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")

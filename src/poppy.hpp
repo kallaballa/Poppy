@@ -78,6 +78,7 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 
 	pair<Mat, Mat> goodFeatures = extractor.prepareFeatures();
 	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2);
+
 	Mat corr2Float;
 	corrected2.convertTo(corr2Float, CV_32F, 1.0 / 255);
 	Mat gabor2;

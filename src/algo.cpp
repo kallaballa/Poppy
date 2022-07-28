@@ -250,7 +250,7 @@ double morph_images(const Mat& img1, const Mat& img2, const Mat &corrected1, con
 	Mat m2;
 	cvtColor(gabor2, m2, COLOR_BGR2GRAY);
 	m2 = 1.0 - m2;
-	show_image("m2", m2);
+//	show_image("m2", m2);
 
 	Mat ones = Mat::ones(m2.size(), m2.type());
 	Mat lbmask = (ones * (1.0 - maskRatio)) - (m2 * maskRatio);
