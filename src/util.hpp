@@ -123,5 +123,6 @@ bool operator==(const cv::Point2f &pt1, const cv::Point2f &pt2);
 bool operator==(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2);
 double distance(const cv::Point2f &p1, const cv::Point2f &p2);
 cv::Point2f average(const std::vector<cv::Point2f> &pts);
+void blur_margin(const Mat& src, const Size& szUnion, Mat& dst);
 }
 #endif

@@ -45,33 +45,38 @@ template<typename Twriter>
 void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, double phase, bool distance, Twriter &output) {
 	Mat morphed;
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
-	Features ft1;
-	Features ft2;
 
 	if(phase == 0) {
 		cerr << "zero phase. inserting image 1" << endl;
 		Mat cl1 = img1.clone();
-		output.write(cl1);
+		for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
+			output.write(cl1);
+		}
+		cl1.release();
 		return;
-	} else if (phase == 1 && !Settings::instance().enable_auto_align) {
+	} else if (phase == 1) {
 		cerr << "full phase. inserting image 2" << endl;
 		Mat cl2 = img2.clone();
-		output.write(cl2);
+		for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
+			output.write(cl2);
+		}
+		cl2.release();
 		return;
 	}
 
+	Features ft1;
+	Features ft2;
 	if (Settings::instance().enable_face_detection) {
 		ft1 = FaceDetector::instance().detect(img1);
 		ft2 = FaceDetector::instance().detect(img2);
 	}
+	Matcher matcher(img1, img2, ft1, ft2);
+	Extractor extractor(img1, img2);
 
-	bool savedefd = Settings::instance().enable_face_detection;
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;
 
-	Extractor extractor(img1, img2);
-	auto goodFeatures = extractor.prepareFeatures();
-	Matcher matcher(img1, img2, ft1, ft2);
+	pair<Mat, Mat> goodFeatures = extractor.prepareFeatures();
 	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2);
 	Mat corr2Float;
 	corrected2.convertTo(corr2Float, CV_32F, 1.0 / 255);
@@ -81,17 +86,11 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 
 	if((srcPoints1.empty() || srcPoints2.empty()) && !distance) {
 		cerr << "No matches found. Inserting linear blend." << endl;
-		if(phase != -1) {
-			//linear interpolation as fallback
+		//linear interpolation as fallback
+		for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
 			Mat blend = ((img2 * phase) + (img1 * (1.0 - phase)));
 			output.write(blend);
 			blend.release();
-		} else {
-			Mat blend;
-			for (size_t j = 0; j < Settings::instance().number_of_frames; ++j) {
-				blend = ((img2 * phase) + (img1 * (1.0 - phase)));
-				output.write(blend);
-			}
 		}
 		return;
 	}
@@ -204,7 +203,6 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 		std::cerr << '\r';
 #endif
 	}
-	Settings::instance().enable_face_detection = savedefd;
 
 	morphed.release();
 	srcPoints1.clear();

@@ -472,6 +472,8 @@ void filter_min_distance(const std::vector<Point2f> &in, std::vector<Point2f> &o
 			}
 		}
 	}
+	if(in.size() > out.size())
+		cerr << "filtered: " << in.size() - out.size() << " points." << endl;
 }
 
 void make_uniq(const std::vector<Point2f> &pts, std::vector<Point2f> &out) {
@@ -505,5 +507,35 @@ cv::Point2f average(const std::vector<cv::Point2f> &pts) {
 	result.y /= pts.size();
 
 	return result;
+}
+
+void blur_margin(const Mat& src, const Size& szUnion, Mat& dst) {
+	Mat mUnion(szUnion.height, szUnion.width, src.type(), { 0, 0, 0 });
+	int ksize = 127;
+	int sigma = 6;
+	double marginFactor = 1.3;
+	double margin = (src.cols + src.rows) / 100.0;
+	double dx = fabs(src.cols - szUnion.width) / 2.0;
+	double dy = fabs(src.rows - szUnion.height) / 2.0;
+	Rect roi(dx, dy, src.cols, src.rows);
+
+	mUnion = Scalar::all(0);
+	src.copyTo(mUnion(roi));
+
+	dx = (dx == 0 ? marginFactor : dx + margin);
+	dy = (dy == 0 ? marginFactor : dy + margin);
+	Rect rl(0, 0, dx, szUnion.height);
+	Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
+	Rect rt(0, 0, szUnion.width, dy);
+	Rect rb(0, szUnion.height - dy, szUnion.width, dy);
+	Mat left = mUnion(rl).clone();
+	Mat right = mUnion(rr).clone();
+	Mat top = mUnion(rt).clone();
+	Mat bottom = mUnion(rb).clone();
+	GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
+	GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
+	GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
+	GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
+	dst = mUnion.clone();
 }
 }

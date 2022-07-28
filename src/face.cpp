@@ -22,8 +22,9 @@ FaceDetector::FaceDetector(double scale) : cfg(scale) {
 #else
 	face_detector.load("assets/lbpcascade_frontalface.xml");
 #endif
-
-	facemark = FacemarkLBF::create();
+	FacemarkLBF::Params params;
+	params.verbose = false;
+	facemark = FacemarkLBF::create(params);
 #ifndef _WASM
 	try {
 		facemark->loadModel("src/assets/lbfmodel.yaml");

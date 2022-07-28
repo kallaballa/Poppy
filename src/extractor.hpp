@@ -1,6 +1,7 @@
 #ifndef SRC_EXTRACTOR_HPP_
 #define SRC_EXTRACTOR_HPP_
 
+#include "settings.hpp"
 #include <vector>
 #include <opencv2/core/core.hpp>
 
@@ -24,7 +25,7 @@ public:
 	Extractor(const Mat& img1, const Mat& img2);
 	virtual ~Extractor();
 	pair<Mat, Mat> prepareFeatures();
-	pair<vector<Point2f>, vector<Point2f>> keypointsRaw();
+	pair<vector<Point2f>, vector<Point2f>> keypoints(const size_t& retainKeyPoints = 0);
 	void foregroundMask(const Mat &grey, Mat &fgMask, const size_t& iterations = 12);
 	void foreground(Mat &foreground1, Mat &foreground2);
 };

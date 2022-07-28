@@ -30,9 +30,17 @@ pair<Mat, Mat> Extractor::prepareFeatures() {
 	return { goodFeatures1_, goodFeatures2_};
 }
 
-pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
+pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const size_t& retainKeyPoints) {
 	cerr << "extract keypoints raw..." << endl;
-	Ptr<ORB> detector = ORB::create(Settings::instance().max_keypoints);
+	Ptr<ORB> detector;
+	if(retainKeyPoints == 0) {
+		Mat dft1;
+		Mat dft2;
+		double detail = std::max(dft_detail(goodFeatures1_, dft1), dft_detail(goodFeatures2_, dft2));
+		detector = ORB::create(Settings::instance().max_keypoints * (1.0/detail));
+	} else {
+		detector = ORB::create(retainKeyPoints);
+	}
 	vector<KeyPoint> keypoints1, keypoints2;
 	Mat trip1, trip2;
 
@@ -41,8 +49,8 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypointsRaw() {
 	trip1.convertTo(trip1, CV_32F, 1.0/255.0);
 	trip2.convertTo(trip2, CV_32F, 1.0/255.0);
 
-	Mat us1 = unsharp_mask(trip1, 2, 3, 0.1);
-	Mat us2 = unsharp_mask(trip2, 2, 3, 0.1);
+	Mat us1 = unsharp_mask(trip1, 2, 6, 0.1);
+	Mat us2 = unsharp_mask(trip2, 2, 6, 0.1);
 	cvtColor(us1, us1, COLOR_BGR2GRAY);
 	cvtColor(us2, us2, COLOR_BGR2GRAY);
 

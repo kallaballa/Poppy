@@ -9,7 +9,7 @@
 
 namespace poppy {
 
-Matcher::~Matcher(){
+Matcher::~Matcher() {
 }
 
 void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
@@ -18,14 +18,34 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	auto distanceMap = make_distance_map(srcPoints1, srcPoints2);
 	Transformer trafo(img2_.cols, img2_.rows);
 
-	if (ft1_.empty() || ft2_.empty()) {
+	if (ft1_.empty() && ft2_.empty()) {
 		cerr << "general algorithm..." << endl;
 
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
-		auto matches = extractor.keypointsRaw();
+		auto matches = extractor.keypoints();
 		srcPoints1 = matches.first;
 		srcPoints2 = matches.second;
+	} else if (ft1_.empty() || ft2_.empty()) {
+		cerr << "hybrid algorithm..." << endl;
+		size_t retain = std::max(ft1_.getAllPoints().size(), ft2_.getAllPoints().size());
+		corrected1 = img1_.clone();
+		corrected2 = img2_.clone();
+		auto matches = extractor.keypoints(retain);
+		if (ft1_.empty())
+			srcPoints1 = matches.first;
+		else
+			srcPoints1 = ft1_.getAllPoints();
+
+		if (ft2_.empty())
+			srcPoints2 = matches.second;
+		else
+			srcPoints2 = ft2_.getAllPoints();
+
+		if (srcPoints1.size() > srcPoints2.size())
+			srcPoints1.resize(srcPoints2.size());
+		else
+			srcPoints2.resize(srcPoints1.size());
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
@@ -50,7 +70,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double dx = center1.x - center2.x;
 
 			Mat translatedCorr2;
-			trafo.translate(scaledCorr2, translatedCorr2, {float(dx), float(dy)});
+			trafo.translate(scaledCorr2, translatedCorr2, { float(dx), float(dy) });
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
@@ -65,7 +85,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
 			double dh = fabs(rotatedCorr2.rows - corrected2.rows);
 			corrected2 = Scalar::all(0);
-			if(rotatedCorr2.cols > corrected2.cols) {
+			if (rotatedCorr2.cols > corrected2.cols) {
 				rotatedCorr2(Rect(dw / 2, dh / 2, corrected2.cols, corrected2.rows)).copyTo(corrected2);
 			} else {
 				rotatedCorr2.copyTo(corrected2(Rect(dw / 2, dh / 2, rotatedCorr2.cols, rotatedCorr2.rows)));
@@ -119,15 +139,15 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
 			distTrans = trafo.retranslate(corrected2, srcPoints1, srcPoints2);
-			if(distTrans < lastDistTrans) {
+			if (distTrans < lastDistTrans) {
 				progress = true;
 				cerr << term.makeColor("retranslate dist: " + to_string(distTrans), Terminal::GREEN) << endl;
 			} else {
 				cerr << term.makeColor("retranslate dist: " + to_string(lastDistTrans), Terminal::RED) << endl;
 			}
-		} while(distTrans < lastDistTrans);
+		} while (distTrans < lastDistTrans);
 
-		if(distTrans >= lastDistTrans) {
+		if (distTrans >= lastDistTrans) {
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
@@ -142,15 +162,15 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
 			distProcr = trafo.reprocrustes(corrected2, srcPoints1, srcPoints2);
-			if(distProcr < lastDistProcr) {
+			if (distProcr < lastDistProcr) {
 				progress = true;
 				cerr << term.makeColor("procrustes dist:" + to_string(distProcr), Terminal::GREEN) << endl;
 			} else {
 				cerr << term.makeColor("procrustes dist:" + to_string(lastDistProcr), Terminal::RED) << endl;
 			}
-		} while(lastDistProcr > distProcr);
+		} while (lastDistProcr > distProcr);
 
-		if(distProcr >= lastDistProcr) {
+		if (distProcr >= lastDistProcr) {
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
@@ -165,15 +185,15 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
 			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2);
-			if(distScale < lastDistScale) {
+			if (distScale < lastDistScale) {
 				progress = true;
 				cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
 			} else {
 				cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
 			}
-		} while(distScale < lastDistScale);
+		} while (distScale < lastDistScale);
 
-		if(distScale >= lastDistScale) {
+		if (distScale >= lastDistScale) {
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
@@ -188,15 +208,15 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			lastSrcPoints1 = srcPoints1;
 			lastSrcPoints2 = srcPoints2;
 			distRot = trafo.rerotate(corrected2, srcPoints1, srcPoints2);
-			if(distRot < lastDistRot) {
+			if (distRot < lastDistRot) {
 				progress = true;
 				cerr << term.makeColor("rerotate dist: " + to_string(distRot), Terminal::GREEN) << endl;
 			} else {
 				cerr << term.makeColor("rerotate dist: " + to_string(lastDistRot), Terminal::RED) << endl;
 			}
-		} while(distRot < lastDistRot);
+		} while (distRot < lastDistRot);
 
-		if(distRot >= lastDistRot) {
+		if (distRot >= lastDistRot) {
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
@@ -206,7 +226,7 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			distScale = distRot;
 			distTrans = distRot;
 		}
-	} while(progress);
+	} while (progress);
 }
 
 void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
@@ -217,16 +237,18 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 	assert(!distanceMap.empty());
 
 	auto distribution = calculate_sum_mean_and_sd(distanceMap);
+	double morphDist = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+
 	srcPoints1.clear();
 	srcPoints2.clear();
 
 	double total = get<0>(distribution);
 	double mean = get<1>(distribution);
 	double deviation = get<2>(distribution);
-	double density = total/(img1_.cols * img1_.rows);
+	double density = total / (img1_.cols * img1_.rows);
+	double area = (img1_.cols * img1_.rows);
 
-	cerr << "distance map size: " << distanceMap.size() << " density: " << density << " total: " << total << " mean: " << mean << " deviation: " << deviation << endl;
-	if(mean == 0) {
+	if (mean == 0) {
 		for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
@@ -238,25 +260,31 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 		return;
 	}
 
-	double thresh =
-			((distanceMap.size() / density)
-			* (mean / deviation)
-			* (Settings::instance().match_tolerance)
-			) / ((15 * (5 + sqrt(5))) * (total / 10000));
+	double thresh = 1;
+	if (Settings::instance().match_tolerance != 0) {
+		thresh =
+				(area
+						* (mean / deviation)
+						* (Settings::instance().match_tolerance)
+						) / ((total * sqrt(density) * (1.0 / morphDist)) / sqrt(2));
+	}
 
+	cerr << "area: " << area << " density: " << density << " mean/dev: " << mean / deviation << " total: " << total << " mean: " << mean << " deviation: " << deviation << " div: " << (total * sqrt(2)) << endl;
+
+	cerr << thresh << endl;
 	srcPoints1.clear();
 	srcPoints2.clear();
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {
 		double value = (*it).first;
-		double r = (value/thresh);
+		double r = (value / thresh);
 
-		if(r > 0.0 && r <= 1.0) {
+		if (r > 0.0 && r <= 1.0) {
 			srcPoints1.push_back((*it).second.first);
 			srcPoints2.push_back((*it).second.second);
 		}
 	}
 
-	if(srcPoints1.empty()) {
+	if (srcPoints1.empty()) {
 		srcPoints1.push_back((*distanceMap.begin()).second.first);
 		srcPoints2.push_back((*distanceMap.begin()).second.second);
 	}

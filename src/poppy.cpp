@@ -156,8 +156,7 @@ Size preserveAspect(const Size& origSize, const Size& extends) {
 	return {int(origSize.width * scale), int(origSize.height * scale)};
 }
 
-void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance) {
-	cerr << "run" << endl;
+void run(const std::vector<string> &imageFiles, const string &outputFile, double phase, bool distance, bool buildUnion) {
 	for (auto p : imageFiles) {
 		if (!std::filesystem::exists(p))
 			throw std::runtime_error("File doesn't exist: " + p);
@@ -183,51 +182,63 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 
 	Mat img2;
-	cerr << "building union" << endl;
 
 	Size szUnion(0, 0);
-	for (size_t i = 0; i < imageFiles.size(); ++i) {
-		Mat img = read_image(imageFiles[i]);
-		if (szUnion.width < img.cols) {
-			szUnion.width = img.cols;
-		}
 
-		if (szUnion.height < img.rows) {
-			szUnion.height = img.rows;
+	if(buildUnion) {
+		cerr << "building union" << endl;
+
+		for (size_t i = 0; i < imageFiles.size(); ++i) {
+			Mat img = read_image(imageFiles[i]);
+			if (szUnion.width < img.cols) {
+				szUnion.width = img.cols;
+			}
+
+			if (szUnion.height < img.rows) {
+				szUnion.height = img.rows;
+			}
+			img.release();
 		}
-		img.release();
+		cerr << "union: " << szUnion << endl;
+	} else {
+		szUnion.width = img1.cols;
+		szUnion.height = img1.rows;
+		size_t i = 1;
+		for (; i < imageFiles.size(); ++i) {
+			Mat img = read_image(imageFiles[i]);
+			if(img.cols == img1.cols && img.rows == img1.rows)
+				break;
+			if (szUnion.width < img.cols) {
+				szUnion.width = img.cols;
+			}
+
+			if (szUnion.height < img.rows) {
+				szUnion.height = img.rows;
+			}
+			img.release();
+		}
+		cerr << "infering union from " + to_string(i) + " image(s)..." << endl;
 	}
-	cerr << "union: " << szUnion << endl;
-	Mat mUnion(szUnion.height, szUnion.width, img1.type(), { 0, 0, 0 });
+
+
 	if (poppy::Settings::instance().enable_src_scaling) {
+		cerr << "scaling first image to: " << preserveAspect(img1.size(), szUnion) << "..." << endl;
+
 		Mat clone = img1.clone();
 		resize(clone, img1, preserveAspect(img1.size(), szUnion), INTER_LINEAR);
 	}
-
-	int ksize = 127;
-	int sigma = 6;
-	double marginFactor = 2;
-	double dx = fabs(img1.cols - szUnion.width) / 2.0;
-	double dy = fabs(img1.rows - szUnion.height) / 2.0;
-	Rect roi(dx, dy, img1.cols, img1.rows);
-	dx = (dx == 0 ? marginFactor : dx * marginFactor);
-	dy = (dy == 0 ? marginFactor : dy * marginFactor);
-	Rect rl(0, 0, dx, szUnion.height);
-	Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
-	Rect rt(0, 0, szUnion.width, dy);
-	Rect rb(0, szUnion.height - dy, szUnion.width, dy);
-
+	Mat mUnion(szUnion.height, szUnion.width, img1.type(), { 0, 0, 0 });
 	mUnion = Scalar::all(0);
-	img1.copyTo(mUnion(roi));
 
-	Mat left = mUnion(rl).clone();
-	Mat right = mUnion(rr).clone();
-	Mat top = mUnion(rt).clone();
-	Mat bottom = mUnion(rb).clone();
-	GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
-	GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
-	GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
-	GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
+	if(phase == 0 || phase == 1) {
+		double dx = fabs(img1.cols - szUnion.width) / 2.0;
+		double dy = fabs(img1.rows - szUnion.height) / 2.0;
+		Rect roi(dx, dy, img1.cols, img1.rows);
+		img1.copyTo(mUnion(roi));
+	} else {
+		poppy::blur_margin(img1, szUnion, mUnion);
+	}
+
 	img1 = mUnion.clone();
 
 #ifndef _WASM
@@ -252,8 +263,6 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 	}
 	ChannelWriter output;
 #endif
-	cerr << "main loop..." << endl;
-
 	for (size_t i = 1; i < imageFiles.size(); ++i) {
 		Mat img2, denoise2;
 		try {
@@ -272,61 +281,31 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 			if (poppy::Settings::instance().enable_src_scaling) {
 				Mat bg = Mat::zeros(szUnion, img2.type());
 				Mat clone = img2.clone();
+				cerr << "scaling image " << (i + 1) << " to: " << preserveAspect(img2.size(), szUnion) << "..." << endl;
+
 				Size aspect = preserveAspect(img2.size(), szUnion);
 				resize(clone, img2, aspect, INTER_LINEAR);
 
-				int ksize = 127;
-				int sigma = 6;
-				double marginFactor = 1.3;
-				double dx = fabs(aspect.width - szUnion.width) / 2.0;
-				double dy = fabs(aspect.height - szUnion.height) / 2.0;
-				Rect roi(dx, dy, aspect.width, aspect.height);
-				dx = (dx == 0 ? marginFactor : dx * marginFactor);
-				dy = (dy == 0 ? marginFactor : dy * marginFactor);
-				Rect rl(0, 0, dx, szUnion.height);
-				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
-				Rect rt(0, 0, szUnion.width, dy);
-				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
 
-				img2.copyTo(bg(roi));
-				Mat left = bg(rl).clone();
-				Mat right = bg(rr).clone();
-				Mat top = bg(rt).clone();
-				Mat bottom = bg(rb).clone();
-				GaussianBlur(left, bg(rl), {ksize,ksize}, sigma);
-				GaussianBlur(right, bg(rr), {ksize,ksize}, sigma);
-				GaussianBlur(top, bg(rt), {ksize,ksize}, sigma);
-				GaussianBlur(bottom, bg(rb), {ksize,ksize}, sigma);
+				if(phase == 0 || phase == 1) {
+					double dx = fabs(img2.cols - szUnion.width) / 2.0;
+					double dy = fabs(img2.rows - szUnion.height) / 2.0;
+					Rect roi(dx, dy, img2.cols, img2.rows);
+					img2.copyTo(bg(roi));
+				} else {
+					poppy::blur_margin(img2, szUnion, bg);
+				}
 				img2 = bg.clone();
-				poppy::show_image("bg", img2);
-				bg.release();
-				clone.release();
+				poppy::show_image("aspect", img2);
 			} else {
-				int ksize = 127;
-				int sigma = 6;
-				double marginFactor = 2;
-				double dx = fabs(img2.cols - szUnion.width) / 2.0;
-				double dy = fabs(img2.rows - szUnion.height) / 2.0;
-				Rect roi(dx, dy, img2.cols, img2.rows);
-				dx = (dx == 0 ? marginFactor : dx * marginFactor);
-				dy = (dy == 0 ? marginFactor : dy * marginFactor);
-				Rect rl(0, 0, dx, szUnion.height);
-				Rect rr(szUnion.width - dx, 0, dx, szUnion.height);
-				Rect rt(0, 0, szUnion.width, dy);
-				Rect rb(0, szUnion.height - dy, szUnion.width, dy);
-
-				mUnion = Scalar::all(0);
-				img2.copyTo(mUnion(roi));
-
-				Mat left = mUnion(rl).clone();
-				Mat right = mUnion(rr).clone();
-				Mat top = mUnion(rt).clone();
-				Mat bottom = mUnion(rb).clone();
-				GaussianBlur(left, mUnion(rl), {ksize,ksize}, sigma);
-				GaussianBlur(right, mUnion(rr), {ksize,ksize}, sigma);
-				GaussianBlur(top, mUnion(rt), {ksize,ksize}, sigma);
-				GaussianBlur(bottom, mUnion(rb), {ksize,ksize}, sigma);
-
+				if(phase == 0 || phase == 1) {
+					double dx = fabs(img2.cols - szUnion.width) / 2.0;
+					double dy = fabs(img2.rows - szUnion.height) / 2.0;
+					Rect roi(dx, dy, img2.cols, img2.rows);
+					img2.copyTo(mUnion(roi));
+				} else {
+					poppy::blur_margin(img2, szUnion, mUnion);
+				}
 				img2 = mUnion.clone();
 				poppy::show_image("mu2", img2);
 			}
@@ -341,7 +320,9 @@ void run(const std::vector<string> &imageFiles, const string &outputFile, double
 		}
 		std::cerr << "matching: " << imageFiles[i - 1] << " -> " << imageFiles[i] << " ..." << std::endl;
 
+		bool savedefd = poppy::Settings::instance().enable_face_detection;
 		poppy::morph(img1, img2, corrected1, corrected2, phase, distance, output);
+		poppy::Settings::instance().enable_face_detection = savedefd;
 		img1 = corrected2.clone();
 		img2.release();
 	}
@@ -368,6 +349,7 @@ int main(int argc, char **argv) {
 	bool enableWait = poppy::Settings::instance().enable_wait;
 	size_t numberOfFrames = poppy::Settings::instance().number_of_frames;
 	size_t pyramidLevels = poppy::Settings::instance().pyramid_levels;
+	size_t maxKey = poppy::Settings::instance().max_keypoints;
 	double frameRate = poppy::Settings::instance().frame_rate;
 	double phase = -1;
 	double matchTolerance = poppy::Settings::instance().match_tolerance;
@@ -378,6 +360,8 @@ int main(int argc, char **argv) {
 	bool denoise = poppy::Settings::instance().enable_denoise;
 	size_t faceNeighbors = poppy::Settings::instance().face_neighbors;
 	bool distance = false;
+	bool noBuild = false;
+
 	string fourcc = poppy::Settings::instance().fourcc;
 	std::vector<string> imageFiles;
 	string outputFile = "output.mkv";
@@ -390,9 +374,11 @@ int main(int argc, char **argv) {
 	("autoalign,a", "Try to automatically align (rotate and translate) the source material to match.")
 	("denoise,d", "Denoise images before morphing.")
 	("distance,n", "Calculate the morph distance and return.")
-	("wait,w", "Wait at defined breakpoints for key input. specifically the character q.")
+	("wait,w", "Wait at defined breakpoints for key input. Specifically the character q.")
 	("scaling,s", "Instead of extending the source images, to match in size, use scaling.")
+	("no-build,l", "Don't read all images to build the dimension union. Instead use the dimensions of the first images until Poppy encounters the first dimensions again.")
 	("rate,b", po::value<double>(&frameRate)->default_value(frameRate), "The frame rate of the output video.")
+	("maxkey,m", po::value<size_t>(&maxKey)->default_value(maxKey), "The maximum number of keypoints to retain. Effects perfromance as well as quality. Less often is better and the default value probably is just fine.")
 	("neighbors,i", po::value<size_t>(&faceNeighbors)->default_value(faceNeighbors), "Face detection parameter, specifying how many neighbors each candidate rectangle should have to retain it.")
 	("frames,f", po::value<size_t>(&numberOfFrames)->default_value(numberOfFrames), "The number of frames to generate.")
 	("phase,p", po::value<double>(&phase)->default_value(phase), "A value from 0 to 1 telling poppy how far into the morph to start from.")
@@ -438,6 +424,9 @@ int main(int argc, char **argv) {
 		cerr << "tolerance (--tolerance). If you want to tinker more," << endl;
 		cerr << "You could enable the gui (--gui) and play with the" << endl;
 		cerr << "tolerance and watch how it effects the algorithm." << endl;
+		cerr << "Additionally you can try to play with the maximum" << endl;
+		cerr << "number of retained key points but that will improve" << endl;
+		cerr << "quality on very large images and in rare cases only." << endl;
 		cerr << "Noisy images can be enhanced by denoising (--denoise)." << endl;
 		cerr << "If you would like to tune how sensitive to faces poppy" << endl;
 		cerr << "is you should try the (--neighbors) parameter. " << endl;
@@ -460,11 +449,12 @@ int main(int argc, char **argv) {
 	radial = vm.count("radial");
 	face = vm.count("face");
 	distance = vm.count("distance");
+	noBuild = vm.count("no-build");
 #endif
 
 #ifndef _WASM
 	poppy::init(showGui, numberOfFrames, matchTolerance, autoAlign, radial, face, denoise, srcScaling, frameRate, pyramidLevels, fourcc, enableWait, faceNeighbors);
-	run(imageFiles, outputFile, phase, distance);
+	run(imageFiles, outputFile, phase, distance, !noBuild);
 #else
 	std::cerr << "Entering main loop..." << std::endl;
 	std::cerr << "loaded" << std::endl;
@@ -487,6 +477,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		bool radial = poppy::Settings::instance().enable_radial_mask;
 		bool srcScaling = autoscale;
 		bool denoise = false;
+		bool buildUnion = true;
 		string outputFile = "output.mkv";
 
 		imageFiles.push_back(string(file_path1));
@@ -495,7 +486,7 @@ int load_images(char *file_path1, char *file_path2, double tolerance, bool face,
 		std::thread t([=](){
 				try {
 				running = true;
-				run(imageFiles, outputFile, -1, false);
+				run(imageFiles, outputFile, -1, false, buildUnion);
 				running = false;
 				} catch (std::exception& ex) {
 					std::cerr << "thread caught: " << ex.what() << std::endl;
