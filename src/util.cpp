@@ -315,8 +315,6 @@ multimap<double, pair<Point2f, Point2f>> make_distance_map(const vector<Point2f>
 	return distanceMap;
 }
 
-size_t increment = 1;
-
 long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height, multimap<double, pair<Point2f, Point2f>> distanceMap) {
 	assert(srcPoints1.size() == srcPoints2.size());
 	if(distanceMap.empty())
@@ -332,45 +330,36 @@ long double morph_distance(const vector<Point2f>& srcPoints1, const vector<Point
 	auto area2 = fabs(contourArea(Mat(contour2)));
 
 	float innerDist1 = 0;
-	for(size_t i = 0; i < srcPoints1.size(); i+=increment) {
+	for(size_t i = 0; i < srcPoints1.size(); ++i) {
 		const Point2f& p = srcPoints1[i];
-		for(size_t j = 0; j < srcPoints1.size(); j+=increment) {
+		for(size_t j = 0; j < srcPoints1.size(); ++j) {
 			const Point2f& v = p - srcPoints1[j];
 			innerDist1 += v.x + v.y;
 		}
 	}
-	innerDist1 = ((innerDist1 / (srcPoints1.size() * srcPoints1.size() * increment)) / (width + height));
+	innerDist1 = ((innerDist1 / (srcPoints1.size() * srcPoints1.size())) / (width + height));
 
 	float innerDist2 = 0;
-	for(size_t i = 0; i < srcPoints2.size(); i+=increment) {
+	for(size_t i = 0; i < srcPoints2.size(); ++i) {
 		const Point2f& p = srcPoints2[i];
-		for(size_t j = 0; j < srcPoints2.size(); j+=increment) {
+		for(size_t j = 0; j < srcPoints2.size(); ++j) {
 			const Point2f& v = p - srcPoints1[j];
 			innerDist2 += v.x + v.y;
 		}
 	}
-	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size() * increment)) / (width + height));
+	innerDist2 = ((innerDist2 / (srcPoints2.size() * srcPoints2.size())) / (width + height));
 
 	float totalDistance = 0;
 	for(const auto& p : distanceMap) {
 		totalDistance += hypot(p.second.second.x - p.second.first.x, p.second.second.y - p.second.first.y);
 	}
 
-	auto ret = (((totalDistance / (distanceMap.size())) / hypot(width, height)) + fabs(innerDist1 - innerDist2) + (fabs(area1 - area2) / (width * height)) / 3.0);
-	return ret;
-}
-
-long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height, multimap<double, pair<Point2f, Point2f>> distanceMap) {
-	assert(srcPoints1.size() == srcPoints2.size());
-	if(distanceMap.empty())
-		distanceMap = make_distance_map(srcPoints1, srcPoints2);
-
-	float totalDistance = 0;
-	for(const auto& p : distanceMap) {
-		totalDistance += hypot(p.second.second.x - p.second.first.x, p.second.second.y - p.second.first.y);
-	}
-	auto ret = ((totalDistance / (distanceMap.size())) / hypot(width, height));
-	assert(ret >= 0 && ret <= 1.0);
+	auto ret =
+			(
+				(totalDistance / (distanceMap.size())) / hypot(width, height))
+				+ fabs(innerDist1 - innerDist2)
+				+ (fabs(area1 - area2) / (width * height)
+			) / 3.0;
 	return ret;
 }
 

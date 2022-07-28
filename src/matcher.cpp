@@ -273,7 +273,6 @@ void Matcher::match(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints
 
 	cerr << "area: " << area << " density: " << density << " mean/dev: " << mean / deviation << " total: " << total << " mean: " << mean << " deviation: " << deviation << " div: " << (total * sqrt(2)) << endl;
 
-	cerr << thresh << endl;
 	srcPoints1.clear();
 	srcPoints2.clear();
 	for (auto it = distanceMap.begin(); it != distanceMap.end(); ++it) {

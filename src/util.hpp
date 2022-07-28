@@ -109,7 +109,6 @@ void overdefineHull(std::vector<cv::Point2f>& hull, size_t minPoints);
 pair<vector<Point2f>, vector<Point2f>> extract_points(const std::multimap<double, pair<Point2f, Point2f>>& distanceMap);
 std::multimap<double, std::pair<cv::Point2f, cv::Point2f>> make_distance_map(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2);
 long double morph_distance(const std::vector<cv::Point2f>& srcPoints1, const std::vector<cv::Point2f>& srcPoints2, const long double& width, const long double& height, std::multimap<double, pair<Point2f, Point2f>> distanceMap = {});
-long double morph_distance2(const vector<Point2f>& srcPoints1, const vector<Point2f>& srcPoints2, const long double& width, const long double& height, std::multimap<double, pair<Point2f, Point2f>> distanceMap = {});
 void show_image(const std::string &name, const cv::Mat &img);
 void wait_key(int timeout = 0);
 void clip_points(std::vector<cv::Point2f> &pts, int cols, int rows);
