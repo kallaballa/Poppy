@@ -185,33 +185,33 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
-			distScale = lastDistProcr;
+			distRot = lastDistProcr;
 		} else {
-			distScale = distProcr;
+			distRot = distProcr;
 		}
 
-		do {
-			lastDistScale = distScale;
-			lastCorrected2 = corrected2.clone();
-			lastSrcPoints1 = srcPoints1;
-			lastSrcPoints2 = srcPoints2;
-			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2);
-			if (distScale < lastDistScale) {
-				progress = true;
-				cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
-			} else {
-				cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
-			}
-		} while (distScale < lastDistScale);
-
-		if (distScale >= lastDistScale) {
-			corrected2 = lastCorrected2.clone();
-			srcPoints1 = lastSrcPoints1;
-			srcPoints2 = lastSrcPoints2;
-			distRot = lastDistScale;
-		} else {
-			distRot = distScale;
-		}
+//		do {
+//			lastDistScale = distScale;
+//			lastCorrected2 = corrected2.clone();
+//			lastSrcPoints1 = srcPoints1;
+//			lastSrcPoints2 = srcPoints2;
+//			distScale = trafo.rescale(corrected2, srcPoints1, srcPoints2);
+//			if (distScale < lastDistScale) {
+//				progress = true;
+//				cerr << term.makeColor("rescale dist: " + to_string(distScale), Terminal::GREEN) << endl;
+//			} else {
+//				cerr << term.makeColor("rescale dist: " + to_string(lastDistScale), Terminal::RED) << endl;
+//			}
+//		} while (distScale < lastDistScale);
+//
+//		if (distScale >= lastDistScale) {
+//			corrected2 = lastCorrected2.clone();
+//			srcPoints1 = lastSrcPoints1;
+//			srcPoints2 = lastSrcPoints2;
+//			distRot = lastDistScale;
+//		} else {
+//			distRot = distScale;
+//		}
 
 		do {
 			lastDistRot = distRot;
@@ -231,10 +231,8 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 			corrected2 = lastCorrected2.clone();
 			srcPoints1 = lastSrcPoints1;
 			srcPoints2 = lastSrcPoints2;
-			distScale = lastDistRot;
 			distTrans = lastDistRot;
 		} else {
-			distScale = distRot;
 			distTrans = distRot;
 		}
 	} while (progress);

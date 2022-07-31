@@ -199,13 +199,13 @@ double Transformer::rerotate(Mat &corrected2, vector<Point2f> &srcPoints1, vecto
 	Point2f center = average(srcPoints2);
 	double lowestDist = std::numeric_limits<double>::max();
 	double selectedAngle = 0;
-	for (size_t i = 0; i < 3600; ++i) {
+	for (size_t i = 0; i < 1080; ++i) {
 		tmp = srcPoints2;
-		rotate_points(tmp, center, i / 10.0);
+		rotate_points(tmp, center, i / 3.0);
 		morphDist = morph_distance(srcPoints1, tmp, width_, height_); //+ (pow(i / 3600.0, 2) * 3600);
 		if (morphDist < lowestDist) {
 			lowestDist = morphDist;
-			selectedAngle = i / 10.0;
+			selectedAngle = i / 3.0;
 		}
 	}
 
@@ -258,7 +258,7 @@ double Transformer::rescale(Mat &corrected2, vector<Point2f> &srcPoints1, vector
 }
 
 double Transformer::reprocrustes(Mat &corrected2, vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2) {
-	Procrustes procr(false, false);
+	Procrustes procr(true, false);
 	procr.procrustes(srcPoints1, srcPoints2);
 	vector<Point2f> yPrime = procr.yPrimeAsVector();
 	Mat perspectiveMat = getPerspectiveTransform(srcPoints2.data(), yPrime.data());
