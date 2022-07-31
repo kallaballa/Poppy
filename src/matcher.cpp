@@ -24,8 +24,12 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
 		auto matches = extractor.keypoints();
-	    		srcPoints1 = matches.first;
+		srcPoints1 = matches.first;
 		srcPoints2 = matches.second;
+		if (Settings::instance().enable_auto_align) {
+			cerr << "auto aligning..." << endl;
+			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
+		}
 	} else if (ft1_.empty() || ft2_.empty()) {
 		cerr << "hybrid algorithm..." << endl;
 		size_t retain = std::max(ft1_.getAllPoints().size(), ft2_.getAllPoints().size());
@@ -46,6 +50,10 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			srcPoints1.resize(srcPoints2.size());
 		else
 			srcPoints2.resize(srcPoints1.size());
+		if (Settings::instance().enable_auto_align) {
+			cerr << "auto aligning..." << endl;
+			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
+		}
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
@@ -303,10 +311,7 @@ void Matcher::prepare(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoin
 	cerr << "matching: " << srcPoints1.size() << endl;
 	match(corrected1, corrected2, srcPoints1, srcPoints2);
 	cerr << "matched: " << srcPoints1.size() << endl;
-	if (Settings::instance().enable_auto_align) {
-		cerr << "auto aligning..." << endl;
-		autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
-	}
+
 
 	Mat matMatches;
 	Mat grey1, grey2;
