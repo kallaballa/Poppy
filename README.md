@@ -31,9 +31,6 @@ The following demos are very low quality renderings of what Poppy can do. There 
 ![Morphing from a cat to a dog (side view)](https://github.com/kallaballa/Poppy/blob/main/demo/catdog.gif?raw=true)
 ![Morphing from a cat to a dog auto aligned (side view)](https://github.com/kallaballa/Poppy/blob/main/demo/catdog-a.gif?raw=true)
 
-![Morphing from a cat to a dog (frontal view)](https://github.com/kallaballa/Poppy/blob/main/demo/frontal.gif?raw=true)
-![Morphing from a cat to a dog auto aligned (frontal view)](https://github.com/kallaballa/Poppy/blob/main/demo/frontal-a.gif?raw=true)
-
 (Yale face images taken from http://vision.ucsd.edu/content/yale-face-database)
 
 ## Dependencies
