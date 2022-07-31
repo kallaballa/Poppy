@@ -18,7 +18,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	auto distanceMap = make_distance_map(srcPoints1, srcPoints2);
 	Transformer trafo(img2_.cols, img2_.rows);
 
-	if (ft1_.empty() && ft2_.empty()) {
+	if (ft1_.empty() || ft2_.empty()) {
 		cerr << "general algorithm..." << endl;
 
 		corrected1 = img1_.clone();
@@ -30,30 +30,30 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			cerr << "auto aligning..." << endl;
 			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
 		}
-	} else if (ft1_.empty() || ft2_.empty()) {
-		cerr << "hybrid algorithm..." << endl;
-		size_t retain = std::max(ft1_.getAllPoints().size(), ft2_.getAllPoints().size());
-		corrected1 = img1_.clone();
-		corrected2 = img2_.clone();
-		auto matches = extractor.keypoints(retain);
-		if (ft1_.empty())
-			srcPoints1 = matches.first;
-		else
-			srcPoints1 = ft1_.getAllPoints();
-
-		if (ft2_.empty())
-			srcPoints2 = matches.second;
-		else
-			srcPoints2 = ft2_.getAllPoints();
-
-		if (srcPoints1.size() > srcPoints2.size())
-			srcPoints1.resize(srcPoints2.size());
-		else
-			srcPoints2.resize(srcPoints1.size());
-		if (Settings::instance().enable_auto_align) {
-			cerr << "auto aligning..." << endl;
-			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
-		}
+//	} else if (ft1_.empty() || ft2_.empty()) {
+//		cerr << "hybrid algorithm..." << endl;
+//		size_t retain = std::max(ft1_.getAllPoints().size(), ft2_.getAllPoints().size());
+//		corrected1 = img1_.clone();
+//		corrected2 = img2_.clone();
+//		auto matches = extractor.keypoints(retain);
+//		if (ft1_.empty())
+//			srcPoints1 = matches.first;
+//		else
+//			srcPoints1 = ft1_.getAllPoints();
+//
+//		if (ft2_.empty())
+//			srcPoints2 = matches.second;
+//		else
+//			srcPoints2 = ft2_.getAllPoints();
+//
+//		if (srcPoints1.size() > srcPoints2.size())
+//			srcPoints1.resize(srcPoints2.size());
+//		else
+//			srcPoints2.resize(srcPoints1.size());
+//		if (Settings::instance().enable_auto_align) {
+//			cerr << "auto aligning..." << endl;
+//			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
+//		}
 	} else {
 		cerr << "face algorithm..." << endl;
 		assert(!ft1_.empty() && !ft2_.empty());
