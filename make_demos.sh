@@ -7,7 +7,7 @@ mkdir -p ../videos/
 rm -f ../videos/*mkv
 
 OPTS="$@"
-function ignore() {
+
 ../src/poppy -e $OPTS -o ../videos/faces.mkv some2.png some1.png some3.png
 mencoder -vf scale=250:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/faces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/faces.gif
@@ -39,7 +39,7 @@ ffmpeg -y -i "$LOW" ../demo/flowers.gif
 ../src/poppy $OPTS -o ../videos/yalefaces.mkv subject01*.png subject01.glasses.png
 mencoder -vf scale=320:320 -ovc lavc -lavcopts vcodec=ffv1 -nosound -fps 15 -ofps 6 ../videos/yalefaces.mkv -o "$LOW"
 ffmpeg -y -i "$LOW" ../demo/yalefaces.gif
-}
+
 #auto aligned
 OPTS="$OPTS -a"
 ../src/poppy -e $OPTS -o ../videos/faces-a.mkv some2.png some1.png some3.png
