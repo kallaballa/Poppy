@@ -164,9 +164,8 @@
 		printErr : function(message) {
 			console.error(message);
 
-			if(message.endsWith("%")) {
-				document.getElementById('progress').innerHTML = message;
-			}
+			console.error(typeof(message));
+			document.getElementById('progress').innerHTML = String(message);
 
 			if(message === "done") {
 				download("poppy.gif", FS.readFile("current.gif"));

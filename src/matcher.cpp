@@ -23,9 +23,9 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 		corrected1 = img1_.clone();
 		corrected2 = img2_.clone();
-		auto matches = extractor.keypoints();
-		srcPoints1 = matches.first;
-		srcPoints2 = matches.second;
+		auto ptpair = extractor.points();
+		srcPoints1 = ptpair.first;
+		srcPoints2 = ptpair.second;
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
 			autoAlign(corrected1, corrected2, srcPoints1, srcPoints2);
@@ -60,14 +60,17 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 		if (Settings::instance().enable_auto_align) {
 			cerr << "auto aligning..." << endl;
+			corrected1 = img1_.clone();
+			srcPoints1 = ft1_.getAllPoints();
+			srcPoints2 = ft2_.getAllPoints();
 
 			double w1 = fabs(ft1_.right_eye_[0].x - ft1_.left_eye_[0].x);
 			double w2 = fabs(ft2_.right_eye_[0].x - ft2_.left_eye_[0].x);
 			double scale = w1 / w2;
+
 			Mat scaledCorr2;
-
 			resize(img2_, scaledCorr2, Size { int(std::round(img2_.cols * scale)), int(std::round(img2_.rows * scale)) });
-
+			trafo.scale_points(srcPoints2, scale);
 			Point2f eyeVec1 = ft1_.right_eye_[0] - ft1_.left_eye_[0];
 			Point2f eyeVec2 = ft2_.right_eye_[0] - ft2_.left_eye_[0];
 			Point2f center1(ft1_.left_eye_[0].x + (eyeVec1.x / 2.0), ft1_.left_eye_[0].y + (eyeVec1.y / 2.0));
@@ -79,6 +82,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 
 			Mat translatedCorr2;
 			trafo.translate(scaledCorr2, translatedCorr2, { float(dx), float(dy) });
+			trafo.translate_points(srcPoints2, { float(dx), float(dy) });
 
 			angle1 = angle1 * 180 / M_PI;
 			angle2 = angle2 * 180 / M_PI;
@@ -88,6 +92,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			Mat rotatedCorr2;
 
 			trafo.rotate(translatedCorr2, rotatedCorr2, center2, targetAng);
+			trafo.rotate_points(srcPoints2, center2, -targetAng);
 
 			corrected2 = img2_.clone();
 			double dw = fabs(rotatedCorr2.cols - corrected2.cols);
@@ -98,10 +103,7 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 			} else {
 				rotatedCorr2.copyTo(corrected2(Rect(dw / 2, dh / 2, rotatedCorr2.cols, rotatedCorr2.rows)));
 			}
-			corrected1 = img1_.clone();
-			srcPoints1 = ft1_.getAllPoints();
-			ft2_ = FaceDetector::instance().detect(corrected2);
-			srcPoints2 = ft2_.getAllPoints();
+
 			assert(corrected1.cols == corrected2.cols && corrected1.rows == corrected2.rows);
 		} else {
 			cerr << "no alignment" << endl;
@@ -114,6 +116,11 @@ void Matcher::find(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPoints1
 	}
 
 	filter_invalid_points(srcPoints1, srcPoints2, img1_.cols, img1_.rows);
+
+	if (srcPoints1.size() > srcPoints2.size())
+		srcPoints1.resize(srcPoints2.size());
+	else
+		srcPoints2.resize(srcPoints1.size());
 
 	cerr << "keypoints remaining: " << srcPoints1.size() << "/" << srcPoints2.size() << endl;
 	initialMorphDist_ = morph_distance(srcPoints1, srcPoints2, img1_.cols, img1_.rows);

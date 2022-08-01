@@ -7,6 +7,8 @@
 #include "face.hpp"
 #include "matcher.hpp"
 #include "extractor.hpp"
+#include "transformer.hpp"
+
 
 #include <iostream>
 #include <string>
@@ -45,6 +47,9 @@ template<typename Twriter>
 void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, double phase, bool distance, Twriter &output) {
 	Mat morphed;
 	std::vector<Point2f> srcPoints1, srcPoints2, morphedPoints, lastMorphedPoints;
+	Transformer trafo(img2.cols, img2.rows);
+	Extractor extractor(img1, img2);
+	extractor.prepareFeatures();
 
 	if(phase == 0) {
 		cerr << "zero phase. inserting image 1" << endl;
@@ -66,12 +71,37 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 
 	Features ft1;
 	Features ft2;
+	Mat oriented1 = img1.clone();
+	Mat oriented2 = img2.clone();
+
 	if (Settings::instance().enable_face_detection) {
 		ft1 = FaceDetector::instance().detect(img1);
 		ft2 = FaceDetector::instance().detect(img2);
+		if(ft1.empty()) {
+			//try to guess orientation and redetect
+			auto ptsp = extractor.points();
+			auto or1 = get_orientation(ptsp.first);
+			double angle = or1.first;
+			angle = angle < 0 ? angle + 360 : angle;
+			cerr << "or1: " << angle << endl;
+			trafo.rotate(img1, oriented1, or1.second, angle);
+			show_image("or1", oriented1);
+			ft1 = FaceDetector::instance().detect(oriented1);
+		}
+
+		if(ft2.empty()) {
+			//try to guess orientation and redetect
+			auto ptsp = extractor.points();
+			auto or2 = get_orientation(ptsp.second);
+			double angle = or2.first;
+			angle = angle < 0 ? angle + 360 : angle;
+			cerr << "or2: " << angle << endl;
+			trafo.rotate(img2, oriented2, or2.second, angle);
+			show_image("or2", oriented2);
+			ft2 = FaceDetector::instance().detect(oriented2);
+		}
 	}
-	Matcher matcher(img1, img2, ft1, ft2);
-	Extractor extractor(img1, img2);
+	Matcher matcher(oriented1, oriented2, ft1, ft2);
 
 	if(ft1.empty() || ft2.empty())
 		Settings::instance().enable_face_detection = false;

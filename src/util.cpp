@@ -158,6 +158,73 @@ double feature_metric(const Mat &grey) {
 	return stddev[0];
 }
 
+tuple<vector<Point2d>, vector<double>, Point2f> get_eigen(const vector<KeyPoint> &kpts) {
+	//Construct a buffer used by the pca analysis
+	int sz = static_cast<int>(kpts.size());
+	Mat data_pts = Mat(sz, 6, CV_64F);
+	for (int i = 0; i < data_pts.rows; i++)	{
+		data_pts.at<double>(i, 0) = kpts[i].pt.x;
+		data_pts.at<double>(i, 1) = kpts[i].pt.y;
+		data_pts.at<double>(i, 2) = kpts[i].size;
+		data_pts.at<double>(i, 3) = kpts[i].angle;
+		data_pts.at<double>(i, 4) = kpts[i].response;
+		data_pts.at<double>(i, 5) = kpts[i].octave;
+	}
+
+	//Perform PCA analysis
+	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW);
+	//Store the center of the object
+	Point2f cntr = Point2f(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
+	//Store the eigenvalues and eigenvectors
+	vector<Point2d> eigen_vecs(pca_analysis.eigenvectors.rows);
+	vector<double> eigen_val(pca_analysis.eigenvectors.rows);
+
+	cerr << "size: " << pca_analysis.eigenvectors.rows << endl;
+	for (int i = 0; i < pca_analysis.eigenvectors.rows; i++) {
+		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0), pca_analysis.eigenvectors.at<double>(i, 1));
+		eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+	}
+
+	return make_tuple(eigen_vecs, eigen_val, cntr);
+}
+
+
+pair<double, Point2f> get_orientation(const vector<KeyPoint> &kpts) {
+	int sz = static_cast<int>(kpts.size());
+	Mat data_pts = Mat(sz, 6, CV_64F);
+	for (int i = 0; i < data_pts.rows; i++)	{
+		data_pts.at<double>(i, 0) = kpts[i].pt.x;
+		data_pts.at<double>(i, 1) = kpts[i].pt.y;
+		data_pts.at<double>(i, 2) = kpts[i].size;
+		data_pts.at<double>(i, 3) = kpts[i].angle;
+		data_pts.at<double>(i, 4) = kpts[i].response;
+		data_pts.at<double>(i, 5) = kpts[i].octave;
+	}
+
+	//Perform PCA analysis
+	PCA pca_analysis(data_pts, Mat(), PCA::DATA_AS_ROW, 2);
+	//Store the center of the object
+	Point2f cntr = Point2f(pca_analysis.mean.at<double>(0, 0), pca_analysis.mean.at<double>(0, 1));
+	//Store the eigenvalues and eigenvectors
+	vector<Point2d> eigen_vecs(2);
+	vector<double> eigen_val(2);
+	for (int i = 0; i < 2; i++) {
+		eigen_vecs[i] = Point2d(pca_analysis.eigenvectors.at<double>(i, 0), pca_analysis.eigenvectors.at<double>(i, 1));
+		eigen_val[i] = pca_analysis.eigenvalues.at<double>(i);
+	}
+
+	return {atan2(eigen_vecs[0].y, eigen_vecs[0].x) * RADIANS_TO_DEGREES, cntr};
+}
+
+void binaries_mat(const Mat& src, Mat& dst) {
+	Mat grey;
+	cvtColor(src,grey, COLOR_BGR2GRAY);
+	dst = Mat::zeros(grey.rows, grey.cols, CV_32F);
+	threshold(grey, grey, 20, 255, THRESH_BINARY | THRESH_OTSU);
+	normalize(grey, grey, 0.0, 255, NORM_MINMAX);
+	grey.convertTo(dst, CV_32F, 1.0/255.0);
+}
+
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts) {
 	//Construct a buffer used by the pca analysis
 	int sz = static_cast<int>(pts.size());

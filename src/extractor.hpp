@@ -25,7 +25,10 @@ public:
 	Extractor(const Mat& img1, const Mat& img2);
 	virtual ~Extractor();
 	pair<Mat, Mat> prepareFeatures();
-	pair<vector<Point2f>, vector<Point2f>> keypoints(const size_t& retainKeyPoints = 0);
+
+	pair<vector<KeyPoint>, vector<KeyPoint>> keypoints(const size_t& retainKeyPoints = 0);
+	pair<vector<Point2f>, vector<Point2f>> points(const size_t& retainKeyPoints = 0);
+	pair<vector<Point2f>, vector<Point2f>> eigen(const size_t& retainKeyPoints = 0);
 	void foregroundMask(const Mat &grey, Mat &fgMask, const size_t& iterations = 12);
 	void foreground(Mat &foreground1, Mat &foreground2);
 };

@@ -16,11 +16,18 @@ FaceDetector* FaceDetector::instance_ = nullptr;
 FaceDetector::FaceDetector(double scale) : cfg(scale) {
 #ifndef _NO_FACE_DETECT
 #ifndef _WASM
-	face_detector.load("src/assets/lbpcascade_frontalface.xml");
+	eyes_detector.load("src/assets/haarcascade_eye_tree_eyeglasses.xml");
+	face_detector.load("src/assets/haarcascade_frontalface_alt2.xml");
+
+	if(eyes_detector.empty())
+		eyes_detector.load("../src/assets/haarcascade_eye_tree_eyeglasses.xml");
+
 	if(face_detector.empty())
-		face_detector.load("../src/assets/lbpcascade_frontalface.xml");
+		face_detector.load("../src/assets/haarcascade_frontalface_alt2.xml");
+
 #else
-	face_detector.load("assets/lbpcascade_frontalface.xml");
+	face_detector.load("assets/haarcascade_frontalface_alt2.xml");
+	eyes_detector.load("assets/haarcascade_eye_tree_eyeglasses.xml");
 #endif
 	FacemarkLBF::Params params;
 	params.verbose = false;
@@ -55,26 +62,37 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	cvtColor(img,gray,COLOR_BGR2GRAY);
 	equalizeHist( gray, gray );
 	face_detector.detectMultiScale( gray, faces, 1.1, Settings::instance().face_neighbors, 0, Size(30, 30) );
-//neigbour
-	cerr << "Number of faces detected: " << faces.size() << endl;
-	if(faces.size() > 1) {
+	std::vector<Rect> collected;
+	cerr << "face candidates: " << faces.size() << endl;
+	for ( size_t i = 0; i < faces.size(); i++ ) {
+        Mat faceROI = gray( faces[i] );
+        std::vector<Rect> eyes;
+        eyes_detector.detectMultiScale( faceROI, eyes );
+        if(!eyes.empty()) {
+        	cerr << "eyes found" << endl;
+        	collected.push_back(faces[i]);
+        }
+    }
+
+	cerr << "Number of faces detected: " << collected.size() << endl;
+	if(collected.size() > 1) {
 		double maxArea = 0;
 		size_t candidate = 0;
-		for(size_t i = 0; i < faces.size(); ++i) {
-			double area = faces[i].area();
+		for(size_t i = 0; i < collected.size(); ++i) {
+			double area = collected[i].area();
 			if(area > maxArea) {
 				maxArea = area;
 				candidate = i;
 			}
 		}
-		faces = { faces[candidate] };
+		collected = { collected[candidate] };
 	}
 
-	if (faces.empty())
+	if (collected.empty())
 		return {};
 
 	vector< vector<Point2f> > shapes;
-	if(!facemark->fit(img,faces,shapes)){
+	if(!facemark->fit(img,collected,shapes)){
 		cerr << "No facemarks detected." << endl;
 		return {};
 	}

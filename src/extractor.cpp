@@ -30,7 +30,7 @@ pair<Mat, Mat> Extractor::prepareFeatures() {
 	return { goodFeatures1_, goodFeatures2_};
 }
 
-pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const size_t& retainKeyPoints) {
+pair<vector<KeyPoint>, vector<KeyPoint>> Extractor::keypoints(const size_t& retainKeyPoints) {
 	cerr << "extract keypoints raw..." << endl;
 	Ptr<ORB> detector;
 	if(retainKeyPoints == 0) {
@@ -80,11 +80,18 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const size_t& retain
 
 	cerr << "unfiltered keypoints: " << std::min(keypoints1.size(), keypoints2.size()) << endl;
 
+	return {keypoints1,keypoints2};
+}
+
+pair<vector<Point2f>, vector<Point2f>> Extractor::points(const size_t& retainKeyPoints) {
+	cerr << "extract points..." << endl;
+	auto kp = this->keypoints(retainKeyPoints);
+
 	vector<Point2f> points1, points2;
-	for (auto pt1 : keypoints1)
+	for (auto pt1 : kp.first)
 		points1.push_back(pt1.pt);
 
-	for (auto pt2 : keypoints2)
+	for (auto pt2 : kp.second)
 		points2.push_back(pt2.pt);
 
 	if (points1.size() > points2.size())
@@ -92,18 +99,37 @@ pair<vector<Point2f>, vector<Point2f>> Extractor::keypoints(const size_t& retain
 	else
 		points2.resize(points1.size());
 
-	cerr << "keypoints extracted: " << points1.size() << endl;
+	cerr << "points extracted: " << points1.size() << endl;
 
+	return {points1,points2};
+}
 
-	triple_channel(g1, g1);
-	triple_channel(g2, g2);
-	Mat bgr1 = g1.clone();
-	Mat bgr2 = g2.clone();
-	plot(bgr1, points1, Scalar(0,0,255), 1);
-	plot(bgr2, points2, Scalar(0,255,0), 1);
+pair<vector<Point2f>, vector<Point2f>> Extractor::eigen(const size_t& retainKeyPoints) {
+	cerr << "extract eigenvectors..." << endl;
+	auto pr = this->keypoints(retainKeyPoints);
+	auto eig1 = get_eigen(pr.first);
+	auto eig2 = get_eigen(pr.second);
 
-	show_image("pts1", bgr1);
-	show_image("pts2", bgr2);
+	vector<Point2d> eigvec1 = get<0>(eig1);
+	vector<Point2d> eigvec2 = get<0>(eig2);
+
+	vector<Point2f> points1, points2;
+	for (size_t i = 0; i < eigvec1.size(); ++i) {
+		cerr << "1: " << eigvec1[i] << endl;
+		points1.push_back(eigvec1[i]);
+	}
+
+	for (size_t i = 0; i < eigvec2.size(); ++i) {
+		cerr << "2: " << eigvec2[i] << endl;
+		points2.push_back(eigvec2[i]);
+	}
+
+	if (points1.size() > points2.size())
+		points1.resize(points2.size());
+	else
+		points2.resize(points1.size());
+
+	cerr << "eigenvectors extracted: " << points1.size() << endl;
 
 	return {points1,points2};
 }

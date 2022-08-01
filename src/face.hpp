@@ -72,6 +72,7 @@ private:
 #ifndef _NO_FACE_DETECT
     Ptr<Facemark> facemark;
     CascadeClassifier face_detector;
+    CascadeClassifier eyes_detector;
 #endif
 };
 

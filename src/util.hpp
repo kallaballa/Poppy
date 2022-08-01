@@ -2,6 +2,7 @@
 #define SRC_UTIL_HPP_
 
 #include <vector>
+#include <tuple>
 #include <map>
 
 #define _USE_MATH_DEFINES
@@ -96,7 +97,10 @@ void triple_channel(const Mat& src, Mat& dst);
 void equalize_bgr(const Mat &src, Mat &dst);
 Mat unsharp_mask(const Mat& original, float radius, float amount, float threshold);
 double feature_metric(const Mat &grey1);
+void binaries_mat(const Mat& src, Mat& dst);
 pair<double, Point2f> get_orientation(const vector<Point2f> &pts);
+std::tuple<vector<Point2d>, vector<double>, Point2f> get_eigen(const vector<KeyPoint> &kpts);
+pair<double, Point2f> get_orientation(const vector<KeyPoint> &kpts);
 std::tuple<double, double, double> calculate_sum_mean_and_sd(std::multimap<double, pair<Point2f, Point2f>> distanceMap);
 void add_corners(vector<Point2f> &srcPoints1, vector<Point2f> &srcPoints2, cv::MatSize sz);
 void normalize(const Mat &src, Mat &dst);
