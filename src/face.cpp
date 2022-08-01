@@ -16,18 +16,18 @@ FaceDetector* FaceDetector::instance_ = nullptr;
 FaceDetector::FaceDetector(double scale) : cfg(scale) {
 #ifndef _NO_FACE_DETECT
 #ifndef _WASM
-	eyes_detector.load("src/assets/haarcascade_eye_tree_eyeglasses.xml");
-	face_detector.load("src/assets/haarcascade_frontalface_alt2.xml");
+	eyes_detector.load("src/assets/haarcascade_eye.xml");
+	face_detector.load("src/assets/haarcascade_frontalface_default.xml");
 
 	if(eyes_detector.empty())
-		eyes_detector.load("../src/assets/haarcascade_eye_tree_eyeglasses.xml");
+		eyes_detector.load("../src/assets/haarcascade_eye.xml");
 
 	if(face_detector.empty())
-		face_detector.load("../src/assets/haarcascade_frontalface_alt2.xml");
+		face_detector.load("../src/assets/haarcascade_frontalface_default.xml");
 
 #else
-	face_detector.load("assets/haarcascade_frontalface_alt2.xml");
-	eyes_detector.load("assets/haarcascade_eye_tree_eyeglasses.xml");
+	face_detector.load("assets/haarcascade_frontalface_default.xml");
+	eyes_detector.load("assets/haarcascade_eye.xml");
 #endif
 	FacemarkLBF::Params params;
 	params.verbose = false;

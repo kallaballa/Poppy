@@ -23,7 +23,7 @@ public:
 	bool enable_face_detection = false;
 	bool enable_denoise = false;
 	bool enable_src_scaling = false;
-	size_t face_neighbors = 1;
+	size_t face_neighbors = 2;
 	std::string fourcc = "FFV1";
 
 	static Settings& instance() {
