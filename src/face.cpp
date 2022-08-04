@@ -89,7 +89,7 @@ Features FaceDetector::detect(const cv::Mat &frame) {
 	}
 
 	if (collected.empty())
-		return {};
+		return features;
 
 	vector< vector<Point2f> > shapes;
 	if(!facemark->fit(img,collected,shapes)){

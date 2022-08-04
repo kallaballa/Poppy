@@ -164,8 +164,7 @@
 		printErr : function(message) {
 			console.error(message);
 
-			console.error(typeof(message));
-			document.getElementById('progress').innerHTML = String(message);
+			//document.getElementById('progress').innerHTML = String(message);
 
 			if(message === "done") {
 				download("poppy.gif", FS.readFile("current.gif"));

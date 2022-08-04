@@ -471,12 +471,14 @@ void check_points(const std::vector<Point2f> &pts, int cols, int rows) {
 }
 
 void filter_invalid_points(vector<Point2f>& srcPoints1, vector<Point2f>& srcPoints2, int cols, int rows) {
+	size_t cnt_invalid = 0;
 	for (size_t i = 0; i < srcPoints1.size(); ++i) {
 		Point2f& pt = srcPoints1[i];
 		if(pt.x < 0 || pt.x > cols || pt.y < 0 || pt.y > rows) {
 			srcPoints1.erase(srcPoints1.begin()+i);
 			srcPoints2.erase(srcPoints2.begin()+i);
 			--i;
+			++cnt_invalid;
 		}
 	}
 	for (size_t i = 0; i < srcPoints2.size(); ++i) {
@@ -485,8 +487,12 @@ void filter_invalid_points(vector<Point2f>& srcPoints1, vector<Point2f>& srcPoin
 			srcPoints1.erase(srcPoints1.begin()+i);
 			srcPoints2.erase(srcPoints2.begin()+i);
 			--i;
+			++cnt_invalid;
 		}
 	}
+
+	if(cnt_invalid > 0)
+		cerr << "filtered " << cnt_invalid << " points." << endl;
 }
 
 void check_uniq(const std::vector<Point2f> &pts) {
