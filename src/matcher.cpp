@@ -138,8 +138,6 @@ void Matcher::autoAlign(Mat &corrected1, Mat &corrected2, vector<Point2f> &srcPo
 	double distTrans = initialDist;
 	double lastDistRot = initialDist;
 	double distRot = initialDist;
-	double lastDistScale = initialDist;
-	double distScale = initialDist;
 	double lastDistProcr = initialDist;
 	double distProcr = initialDist;
 

@@ -37,7 +37,6 @@ pair<vector<KeyPoint>, vector<KeyPoint>> Extractor::keypoints(const size_t& reta
 		Mat dft1;
 		Mat dft2;
 
-		double area = (goodFeatures1_.cols * goodFeatures1_.rows);
 		double detail = 255.0 / std::max(dft_detail2(goodFeatures1_, dft1), dft_detail2(goodFeatures2_, dft2));
 		show_image("dft1", dft1);
 		show_image("dft2", dft2);
