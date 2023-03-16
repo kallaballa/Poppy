@@ -5,7 +5,7 @@
 <title>Poppy - Free And Open Source Online Image Morphing!</title>
 <meta name="author" content="amir@viel-zu.org">
 <meta name="viewport" content="width=512">
-<link rel="shortcut icon" href="./favicon.ico">
+<link rel="shortcut icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap" rel="stylesheet">
@@ -348,9 +348,11 @@ input[type=file] {
 </style>
 </head>
 <body style="background-color: #000000;">
-	<span id="loading"><img width="240" height="360" src="./get.php?res=img/poppy-loading.gif"/>
+	<span id="loading"><img width="240" height="360" src="img/poppy-loading.gif"/>
 	<br/>
 	Loading...
+	<br/>
+	(can take a couple of minutes)
 	</span>
 	<div id="crop-bg"><div id=crophead></div></div>
 
@@ -378,7 +380,7 @@ input[type=file] {
 	<td rowspan=5 class="sides">
 	</td>
 	<td>
-		<img width=120 height=120 src="./get.php?res=img/header-poppy.png"/>
+		<img width=120 height=120 src="img/header-poppy.png"/>
 		<p>Welcome to Poppy!<br/>Morph any two images you like by klicking the boxes below.</p>
 	</td>
 	<td rowspan=5 class="sides">
@@ -405,10 +407,10 @@ input[type=file] {
 			<input style="float:right;" type="range" min="1" max="16" value="4" id="tolerance"/>
 			<br/>-->
 			<label for="autoalign">Auto-align images? </label>
-			<input style="float:right;" type="checkbox" id="autoalign" checked/>
+			<input style="float:right;" type="checkbox" id="autoalign"/>
 			<br/>
 			<label for="face">Auto-scale sources? </label>
-			<input style="float:right;" type="checkbox" id="autoscale" checked/>
+			<input style="float:right;" type="checkbox" id="autoscale"/>
 			<br/>
 			<label for="frames">Number of Frames: </label>
 			<input id="frames" style="float:right;" type="number" id="frames" name="frames" min="1" max="240" value="30"/>

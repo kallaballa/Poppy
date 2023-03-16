@@ -101,10 +101,17 @@ void morph(const Mat &img1, const Mat &img2, Mat& corrected1, Mat& corrected2, d
 			ft2 = FaceDetector::instance().detect(oriented2);
 		}
 	}
-	Matcher matcher(oriented1, oriented2, ft1, ft2);
 
-	if(ft1.empty() || ft2.empty())
-		Settings::instance().enable_face_detection = false;
+    if(ft1.empty() || ft2.empty())
+        Settings::instance().enable_face_detection = false;
+
+    Mat target1 = oriented1;
+    Mat target2 = oriented2;
+    if(!Settings::instance().enable_face_detection) {
+        target1 = img1.clone();
+        target2 = img2.clone();
+    }
+    Matcher matcher(target1, target2, ft1, ft2);
 
 	pair<Mat, Mat> goodFeatures = extractor.prepareFeatures();
 	matcher.find(corrected1, corrected2, srcPoints1, srcPoints2);

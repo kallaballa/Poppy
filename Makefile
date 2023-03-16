@@ -40,9 +40,9 @@ CXX     := em++
 CXXFLAGS += -D_WASM -I../third/gif-h/ -I../third/opencv-4.6.0/modules/core/include -I../third/build_wasm/ -I../third/opencv-4.6.0/modules/imgproc/include/ -I../third/opencv-4.6.0/modules/features2d/include/ -I../third/opencv-4.6.0/modules/flann/include/ -I../third/opencv-4.6.0/modules/videoio/include/ -I../third/opencv-4.6.0/modules/highgui/include/  -I../third/opencv-4.6.0/modules/calib3d/include/ -I../third/opencv-4.6.0/modules/video/include/ -I../third/opencv-4.6.0/modules/imgcodecs/include/ -I../third/opencv-4.6.0/include/ -I../third/opencv-4.6.0/modules/dnn/include/ -I../third/opencv-4.6.0/modules/photo/include/ -I../third/opencv-4.6.0/modules/objdetect/include -I../third/opencv_contrib-4.x/modules/face/include -I../third/opencv-4.6.0/modules/ml/include/ -I../third/opencv-4.6.0/modules/stitching/include
 LDFLAGS += -L../third/build_wasm/lib/ -L../third/build_wasm/3rdparty/lib/
 EMCXXFLAGS += -flto -s USE_PTHREADS=1 -s NO_DISABLE_EXCEPTION_CATCHING
-EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s LLD_REPORT_UNDEFINED=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -s PROXY_TO_PTHREAD=1 -s ALLOW_MEMORY_GROWTH=1 -s NO_DISABLE_EXCEPTION_CATCHING -s EXCEPTION_DEBUG=1 --preload-file assets
+EMLDFLAGS += -s WASM=1 -D_WASM -s USE_PTHREADS=1 -s ALLOW_MEMORY_GROWTH=1 -s WASM_BIGINT -s STB_IMAGE=1 -s "EXPORTED_FUNCTIONS=['_load_images', '_main' ]" -s EXPORTED_RUNTIME_METHODS='["ccall" ]' -s LLD_REPORT_UNDEFINED=1 -s PTHREAD_POOL_SIZE=navigator.hardwareConcurrency -s PROXY_TO_PTHREAD=1 -s ALLOW_MEMORY_GROWTH=1 --preload-file assets -s NO_DISABLE_EXCEPTION_CATCHING -s EXCEPTION_DEBUG=1 
+
 LIBS += -lzlib -lopencv_calib3d -lopencv_core -lopencv_dnn -lopencv_features2d -lopencv_flann -lopencv_imgproc -lopencv_objdetect -lopencv_photo -lopencv_video -lopencv_objdetect -lopencv_face
-#EMCXXFLAGS += -msimd128 -msse2
 ifdef AUTOVECTOR
 EMCXXFLAGS += -msimd128
 endif
@@ -64,10 +64,10 @@ all: release
 ifneq ($(UNAME_S), Darwin)
 release: LDFLAGS += -s
 endif
-release: CXXFLAGS += -g0 -O3 -c
+release: CXXFLAGS += -g0 -O3
 release: dirs
 
-shrink: CXXFLAGS += -Os -w
+shrink: CXXFLAGS += -Os
 shrink: LDFLAGS += -s
 shrink: dirs
 
